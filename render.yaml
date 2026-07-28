@@ -1,0 +1,40 @@
+services:
+  - type: web
+    name: cvboost
+    runtime: node
+    plan: free
+    buildCommand: cd frontend && npm install && npm run build && cd ../backend && npm install
+    startCommand: node backend/server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: GROQ_API_KEY
+        sync: false
+      - key: CORS_ORIGIN
+        fromService:
+          name: cvboost
+          type: web
+          property: url
+      - key: FRONTEND_URL
+        fromService:
+          name: cvboost
+          type: web
+          property: url
+      - key: CAMPAY_API_URL
+        value: https://api.campay.net/api
+      - key: CAMPAY_SANDBOX_USERNAME
+        sync: false
+      - key: CAMPAY_SANDBOX_PASSWORD
+        sync: false
+      - key: CAMPAY_USERNAME
+        sync: false
+      - key: CAMPAY_PASSWORD
+        sync: false
+      - key: CAMPAY_WEBHOOK_SECRET
+        sync: false

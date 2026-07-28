@@ -1,0 +1,16 @@
+{
+  "name": "cvboost",
+  "version": "1.0.0",
+  "description": "AI-powered CV tailoring for Cameroon's job market",
+  "private": true,
+  "scripts": {
+    "start": "node backend/server.js",
+    "dev": "cd frontend && npm run dev",
+    "build": "cd frontend && npm run build",
+    "install:all": "cd backend && npm install && cd ../frontend && npm install",
+    "render-build": "npm run build"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

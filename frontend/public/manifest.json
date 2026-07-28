@@ -1,0 +1,22 @@
+{
+  "name": "CVBoost - AI CV Tailoring",
+  "short_name": "CVBoost",
+  "description": "Tailor your CV to any job with AI. Built for Cameroon's job market.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#fafafa",
+  "theme_color": "#2563eb",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/cvboost-logo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/cvboost-logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

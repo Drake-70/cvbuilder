@@ -1,0 +1,16 @@
+node_modules
+frontend/node_modules
+backend/node_modules
+.env
+.env.*
+*.log
+dist
+frontend/dist
+.DS_Store
+__tests__
+.git
+.vscode
+.idea
+render.yaml
+*.test.js
+coverage
