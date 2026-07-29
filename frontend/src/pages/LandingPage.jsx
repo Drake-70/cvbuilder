@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import logoImg from '../assets/cvboost-logo.png';
-import { useTilt3D, useGsapScroll, useGsapStagger } from '../hooks/useGsapAnimation';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -15,8 +14,8 @@ function GsapCounter({ target, suffix = '' }) {
     if (!el) return;
     const obj = { val: 0 };
     let ctr = gsap.to(obj, {
-      val: target, duration: 1.8, ease: 'power2.out',
-      scrollTrigger: { trigger: el, start: 'top 90%', toggleActions: 'play none none reverse' },
+      val: target, duration: 2, ease: 'power2.out',
+      scrollTrigger: { trigger: el, start: 'top 90%' },
       onUpdate: () => { el.textContent = `${Math.floor(obj.val)}${suffix}`; }
     });
     return () => ctr.kill();
@@ -58,88 +57,118 @@ const FeatureIcons = {
   )
 };
 
-function HeroParticles() {
-  const ref = useRef(null);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const particles = el.querySelectorAll('.hero-particle');
-    particles.forEach((p, i) => {
-      gsap.fromTo(p,
-        { opacity: 0, scale: 0 },
-        {
-          opacity: 0.5, scale: 1, duration: 1.5, ease: 'power2.out',
-          scrollTrigger: { trigger: el, start: 'top 70%', toggleActions: 'play none none reverse' },
-          delay: i * 0.15,
-          repeat: -1, yoyo: true, repeatDelay: 3 + i
-        }
-      );
-    });
-  }, []);
-  return ref;
-}
-
 export default function LandingPage() {
   const { t } = useTranslation('common');
   const { t: tTailor } = useTranslation('tailor');
   const heroRef = useRef(null);
-  const stepsRef = useGsapScroll('[data-animate-step]', { stagger: 0.15 });
-  const featuresRef = useGsapStagger('[data-animate-feature]');
-  const statsRef = useGsapScroll('[data-animate-stat]', { stagger: 0.12 });
+  const stepsRef = useRef(null);
+  const featuresRef = useRef(null);
+  const statsRef = useRef(null);
   const ctaRef = useRef(null);
-  const dashboardRef = useTilt3D(12);
-  const particlesRef = HeroParticles();
+  const dashboardRef = useRef(null);
+  const particlesRef = useRef(null);
+
+  useEffect(() => {
+    ScrollTrigger.refresh();
+    const refresh = () => ScrollTrigger.refresh();
+    window.addEventListener('resize', refresh);
+    return () => window.removeEventListener('resize', refresh);
+  }, []);
 
   useEffect(() => {
     const hero = heroRef.current;
     if (!hero) return;
-    const ctx = gsap.context(() => {
-      const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
-      tl.from(hero.querySelector('[data-animate="badge"]'), { opacity: 0, y: -20, duration: 0.5 })
-        .from(hero.querySelector('[data-animate="heading"]'), { opacity: 0, y: 30, duration: 0.7 }, '-=0.2')
-        .from(hero.querySelector('[data-animate="desc"]'), { opacity: 0, y: 20, duration: 0.6 }, '-=0.3')
-        .from(hero.querySelector('[data-animate="ctas"]'), { opacity: 0, y: 20, duration: 0.6 }, '-=0.3')
-        .from(hero.querySelectorAll('[data-animate="orb"]'), { opacity: 0, scale: 0, duration: 1.2, stagger: 0.2, ease: 'back.out(2)' }, '-=0.4');
-    }, hero);
-    return () => ctx.revert();
-  }, []);
-
-  useEffect(() => {
-    const dashboard = dashboardRef.current;
-    if (!dashboard) return;
-    const ctx = gsap.context(() => {
-      gsap.from(dashboard.querySelector('.dashboard-inner'), {
-        opacity: 0, y: 60, rotationX: 15, duration: 1, ease: 'power3.out',
-        scrollTrigger: { trigger: dashboard, start: 'top 80%', toggleActions: 'play none none reverse' }
-      });
-      gsap.from(dashboard.querySelectorAll('[data-animate="float-card"]'), {
-        opacity: 0, y: 30, scale: 0.9, duration: 0.7, stagger: 0.15, ease: 'back.out(1.7)',
-        scrollTrigger: { trigger: dashboard, start: 'top 75%', toggleActions: 'play none none reverse' }
-      });
-    }, dashboard);
-    return () => ctx.revert();
-  }, []);
-
-  useEffect(() => {
-    const cta = ctaRef.current;
-    if (!cta) return;
-    const ctx = gsap.context(() => {
-      gsap.from(cta, {
-        opacity: 0, scale: 0.88, duration: 0.8, ease: 'elastic.out(1, 0.5)',
-        scrollTrigger: { trigger: cta, start: 'top 85%', toggleActions: 'play none none reverse' }
-      });
-    }, cta);
-    return () => ctx.revert();
-  }, []);
-
-  useEffect(() => {
-    const ctx = gsap.context(() => {
-      gsap.from('.testimonial-card', {
-        opacity: 0, y: 30, scale: 0.95, duration: 0.6, stagger: 0.12, ease: 'power2.out',
-        scrollTrigger: { trigger: '.testimonial-card', start: 'top 85%', toggleActions: 'play none none reverse' }
-      });
+    const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
+    tl.from(hero.querySelector('[data-animate="badge"]'), { opacity: 0, y: -20, duration: 0.5 })
+      .from(hero.querySelector('[data-animate="heading"]'), { opacity: 0, y: 40, duration: 0.7 }, '-=0.15')
+      .from(hero.querySelector('[data-animate="desc"]'), { opacity: 0, y: 30, duration: 0.6 }, '-=0.3')
+      .from(hero.querySelector('[data-animate="ctas"]'), { opacity: 0, y: 25, duration: 0.5 }, '-=0.25')
+      .from(hero.querySelectorAll('[data-animate="orb"]'), { opacity: 0, scale: 0, duration: 1, stagger: 0.2, ease: 'back.out(2)' }, '-=0.3');
+    gsap.from(hero.querySelectorAll('.hero-particle-dot'), {
+      opacity: 0, scale: 0, duration: 1, stagger: 0.15, ease: 'back.out(3)',
+      scrollTrigger: { trigger: hero, start: 'top 70%' }
     });
-    return () => ctx.revert();
+  }, []);
+
+  useEffect(() => {
+    const db = dashboardRef.current;
+    if (!db) return;
+    gsap.from(db.querySelector('.dashboard-inner'), {
+      opacity: 0, y: 60, rotationX: 15, duration: 1.2, ease: 'power3.out',
+      scrollTrigger: { trigger: db, start: 'top 80%' }
+    });
+    gsap.from(db.querySelectorAll('[data-animate="float-card"]'), {
+      opacity: 0, y: 40, scale: 0.85, duration: 0.7, stagger: 0.2, ease: 'back.out(1.7)',
+      scrollTrigger: { trigger: db, start: 'top 75%' }
+    });
+  }, []);
+
+  useEffect(() => {
+    const el = stepsRef.current;
+    if (!el) return;
+    gsap.from(el.querySelectorAll('[data-animate-step]'), {
+      opacity: 0, y: 40, duration: 0.7, stagger: 0.15, ease: 'power3.out',
+      scrollTrigger: { trigger: el, start: 'top 80%' }
+    });
+  }, []);
+
+  useEffect(() => {
+    const el = featuresRef.current;
+    if (!el) return;
+    gsap.from(el.querySelectorAll('[data-animate-feature]'), {
+      opacity: 0, y: 30, scale: 0.95, duration: 0.5, stagger: 0.08, ease: 'power2.out',
+      scrollTrigger: { trigger: el, start: 'top 85%' }
+    });
+  }, []);
+
+  useEffect(() => {
+    const el = statsRef.current;
+    if (!el) return;
+    gsap.from(el.querySelectorAll('[data-animate-stat]'), {
+      opacity: 0, y: 30, duration: 0.5, stagger: 0.12, ease: 'power2.out',
+      scrollTrigger: { trigger: el, start: 'top 85%' }
+    });
+  }, []);
+
+  useEffect(() => {
+    const el = ctaRef.current;
+    if (!el) return;
+    gsap.from(el, {
+      opacity: 0, scale: 0.85, duration: 1, ease: 'elastic.out(1, 0.5)',
+      scrollTrigger: { trigger: el, start: 'top 85%' }
+    });
+  }, []);
+
+  useEffect(() => {
+    gsap.from('.testimonial-card', {
+      opacity: 0, y: 30, scale: 0.95, duration: 0.6, stagger: 0.12, ease: 'power2.out',
+      scrollTrigger: { trigger: '.testimonial-card', start: 'top 85%' }
+    });
+  }, []);
+
+  useEffect(() => {
+    const el = dashboardRef.current;
+    if (!el) return;
+    const handleMouse = (e) => {
+      const rect = el.getBoundingClientRect();
+      const x = (e.clientX - rect.left) / rect.width - 0.5;
+      const y = (e.clientY - rect.top) / rect.height - 0.5;
+      gsap.to(el.querySelector('.dashboard-inner'), {
+        rotationY: x * 15, rotationX: -y * 15, transformPerspective: 1200,
+        duration: 0.6, ease: 'power2.out'
+      });
+    };
+    const handleLeave = () => {
+      gsap.to(el.querySelector('.dashboard-inner'), {
+        rotationY: 6, rotationX: -3, duration: 0.8, ease: 'elastic.out(1, 0.3)'
+      });
+    };
+    el.addEventListener('mousemove', handleMouse);
+    el.addEventListener('mouseleave', handleLeave);
+    return () => {
+      el.removeEventListener('mousemove', handleMouse);
+      el.removeEventListener('mouseleave', handleLeave);
+    };
   }, []);
 
   return (
@@ -147,12 +176,12 @@ export default function LandingPage() {
       {/* Hero Section */}
       <section ref={heroRef} className="relative pt-16 pb-20 sm:pt-24 sm:pb-28 px-4" aria-labelledby="hero-heading">
         <div ref={particlesRef} className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
-          <div className="hero-particle absolute -top-40 -right-40 w-80 h-80 bg-brand-200/30 rounded-full blur-3xl dark:bg-brand-900/20" data-animate="orb" />
-          <div className="hero-particle absolute -bottom-20 -left-20 w-60 h-60 bg-brand-100/40 rounded-full blur-3xl dark:bg-brand-800/10" data-animate="orb" />
-          <div className="hero-particle absolute top-32 left-[15%] w-2 h-2 rounded-full bg-brand-400/40" />
-          <div className="hero-particle absolute top-48 right-[20%] w-3 h-3 rounded-full bg-brand-300/30" />
-          <div className="hero-particle absolute bottom-32 left-[30%] w-2 h-2 rounded-full bg-brand-500/20" />
-          <div className="hero-particle absolute top-20 right-[35%] w-1.5 h-1.5 rounded-full bg-brand-400/30" />
+          <div className="hero-particle orb absolute -top-40 -right-40 w-80 h-80 bg-brand-200/30 rounded-full blur-3xl dark:bg-brand-900/20" data-animate="orb" />
+          <div className="hero-particle orb absolute -bottom-20 -left-20 w-60 h-60 bg-brand-100/40 rounded-full blur-3xl dark:bg-brand-800/10" data-animate="orb" />
+          <div className="hero-particle-dot absolute top-32 left-[15%] w-2 h-2 rounded-full bg-brand-400/40" />
+          <div className="hero-particle-dot absolute top-48 right-[20%] w-3 h-3 rounded-full bg-brand-300/30" />
+          <div className="hero-particle-dot absolute bottom-32 left-[30%] w-2 h-2 rounded-full bg-brand-500/20" />
+          <div className="hero-particle-dot absolute top-20 right-[35%] w-1.5 h-1.5 rounded-full bg-brand-400/30" />
         </div>
 
         <div className="max-w-4xl mx-auto text-center relative">
