@@ -60,7 +60,7 @@ exports.grantReward = async (referredUserId) => {
 exports.getStats = async (req, res, next) => {
   try {
     const referral = await Referral.findOne({ referrerUserId: req.user._id });
-    const user = await User.findById(req.user._id);
+    const user = req.user;
 
     const totalReferrals = await Referral.countDocuments({ referrerUserId: req.user._id });
     const successfulReferrals = await Referral.countDocuments({ referrerUserId: req.user._id, referredUserId: { $ne: null } });

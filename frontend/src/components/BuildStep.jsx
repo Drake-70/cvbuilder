@@ -36,7 +36,7 @@ export default function BuildStep({ onComplete, onBack, language, user }) {
   }, [subStep, personalInfo.targetRole]);
 
   const fallbackSkills = lang === 'fr'
-    ? ['Communication', 'Travail d\'quipe', 'Leadership', 'R\u00e9solution de probl\u00e8mes', 'Gestion du temps', 'Informatique', 'Microsoft Office', 'Service client', 'Gestion de projet', 'Analyse de donn\u00e9es', 'R\u00e9seaux sociaux', 'Fran\u00e7ais', 'Anglais', 'R\u00e9daction']
+    ? ['Communication', 'Travail d\'équipe', 'Leadership', 'R\u00e9solution de probl\u00e8mes', 'Gestion du temps', 'Informatique', 'Microsoft Office', 'Service client', 'Gestion de projet', 'Analyse de donn\u00e9es', 'R\u00e9seaux sociaux', 'Fran\u00e7ais', 'Anglais', 'R\u00e9daction']
     : ['Communication', 'Teamwork', 'Leadership', 'Problem Solving', 'Time Management', 'Computer Literacy', 'Microsoft Office', 'Customer Service', 'Project Management', 'Data Analysis', 'Social Media', 'French', 'English', 'Writing'];
 
   const displaySkills = skillOptions.length > 0 ? skillOptions : fallbackSkills;
@@ -61,7 +61,11 @@ export default function BuildStep({ onComplete, onBack, language, user }) {
   const updateNonTraditional = (i, val) => { const u = [...nonTraditional]; u[i] = val; setNonTraditional(u); };
   const removeNonTraditional = (i) => setNonTraditional(nonTraditional.filter((_, idx) => idx !== i));
 
-  const toggleSkill = (s) => setSelectedSkills(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]);
+  const toggleSkill = (s) => setSelectedSkills(prev => {
+    const existing = prev.find(x => x.toLowerCase() === s.toLowerCase());
+    if (existing) return prev.filter(x => x.toLowerCase() !== s.toLowerCase());
+    return [...prev, s];
+  });
 
   const handleExpandBullets = async () => {
     const items = nonTraditional.filter(n => n.trim());
@@ -140,26 +144,26 @@ export default function BuildStep({ onComplete, onBack, language, user }) {
           <div className="space-y-4">
             <p className="text-sm text-surface-500 mb-2">Tell us about yourself. Fields marked with * are required.</p>
             <div>
-              <label className="block text-sm font-medium text-surface-700 mb-1.5">{t('full_name')} *</label>
-              <input type="text" required value={personalInfo.name} onChange={(e) => setPersonalInfo({ ...personalInfo, name: e.target.value })} className="input-field" placeholder={lang === 'fr' ? 'Votre nom complet' : 'Your full name'} />
+              <label htmlFor="fullName" className="block text-sm font-medium text-surface-700 mb-1.5">{t('full_name')} *</label>
+              <input id="fullName" type="text" required value={personalInfo.name} onChange={(e) => setPersonalInfo({ ...personalInfo, name: e.target.value })} className="input-field" placeholder={lang === 'fr' ? 'Votre nom complet' : 'Your full name'} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-surface-700 mb-1.5">{t('email_label')}</label>
-              <input type="email" value={personalInfo.email} onChange={(e) => setPersonalInfo({ ...personalInfo, email: e.target.value })} className="input-field" placeholder="you@example.com" />
+              <label htmlFor="email" className="block text-sm font-medium text-surface-700 mb-1.5">{t('email_label')}</label>
+              <input id="email" type="email" value={personalInfo.email} onChange={(e) => setPersonalInfo({ ...personalInfo, email: e.target.value })} className="input-field" placeholder="you@example.com" />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-sm font-medium text-surface-700 mb-1.5">{t('phone')}</label>
-                <input type="tel" value={personalInfo.phone} onChange={(e) => setPersonalInfo({ ...personalInfo, phone: e.target.value })} className="input-field" placeholder="+237 ..." />
+                <label htmlFor="phone" className="block text-sm font-medium text-surface-700 mb-1.5">{t('phone')}</label>
+                <input id="phone" type="tel" value={personalInfo.phone} onChange={(e) => setPersonalInfo({ ...personalInfo, phone: e.target.value })} className="input-field" placeholder="+237 ..." />
               </div>
               <div>
-                <label className="block text-sm font-medium text-surface-700 mb-1.5">{t('location')}</label>
-                <input type="text" value={personalInfo.location} onChange={(e) => setPersonalInfo({ ...personalInfo, location: e.target.value })} className="input-field" placeholder={lang === 'fr' ? 'Douala, Cameroun' : 'Douala, Cameroon'} />
+                <label htmlFor="location" className="block text-sm font-medium text-surface-700 mb-1.5">{t('location')}</label>
+                <input id="location" type="text" value={personalInfo.location} onChange={(e) => setPersonalInfo({ ...personalInfo, location: e.target.value })} className="input-field" placeholder={lang === 'fr' ? 'Douala, Cameroun' : 'Douala, Cameroon'} />
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-surface-700 mb-1.5">{t('target_role')}</label>
-              <input type="text" value={personalInfo.targetRole} onChange={(e) => setPersonalInfo({ ...personalInfo, targetRole: e.target.value })} className="input-field" placeholder={lang === 'fr' ? 'ex: Agent de service client' : 'e.g. Customer Service Rep'} />
+              <label htmlFor="targetRole" className="block text-sm font-medium text-surface-700 mb-1.5">{t('target_role')}</label>
+              <input id="targetRole" type="text" value={personalInfo.targetRole} onChange={(e) => setPersonalInfo({ ...personalInfo, targetRole: e.target.value })} className="input-field" placeholder={lang === 'fr' ? 'ex: Agent de service client' : 'e.g. Customer Service Rep'} />
             </div>
           </div>
         )}
@@ -178,12 +182,24 @@ export default function BuildStep({ onComplete, onBack, language, user }) {
                   <button onClick={() => removeEducation(i)} className="text-surface-400 hover:text-rose-500 text-xs cursor-pointer transition-colors">&times; Remove</button>
                 </div>
                 <div className="grid sm:grid-cols-2 gap-3">
-                  <input type="text" placeholder={t('institution')} value={edu.institution} onChange={(e) => updateEducation(i, 'institution', e.target.value)} className="input-field" />
-                  <input type="text" placeholder={t('degree')} value={edu.degree} onChange={(e) => updateEducation(i, 'degree', e.target.value)} className="input-field" />
+                  <div>
+                    <label htmlFor={`edu-institution-${i}`} className="sr-only">{t('institution')}</label>
+                    <input id={`edu-institution-${i}`} type="text" placeholder={t('institution')} value={edu.institution} onChange={(e) => updateEducation(i, 'institution', e.target.value)} className="input-field" />
+                  </div>
+                  <div>
+                    <label htmlFor={`edu-degree-${i}`} className="sr-only">{t('degree')}</label>
+                    <input id={`edu-degree-${i}`} type="text" placeholder={t('degree')} value={edu.degree} onChange={(e) => updateEducation(i, 'degree', e.target.value)} className="input-field" />
+                  </div>
                 </div>
                 <div className="grid sm:grid-cols-2 gap-3">
-                  <input type="text" placeholder={t('edu_dates')} value={edu.dates} onChange={(e) => updateEducation(i, 'dates', e.target.value)} className="input-field" />
-                  <input type="text" placeholder={t('edu_details')} value={edu.details} onChange={(e) => updateEducation(i, 'details', e.target.value)} className="input-field" />
+                  <div>
+                    <label htmlFor={`edu-dates-${i}`} className="sr-only">{t('edu_dates')}</label>
+                    <input id={`edu-dates-${i}`} type="text" placeholder={t('edu_dates')} value={edu.dates} onChange={(e) => updateEducation(i, 'dates', e.target.value)} className="input-field" />
+                  </div>
+                  <div>
+                    <label htmlFor={`edu-details-${i}`} className="sr-only">{t('edu_details')}</label>
+                    <input id={`edu-details-${i}`} type="text" placeholder={t('edu_details')} value={edu.details} onChange={(e) => updateEducation(i, 'details', e.target.value)} className="input-field" />
+                  </div>
                 </div>
               </div>
             ))}
@@ -210,11 +226,23 @@ export default function BuildStep({ onComplete, onBack, language, user }) {
                   <button onClick={() => removeExperience(i)} className="text-surface-400 hover:text-rose-500 text-xs cursor-pointer transition-colors">&times; Remove</button>
                 </div>
                 <div className="grid sm:grid-cols-2 gap-3">
-                  <input type="text" placeholder={t('job_title')} value={exp.title} onChange={(e) => updateExperience(i, 'title', e.target.value)} className="input-field" />
-                  <input type="text" placeholder={t('company')} value={exp.company} onChange={(e) => updateExperience(i, 'company', e.target.value)} className="input-field" />
+                  <div>
+                    <label htmlFor={`exp-title-${i}`} className="sr-only">{t('job_title')}</label>
+                    <input id={`exp-title-${i}`} type="text" placeholder={t('job_title')} value={exp.title} onChange={(e) => updateExperience(i, 'title', e.target.value)} className="input-field" />
+                  </div>
+                  <div>
+                    <label htmlFor={`exp-company-${i}`} className="sr-only">{t('company')}</label>
+                    <input id={`exp-company-${i}`} type="text" placeholder={t('company')} value={exp.company} onChange={(e) => updateExperience(i, 'company', e.target.value)} className="input-field" />
+                  </div>
                 </div>
-                <input type="text" placeholder={t('exp_dates')} value={exp.dates} onChange={(e) => updateExperience(i, 'dates', e.target.value)} className="input-field" />
-                <textarea placeholder={t('exp_description')} value={exp.description} onChange={(e) => updateExperience(i, 'description', e.target.value)} rows={3} className="input-field resize-y" />
+                <div>
+                  <label htmlFor={`exp-dates-${i}`} className="sr-only">{t('exp_dates')}</label>
+                  <input id={`exp-dates-${i}`} type="text" placeholder={t('exp_dates')} value={exp.dates} onChange={(e) => updateExperience(i, 'dates', e.target.value)} className="input-field" />
+                </div>
+                <div>
+                  <label htmlFor={`exp-desc-${i}`} className="sr-only">{t('exp_description')}</label>
+                  <textarea id={`exp-desc-${i}`} placeholder={t('exp_description')} value={exp.description} onChange={(e) => updateExperience(i, 'description', e.target.value)} rows={3} className="input-field resize-y" />
+                </div>
               </div>
             ))}
 
@@ -292,7 +320,10 @@ export default function BuildStep({ onComplete, onBack, language, user }) {
             </div>
 
             <div className="flex gap-2">
-              <input type="text" value={customSkillInput} onChange={(e) => setCustomSkillInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addCustomSkill())} placeholder={t('add_custom_skill')} className="input-field flex-1" />
+              <div className="flex-1">
+                <label htmlFor="customSkillInput" className="sr-only">{t('add_custom_skill')}</label>
+                <input id="customSkillInput" type="text" value={customSkillInput} onChange={(e) => setCustomSkillInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addCustomSkill())} placeholder={t('add_custom_skill')} className="input-field" />
+              </div>
               <button onClick={addCustomSkill} disabled={!customSkillInput.trim()} className="btn-primary !px-4">+</button>
             </div>
 

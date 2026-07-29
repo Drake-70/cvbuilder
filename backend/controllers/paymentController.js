@@ -18,6 +18,15 @@ exports.initiate = async (req, res, next) => {
     let payAmount = amount;
     let payType = type || 'one-time';
 
+    const VALID_TYPES = ['one-time', 'subscription'];
+    if (!VALID_TYPES.includes(payType)) {
+      return res.status(400).json({ error: 'Invalid payment type' });
+    }
+
+    if (payAmount !== undefined && (isNaN(payAmount) || payAmount < 0)) {
+      return res.status(400).json({ error: 'Invalid amount' });
+    }
+
     if (!payAmount) {
       if (payType === 'subscription') {
         payAmount = paymentService.isSandbox() ? pricing.SANDBOX_SUBSCRIPTION_AMOUNT : pricing.SUBSCRIPTION_AMOUNT;
@@ -27,9 +36,10 @@ exports.initiate = async (req, res, next) => {
     }
 
     // Detect provider from phone prefix
-    const cleanPhone = phoneNumber.replace(/\s/g, '');
+    const cleanPhone = phoneNumber.replace(/[\s+]/g, '');
     let provider = 'mtn';
-    if (cleanPhone.startsWith('65') || cleanPhone.startsWith('23765')) {
+    const digits = cleanPhone.replace(/^237/, '');
+    if (digits.startsWith('65') || digits.startsWith('66') || digits.startsWith('67') || digits.startsWith('68') || digits.startsWith('69')) {
       provider = 'orange';
     }
 
@@ -110,8 +120,8 @@ exports.status = async (req, res, next) => {
         await payment.save();
         return res.json({ status: 'failed', paymentId: payment._id });
       }
-    } catch {
-      // CamPay check failed, return current DB status
+    } catch (pollErr) {
+      logger.error(`CamPay status check failed for ${payment._id}: ${pollErr.message}`);
     }
 
     res.json({ status: payment.status, paymentId: payment._id });

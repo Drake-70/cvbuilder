@@ -1,6 +1,8 @@
 const Groq = require('groq-sdk');
 const logger = require('../utils/logger');
 
+const AI_MODEL = process.env.AI_MODEL || 'openai/gpt-oss-120b';
+
 let groq;
 function getGroq() {
   if (!groq) {
@@ -48,7 +50,7 @@ CRITICAL RULES:
 
 async function callGroq(systemPrompt, userMessage, temperature = 0.7) {
   const response = await getGroq().chat.completions.create({
-    model: 'openai/gpt-oss-120b',
+    model: AI_MODEL,
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userMessage }

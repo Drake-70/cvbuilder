@@ -22,6 +22,10 @@ export default function ContactPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+      setError('Please enter a valid email address.');
+      return;
+    }
     setLoading(true);
 
     try {

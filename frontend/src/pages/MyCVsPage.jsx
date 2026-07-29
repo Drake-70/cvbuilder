@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import api from '../services/api';
@@ -10,11 +10,36 @@ export default function MyCVsPage() {
   const { t: tTailor } = useTranslation('tailor');
   const navigate = useNavigate();
   const { toast } = useToast();
+  const prevFocusRef = useRef(null);
+  const modalRef = useRef(null);
 
   const { data: cvsData, mutate: setCvs, isLoading } = useCache('/cv/list', { staleTime: 15_000 });
   const cvs = cvsData || [];
   const [deletingId, setDeletingId] = useState(null);
   const [viewingCV, setViewingCV] = useState(null);
+
+  useEffect(() => {
+    if (viewingCV) {
+      prevFocusRef.current = document.activeElement;
+      requestAnimationFrame(() => {
+        const firstFocusable = modalRef.current?.querySelector('button, input, [tabindex]:not([tabindex="-1"])');
+        firstFocusable?.focus();
+      });
+    }
+    return () => {
+      if (!viewingCV) return;
+      prevFocusRef.current?.focus();
+    };
+  }, [viewingCV]);
+
+  useEffect(() => {
+    if (!viewingCV) return;
+    const handleEscape = (e) => {
+      if (e.key === 'Escape') setViewingCV(null);
+    };
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [viewingCV]);
 
   const handleDelete = async (cvId) => {
     if (!confirm('Delete this saved CV?')) return;
@@ -102,7 +127,7 @@ export default function MyCVsPage() {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-surface-900 dark:text-white truncate">{cv.label || 'My CV'}</p>
                   <p className="text-xs text-surface-400 dark:text-surface-500">
-                    {formatDate(cv.createdAt)} &middot; {sourceLabels[cv.source]?.en || cv.source}
+                    {formatDate(cv.createdAt)} &middot; {sourceLabels[cv.source]?.[i18n.language?.startsWith('fr') ? 'fr' : 'en'] || cv.source}
                   </p>
                 </div>
                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -139,7 +164,7 @@ export default function MyCVsPage() {
       {/* CV Detail Modal */}
       {viewingCV && (
         <div className="fixed inset-0 z-50 bg-surface-900/40 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in" onClick={() => setViewingCV(null)}>
-          <div className="bg-surface-0 dark:bg-surface-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-y-auto p-6 animate-scale-in" onClick={e => e.stopPropagation()}>
+          <div ref={modalRef} className="bg-surface-0 dark:bg-surface-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-y-auto p-6 animate-scale-in" onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="CV details">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-surface-900 dark:text-white">{viewingCV.label || 'My CV'}</h3>
               <button onClick={() => setViewingCV(null)} className="p-2 rounded-lg hover:bg-surface-100 dark:hover:bg-surface-700 text-surface-400 cursor-pointer transition-colors">

@@ -13,6 +13,7 @@ const STATUS_OPTIONS = [
 
 export default function ApplicationTracker({ documentId, currentStatus, currentCompany, onUpdate }) {
   const { t } = useTranslation();
+  if (!documentId) return null;
   const [status, setStatus] = useState(currentStatus || 'draft');
   const [company, setCompany] = useState(currentCompany || '');
   const [editing, setEditing] = useState(false);
@@ -51,8 +52,9 @@ export default function ApplicationTracker({ documentId, currentStatus, currentC
   return (
     <div className="bg-surface-50 rounded-xl p-3.5 space-y-3 animate-scale-in">
       <div>
-        <label className="text-xs font-medium text-surface-500 mb-1 block">{t('tailor.company', 'Company')}</label>
+        <label htmlFor="tracker-company" className="text-xs font-medium text-surface-500 mb-1 block">{t('tailor.company', 'Company')}</label>
         <input
+          id="tracker-company"
           type="text"
           value={company}
           onChange={(e) => setCompany(e.target.value)}

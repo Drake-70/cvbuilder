@@ -66,13 +66,13 @@ export default function UploadStep({ onComplete, onBack }) {
 
       <div className="flex gap-1 p-1 bg-surface-100 rounded-xl mb-6">
         <button onClick={() => setMode('upload')} className={`flex-1 py-2.5 rounded-lg text-sm font-medium cursor-pointer transition-all duration-200 ${mode === 'upload' ? 'bg-surface-0 text-surface-900 shadow-sm' : 'text-surface-500 hover:text-surface-700'}`}>
-          <svg className="w-4 h-4 mr-1.5 inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg className="w-4 h-4 mr-1.5 inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/>
           </svg>
           {tCommon('upload')} file
         </button>
         <button onClick={() => setMode('paste')} className={`flex-1 py-2.5 rounded-lg text-sm font-medium cursor-pointer transition-all duration-200 ${mode === 'paste' ? 'bg-surface-0 text-surface-900 shadow-sm' : 'text-surface-500 hover:text-surface-700'}`}>
-          <svg className="w-4 h-4 mr-1.5 inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg className="w-4 h-4 mr-1.5 inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>
           </svg>
           Paste text
@@ -96,7 +96,7 @@ export default function UploadStep({ onComplete, onBack }) {
           onClick={() => !loading && fileInputRef.current?.click()}
           className={`relative border-2 border-dashed rounded-2xl p-10 sm:p-12 text-center cursor-pointer transition-all duration-200 ${dragging ? 'border-brand-400 bg-brand-50/50 scale-[1.01]' : 'border-surface-200 hover:border-brand-300 hover:bg-surface-50'} ${loading ? 'pointer-events-none' : ''}`}
         >
-          <input ref={fileInputRef} type="file" accept=".pdf,.docx,.txt" onChange={(e) => handleFile(e.target.files[0])} className="hidden" />
+          <input ref={fileInputRef} type="file" accept=".pdf,.docx,.txt" onChange={(e) => handleFile(e.target.files[0])} className="hidden" aria-label="Upload CV file" />
           {loading ? (
             <div className="animate-fade-in">
               <div className="w-14 h-14 rounded-2xl bg-brand-100 flex items-center justify-center mx-auto mb-4">
@@ -110,8 +110,8 @@ export default function UploadStep({ onComplete, onBack }) {
             </div>
           ) : (
             <>
-              <div className="w-14 h-14 rounded-2xl bg-surface-100 flex items-center justify-center mx-auto mb-4">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-surface-400">
+              <div className="w-14 h-14 rounded-2xl bg-surface-100 flex items-center justify-center mx-auto mb-4" aria-hidden="true">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-surface-400" aria-hidden="true">
                   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/>
                 </svg>
               </div>

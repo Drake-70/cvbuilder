@@ -37,7 +37,7 @@ export default function ResultStep({ result, onDownload, onReset, loading, docum
   };
 
   const handlePaymentSuccess = () => {
-    onDownload();
+    onDownload(template);
   };
 
   return (

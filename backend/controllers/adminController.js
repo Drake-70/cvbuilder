@@ -38,11 +38,15 @@ exports.getDashboard = async (req, res, next) => {
   }
 };
 
+function escapeRegex(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 exports.listUsers = async (req, res, next) => {
   try {
     const { page = 1, limit = 20, search = '' } = req.query;
     const query = search
-      ? { $or: [{ email: { $regex: search, $options: 'i' } }, { name: { $regex: search, $options: 'i' } }] }
+      ? { $or: [{ email: { $regex: escapeRegex(search), $options: 'i' } }, { name: { $regex: escapeRegex(search), $options: 'i' } }] }
       : {};
 
     const [users, total] = await Promise.all([

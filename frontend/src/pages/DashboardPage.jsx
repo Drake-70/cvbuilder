@@ -53,7 +53,7 @@ export default function DashboardPage() {
     try {
       const res = await api.get(`/document/${docId}/download`, { responseType: 'blob' });
       const doc = documents.find(d => d._id === docId);
-      const filename = doc?.language === 'fr' ? 'CV_Adapte.docx' : 'Tailored_CV.docx';
+      const filename = doc?.jobTitle ? doc.jobTitle.replace(/\s+/g, '_') + '.docx' : 'CV.docx';
       const url = window.URL.createObjectURL(new Blob([res.data]));
       const link = document.createElement('a');
       link.href = url;

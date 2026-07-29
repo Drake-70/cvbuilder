@@ -92,6 +92,10 @@ export default function TailorPage() {
   };
 
   const handleDownload = async (template = 'modern') => {
+    if (!result) {
+      toast.error('No Result', 'No tailored CV available. Please tailor a CV first.');
+      return;
+    }
     try {
       const res = await api.post('/document/generate', {
         tailoredCV: result.tailoredCV,

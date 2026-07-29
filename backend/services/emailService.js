@@ -86,9 +86,9 @@ async function sendPasswordResetEmail(email, token, language = 'en') {
   });
 }
 
-async function sendVerificationEmail(email, token, language = 'en') {
+async function sendVerificationEmail({ email, token, language = 'en' }) {
   const baseUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-  const verifyUrl = `${baseUrl}/login?verified=1`;
+  const verifyUrl = `${baseUrl}/verify-email?token=${token}`;
 
   const subjects = {
     en: 'Verify Your CVBoost Email',
@@ -128,7 +128,7 @@ async function sendVerificationEmail(email, token, language = 'en') {
     to: email,
     subject: subjects[language] || subjects.en,
     html: bodies[language] || bodies.en,
-    text: `Welcome to CVBoost! You can now log in.`
+    text: `Welcome to CVBoost! Verify your email: ${verifyUrl}`
   });
 }
 

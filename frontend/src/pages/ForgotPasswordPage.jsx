@@ -15,6 +15,10 @@ export default function ForgotPasswordPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      toast.error('Validation Error', 'Please enter a valid email address');
+      return;
+    }
     setLoading(true);
     try {
       await api.post('/auth/forgot-password', { email });

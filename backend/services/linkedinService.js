@@ -1,6 +1,8 @@
 const Groq = require('groq-sdk');
 const logger = require('../utils/logger');
 
+const AI_MODEL = process.env.AI_MODEL || 'openai/gpt-oss-120b';
+
 let groq;
 function getGroq() {
   if (!groq) groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
@@ -30,7 +32,7 @@ ${JSON.stringify(tailoredCV, null, 2)}
 ${jobDescription ? `Target Job Description:\n${jobDescription}` : ''}`;
 
   const response = await getGroq().chat.completions.create({
-    model: 'openai/gpt-oss-120b',
+    model: AI_MODEL,
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userMsg }

@@ -24,8 +24,17 @@ export default function Header() {
         setDropdownOpen(false);
       }
     };
-    if (dropdownOpen) document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    const handleEscape = (e) => {
+      if (e.key === 'Escape') setDropdownOpen(false);
+    };
+    if (dropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('keydown', handleEscape);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
   }, [dropdownOpen]);
 
   if (HIDE_HEADER_PATHS.includes(location.pathname)) return null;
@@ -115,7 +124,7 @@ export default function Header() {
                   </button>
 
                   {dropdownOpen && (
-                    <div className="absolute right-0 top-full mt-2 w-56 bg-surface-0 dark:bg-surface-800 rounded-xl border border-surface-200 dark:border-surface-700 shadow-xl py-1.5 animate-scale-in z-50">
+                    <div role="menu" aria-label="User menu" className="absolute right-0 top-full mt-2 w-56 bg-surface-0 dark:bg-surface-800 rounded-xl border border-surface-200 dark:border-surface-700 shadow-xl py-1.5 animate-scale-in z-50">
                       <div className="px-3.5 py-2.5 border-b border-surface-100 dark:border-surface-700 mb-1">
                         <p className="text-sm font-semibold text-surface-900 dark:text-white truncate">{user.name}</p>
                         <p className="text-xs text-surface-400 truncate">{user.email}</p>
@@ -160,7 +169,7 @@ export default function Header() {
           <div className="flex items-center gap-1 sm:hidden">
             <button
               onClick={toggleTheme}
-              className="p-2 rounded-lg hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors cursor-pointer"
+              className="p-3 rounded-lg hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors cursor-pointer"
               aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
             >
               {theme === 'dark' ? (
@@ -175,7 +184,7 @@ export default function Header() {
             </button>
             <button
               onClick={() => setMenuOpen(!menuOpen)}
-              className="p-2 rounded-lg hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors cursor-pointer"
+              className="p-3 rounded-lg hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors cursor-pointer"
               aria-label={menuOpen ? 'Close menu' : 'Open menu'}
               aria-expanded={menuOpen}
             >

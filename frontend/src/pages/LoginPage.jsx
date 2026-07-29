@@ -20,6 +20,10 @@ export default function LoginPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+      setError(t('invalid_email', 'Please enter a valid email address'));
+      return;
+    }
     setLoading(true);
     try {
       await login(form.email, form.password);

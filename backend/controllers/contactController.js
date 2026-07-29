@@ -10,6 +10,11 @@ exports.submit = async (req, res, next) => {
       return res.status(400).json({ error: 'Message must be under 2000 characters' });
     }
 
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ error: 'Invalid email format' });
+    }
+
     const contact = await Contact.create({
       name,
       email,

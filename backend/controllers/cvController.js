@@ -132,7 +132,11 @@ exports.save = async (req, res, next) => {
 
 exports.list = async (req, res, next) => {
   try {
-    const cvs = await CV.find({ userId: req.user._id }).sort({ createdAt: -1 });
+    const page = parseInt(req.query.page) || 1;
+    const cvs = await CV.find({ userId: req.user._id })
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * 50)
+      .limit(50);
     res.json(cvs);
   } catch (err) {
     next(err);

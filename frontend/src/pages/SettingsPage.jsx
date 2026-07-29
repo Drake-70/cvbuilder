@@ -170,29 +170,29 @@ export default function SettingsPage() {
         <form onSubmit={handleSaveProfile} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">{tAuth('name')}</label>
-              <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="input-field" placeholder="Full name" />
+              <label htmlFor="settings-name" className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">{tAuth('name')}</label>
+              <input id="settings-name" type="text" value={name} onChange={(e) => setName(e.target.value)} className="input-field" placeholder="Full name" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">{t('job_title')}</label>
-              <input type="text" value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} className="input-field" placeholder="e.g. Software Engineer" />
+              <label htmlFor="settings-jobTitle" className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">{t('job_title')}</label>
+              <input id="settings-jobTitle" type="text" value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} className="input-field" placeholder="e.g. Software Engineer" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">{t('company')}</label>
-              <input type="text" value={company} onChange={(e) => setCompany(e.target.value)} className="input-field" placeholder="e.g. MTN Cameroon" />
+              <label htmlFor="settings-company" className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">{t('company')}</label>
+              <input id="settings-company" type="text" value={company} onChange={(e) => setCompany(e.target.value)} className="input-field" placeholder="e.g. MTN Cameroon" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">{t('phone')}</label>
-              <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="input-field" placeholder="+237 6XX XXX XXX" />
+              <label htmlFor="settings-phone" className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">{t('phone')}</label>
+              <input id="settings-phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="input-field" placeholder="+237 6XX XXX XXX" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">{t('location')}</label>
-              <input type="text" value={location} onChange={(e) => setLocation(e.target.value)} className="input-field" placeholder="e.g. Douala, Cameroon" />
+              <label htmlFor="settings-location" className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">{t('location')}</label>
+              <input id="settings-location" type="text" value={location} onChange={(e) => setLocation(e.target.value)} className="input-field" placeholder="e.g. Douala, Cameroon" />
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">{t('bio')}</label>
-            <textarea value={bio} onChange={(e) => setBio(e.target.value)} className="input-field resize-none" rows={3} placeholder="A short bio about yourself..." maxLength={500} />
+            <label htmlFor="settings-bio" className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">{t('bio')}</label>
+            <textarea id="settings-bio" value={bio} onChange={(e) => setBio(e.target.value)} className="input-field resize-none" rows={3} placeholder="A short bio about yourself..." maxLength={500} />
             <p className="text-xs text-surface-400 mt-1 text-right">{bio.length}/500</p>
           </div>
           <button type="submit" disabled={savingProfile || !name.trim() || !hasProfileChanges} className="btn-primary text-sm">
@@ -206,16 +206,16 @@ export default function SettingsPage() {
         <h2 className="text-lg font-bold text-surface-900 dark:text-white mb-4">{t('change_password')}</h2>
         <form onSubmit={handleChangePassword} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">{t('current_password')}</label>
-            <input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} className="input-field" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" autoComplete="current-password" />
+            <label htmlFor="settings-currentPassword" className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">{t('current_password')}</label>
+            <input id="settings-currentPassword" type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} className="input-field" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" autoComplete="current-password" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">{tAuth('new_password')}</label>
-            <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="input-field" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" autoComplete="new-password" />
+            <label htmlFor="settings-newPassword" className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">{tAuth('new_password')}</label>
+            <input id="settings-newPassword" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="input-field" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" autoComplete="new-password" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">{tAuth('confirm_new_password')}</label>
-            <input type="password" value={confirmNew} onChange={(e) => setConfirmNew(e.target.value)} className="input-field" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" autoComplete="new-password" />
+            <label htmlFor="settings-confirmNew" className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">{tAuth('confirm_new_password')}</label>
+            <input id="settings-confirmNew" type="password" value={confirmNew} onChange={(e) => setConfirmNew(e.target.value)} className="input-field" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" autoComplete="new-password" />
           </div>
           <button type="submit" disabled={savingPassword || !currentPassword || !newPassword || !confirmNew} className="btn-primary text-sm">
             {savingPassword ? t('loading') : t('save')}
@@ -272,7 +272,7 @@ export default function SettingsPage() {
           </button>
         ) : (
           <div className="space-y-3 animate-fade-in">
-            {user?.passwordHash ? (
+            {user?.hasPassword ? (
               <input
                 type="password"
                 value={deletePassword}

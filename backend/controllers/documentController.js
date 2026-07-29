@@ -49,8 +49,11 @@ exports.saveDocument = async (req, res, next) => {
 
 exports.listDocuments = async (req, res, next) => {
   try {
+    const page = parseInt(req.query.page) || 1;
     const docs = await TailoredDocument.find({ userId: req.user._id })
       .sort({ createdAt: -1 })
+      .skip((page - 1) * 50)
+      .limit(50)
       .select('-jobDescription -tailoredContent -coverLetter');
     res.json(docs);
   } catch (err) {

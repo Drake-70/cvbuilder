@@ -31,7 +31,8 @@ const paymentSchema = new mongoose.Schema({
   },
   campayReference: {
     type: String,
-    default: null
+    default: null,
+    index: true
   },
   documentId: {
     type: mongoose.Schema.Types.ObjectId,

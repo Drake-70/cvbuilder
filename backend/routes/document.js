@@ -12,17 +12,17 @@ router.post('/save', requireAuth, (req, res, next) => {
   next();
 }, documentController.saveDocument);
 router.get('/list', requireAuth, cacheMiddleware(10, (req) => `/api/document/list:${req.user._id}`), documentController.listDocuments);
-router.get('/:id', requireAuth, documentController.getDocument);
-router.get('/:id/download', requireAuth, requirePayment, documentController.downloadDocument);
-router.patch('/:id/status', requireAuth, (req, res, next) => {
+router.get('/{id}', requireAuth, documentController.getDocument);
+router.get('/{id}/download', requireAuth, requirePayment, documentController.downloadDocument);
+router.patch('/{id}/status', requireAuth, (req, res, next) => {
   res.on('finish', () => invalidateCache(`/api/document/list:${req.user?._id}`));
   next();
 }, documentController.updateApplicationStatus);
-router.delete('/:id', requireAuth, (req, res, next) => {
+router.delete('/{id}', requireAuth, (req, res, next) => {
   res.on('finish', () => invalidateCache(`/api/document/list:${req.user?._id}`));
   next();
 }, documentController.deleteDocument);
-router.post('/:id/share', requireAuth, documentController.shareDocument);
-router.get('/shared/:token', documentController.getSharedDocument);
+router.post('/{id}/share', requireAuth, documentController.shareDocument);
+router.get('/shared/{token}', documentController.getSharedDocument);
 
 module.exports = router;

@@ -27,6 +27,7 @@ function getGoogleClient() {
 const SALT_ROUNDS = 12;
 const ACCESS_TOKEN_EXPIRY = '15m';
 const REFRESH_TOKEN_EXPIRY = '7d';
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function generateTokens(userId) {
   const accessToken = jwt.sign({ userId }, process.env.JWT_SECRET, { expiresIn: ACCESS_TOKEN_EXPIRY });
@@ -48,7 +49,8 @@ function userResponse(user) {
     company: user.company || '',
     subscriptionStatus: user.subscriptionStatus,
     documentsGeneratedCount: user.documentsGeneratedCount,
-    role: user.role || 'user'
+    role: user.role || 'user',
+    hasPassword: !!user.passwordHash
   };
 }
 
@@ -77,6 +79,9 @@ exports.register = async (req, res, next) => {
     if (!email || !password || !name) {
       return res.status(400).json({ error: 'Email, password, and name are required' });
     }
+    if (!EMAIL_REGEX.test(email)) {
+      return res.status(400).json({ error: 'Invalid email format' });
+    }
 
     if (password.length < 6) {
       return res.status(400).json({ error: 'Password must be at least 6 characters' });
@@ -99,7 +104,7 @@ exports.register = async (req, res, next) => {
     setTokenCookies(res, accessToken, refreshToken);
 
     // Send welcome email (non-blocking)
-    sendVerificationEmail(user.email, accessToken || '', preferredLanguage || 'en').catch(err => {
+    sendVerificationEmail({ email: user.email, token: accessToken || '', language: preferredLanguage || 'en' }).catch(err => {
       logger.error(`Welcome email failed for ${user.email}: ${err.message}`);
     });
 
@@ -115,6 +120,9 @@ exports.login = async (req, res, next) => {
 
     if (!email || !password) {
       return res.status(400).json({ error: 'Email and password are required' });
+    }
+    if (!EMAIL_REGEX.test(email)) {
+      return res.status(400).json({ error: 'Invalid email format' });
     }
 
     const user = await User.findOne({ email: email.toLowerCase() });
@@ -206,6 +214,7 @@ exports.forgotPassword = async (req, res, next) => {
   try {
     const { email } = req.body;
     if (!email) return res.status(400).json({ error: 'Email is required' });
+    if (!EMAIL_REGEX.test(email)) return res.status(400).json({ error: 'Invalid email format' });
 
     const user = await User.findOne({ email: email.toLowerCase() });
     if (!user) return res.json({ message: 'If an account exists, a reset link has been sent' });
@@ -338,7 +347,7 @@ exports.deleteAccount = async (req, res, next) => {
       CV.deleteMany({ userId: user._id }),
       TailoredDocument.deleteMany({ userId: user._id }),
       Payment.deleteMany({ userId: user._id }),
-      Referral.deleteMany({ $or: [{ referrerId: user._id }, { referredId: user._id }] })
+      Referral.deleteMany({ $or: [{ referrerUserId: user._id }, { referredUserId: user._id }] })
     ]);
 
     await User.findByIdAndDelete(user._id);

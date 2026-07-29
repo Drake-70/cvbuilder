@@ -20,7 +20,12 @@ export default function RegisterPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+      const msg = t('invalid_email', 'Please enter a valid email address');
+      setError(msg);
+      toast.error('Registration Failed', msg);
+      return;
+    }
     if (form.password !== form.confirmPassword) {
       const msg = t('passwords_mismatch');
       setError(msg);

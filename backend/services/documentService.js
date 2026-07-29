@@ -5,6 +5,14 @@ const FONT_SIZE = 22;
 const HEADING_SIZE = 28;
 const MARGIN = 1134;
 
+const HEADING_COLORS = { modern: '2563eb', classic: '1a1a1a', creative: '7c3aed' };
+const NAME_FONTS = { modern: 'Calibri', classic: 'Times New Roman', creative: 'Calibri' };
+
+let activeTemplate = 'modern';
+
+function getHeadingColor() { return HEADING_COLORS[activeTemplate] || HEADING_COLORS.modern; }
+function getNameFont() { return NAME_FONTS[activeTemplate] || NAME_FONTS.modern; }
+
 function createSectionHeading(text) {
   return new Paragraph({
     heading: HeadingLevel.HEADING_2,
@@ -18,7 +26,7 @@ function createSectionHeading(text) {
         bold: true,
         size: HEADING_SIZE,
         font: 'Calibri',
-        color: '1a1a1a'
+        color: getHeadingColor()
       })
     ]
   });
@@ -253,7 +261,8 @@ function buildEnglishTemplate(cv, coverLetter) {
   });
 }
 
-exports.generateDocx = async (cv, coverLetter, language) => {
+exports.generateDocx = async (cv, coverLetter, language, template = 'modern') => {
+  activeTemplate = template || 'modern';
   const doc = language === 'fr'
     ? buildFrenchTemplate(cv, coverLetter)
     : buildEnglishTemplate(cv, coverLetter);

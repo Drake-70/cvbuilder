@@ -37,7 +37,7 @@ export default function AdminPage() {
 
   const loadUsers = async (q = '') => {
     try {
-      const res = await api.get(`/admin/users?search=${q}&limit=50`);
+      const res = await api.get(`/admin/users?search=${encodeURIComponent(q)}&limit=50`);
       setUsers(res.data.users || []);
     } catch { /* silent */ }
   };
@@ -124,12 +124,15 @@ export default function AdminPage() {
                   { label: 'Active Subs', value: dashboard.stats.activeSubscriptions, color: 'emerald' },
                   { label: 'Documents', value: dashboard.stats.totalDocuments, color: 'blue' },
                   { label: 'Saved CVs', value: dashboard.stats.totalCVs, color: 'amber' }
-                ].map(s => (
-                  <div key={s.label} className="card p-4 text-center">
-                    <p className={`text-2xl font-bold text-${s.color}-600 dark:text-${s.color}-400`}>{s.value}</p>
-                    <p className="text-xs text-surface-500 dark:text-surface-400 mt-0.5">{s.label}</p>
-                  </div>
-                ))}
+                ].map(s => {
+                  const colorMap = { brand: 'text-brand-600 dark:text-brand-400', emerald: 'text-emerald-600 dark:text-emerald-400', blue: 'text-blue-600 dark:text-blue-400', amber: 'text-amber-600 dark:text-amber-400' };
+                  return (
+                    <div key={s.label} className="card p-4 text-center">
+                      <p className={'text-2xl font-bold ' + (colorMap[s.color] || 'text-surface-600')}>{s.value}</p>
+                      <p className="text-xs text-surface-500 dark:text-surface-400 mt-0.5">{s.label}</p>
+                    </div>
+                  );
+                })}
               </div>
 
               <div className="card p-5">
