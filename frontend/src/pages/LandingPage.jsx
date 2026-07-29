@@ -185,20 +185,20 @@ export default function LandingPage() {
         </div>
 
         <div className="max-w-4xl mx-auto text-center relative">
-          <div data-animate="badge" className="inline-flex items-center gap-2 badge badge-brand mb-6" role="status">
+          <div data-animate="badge" className="hero-fade-in inline-flex items-center gap-2 badge badge-brand mb-6" role="status">
             <span className="w-1.5 h-1.5 rounded-full bg-brand-500 animate-pulse" aria-hidden="true" />
             AI-Powered CV Tailoring
           </div>
 
-          <h1 id="hero-heading" data-animate="heading" className="text-4xl sm:text-5xl md:text-6xl font-extrabold text-surface-900 dark:text-white leading-[1.1] tracking-tight mb-6">
+          <h1 id="hero-heading" data-animate="heading" className="hero-fade-in text-4xl sm:text-5xl md:text-6xl font-extrabold text-surface-900 dark:text-white leading-[1.1] tracking-tight mb-6">
             {t('tagline')}
           </h1>
 
-          <p data-animate="desc" className="text-lg sm:text-xl text-surface-500 dark:text-surface-400 max-w-2xl mx-auto mb-10 leading-relaxed">
+          <p data-animate="desc" className="hero-fade-in text-lg sm:text-xl text-surface-500 dark:text-surface-400 max-w-2xl mx-auto mb-10 leading-relaxed">
             {t('description')}
           </p>
 
-          <div data-animate="ctas" className="flex flex-col sm:flex-row items-center justify-center gap-3">
+          <div data-animate="ctas" className="hero-fade-in flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link to="/register" className="btn-primary text-base px-8 py-3.5 no-underline w-full sm:w-auto text-center">
               {t('get_started')}
               <svg className="inline-block ml-2 w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -228,7 +228,7 @@ export default function LandingPage() {
               <div className="absolute -bottom-16 right-1/4 w-48 h-48 bg-indigo-400/15 rounded-full blur-3xl glow-orb-delayed pointer-events-none" aria-hidden="true" />
 
               {/* Main dashboard frame */}
-              <div className="dashboard-3d dashboard-inner shadow-3d rounded-2xl bg-surface-0 dark:bg-surface-800 border border-surface-200/80 dark:border-surface-700/80 overflow-hidden">
+              <div className="dashboard-3d dashboard-3d-hover dashboard-inner shadow-3d rounded-2xl bg-surface-0 dark:bg-surface-800 border border-surface-200/80 dark:border-surface-700/80 overflow-hidden">
                 {/* Browser chrome */}
                 <div className="flex items-center gap-2 px-4 py-2.5 bg-surface-50 dark:bg-surface-800/80 border-b border-surface-200/60 dark:border-surface-700/60">
                   <div className="flex gap-1.5">
