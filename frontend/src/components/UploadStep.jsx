@@ -1,5 +1,6 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { gsap } from 'gsap';
 import api from '../services/api';
 
 export default function UploadStep({ onComplete, onBack }) {
@@ -53,8 +54,20 @@ export default function UploadStep({ onComplete, onBack }) {
     }
   };
 
+  const animRef = useRef(null);
+  useEffect(() => {
+    const el = animRef.current;
+    if (!el) return;
+    const ctx = gsap.context(() => {
+      gsap.from(el.querySelector('h2, .upload-options, .upload-zone, .paste-area'), {
+        opacity: 0, y: 20, duration: 0.4, stagger: 0.1, ease: 'power2.out'
+      });
+    }, el);
+    return () => ctx.revert();
+  }, []);
+
   return (
-    <div>
+    <div ref={animRef}>
       <button onClick={onBack} className="btn-ghost mb-4 -ml-2">
         <svg className="w-4 h-4 mr-1 inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12,19 5,12 12,5"/>
@@ -64,7 +77,7 @@ export default function UploadStep({ onComplete, onBack }) {
 
       <h2 className="text-2xl font-bold text-surface-900 mb-6">{t('upload_cv')}</h2>
 
-      <div className="flex gap-1 p-1 bg-surface-100 rounded-xl mb-6">
+      <div className="flex gap-1 p-1 bg-surface-100 rounded-xl mb-6 upload-options">
         <button onClick={() => setMode('upload')} className={`flex-1 py-2.5 rounded-lg text-sm font-medium cursor-pointer transition-all duration-200 ${mode === 'upload' ? 'bg-surface-0 text-surface-900 shadow-sm' : 'text-surface-500 hover:text-surface-700'}`}>
           <svg className="w-4 h-4 mr-1.5 inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/>
@@ -94,7 +107,7 @@ export default function UploadStep({ onComplete, onBack }) {
           onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
           onDragLeave={() => setDragging(false)}
           onClick={() => !loading && fileInputRef.current?.click()}
-          className={`relative border-2 border-dashed rounded-2xl p-10 sm:p-12 text-center cursor-pointer transition-all duration-200 ${dragging ? 'border-brand-400 bg-brand-50/50 scale-[1.01]' : 'border-surface-200 hover:border-brand-300 hover:bg-surface-50'} ${loading ? 'pointer-events-none' : ''}`}
+          className={`upload-zone relative border-2 border-dashed rounded-2xl p-10 sm:p-12 text-center cursor-pointer transition-all duration-200 ${dragging ? 'border-brand-400 bg-brand-50/50 scale-[1.01]' : 'border-surface-200 hover:border-brand-300 hover:bg-surface-50'} ${loading ? 'pointer-events-none' : ''}`}
         >
           <input ref={fileInputRef} type="file" accept=".pdf,.docx,.txt" onChange={(e) => handleFile(e.target.files[0])} className="hidden" aria-label="Upload CV file" />
           {loading ? (
@@ -121,7 +134,7 @@ export default function UploadStep({ onComplete, onBack }) {
           )}
         </div>
       ) : (
-        <div className="animate-fade-in">
+        <div className="paste-area">
           <textarea value={pasteText} onChange={(e) => setPasteText(e.target.value)} placeholder={t('paste_placeholder')} rows={12} className="input-field resize-y min-h-[200px]" />
           <div className="flex items-center justify-between mt-3">
             <span className="text-xs text-surface-400">{pasteText.length > 0 && `${pasteText.split(/\s+/).filter(Boolean).length} words`}</span>

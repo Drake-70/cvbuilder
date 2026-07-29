@@ -347,7 +347,7 @@ exports.deleteAccount = async (req, res, next) => {
       CV.deleteMany({ userId: user._id }),
       TailoredDocument.deleteMany({ userId: user._id }),
       Payment.deleteMany({ userId: user._id }),
-      Referral.deleteMany({ $or: [{ referrerUserId: user._id }, { referredUserId: user._id }] })
+      Referral.deleteMany({ $or: [{ referrerUserId: user._id }, { referredUserId: user._id }] }),
     ]);
 
     await User.findByIdAndDelete(user._id);

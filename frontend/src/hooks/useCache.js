@@ -70,7 +70,9 @@ export function useCache(url, options = {}) {
       try {
         const result = await inflight.get(cacheKey);
         if (mountedRef.current) setData(result);
-      } catch {}
+      } catch (e) {
+        if (mountedRef.current) setError(e);
+      }
       return;
     }
 

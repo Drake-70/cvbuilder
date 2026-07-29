@@ -1,6 +1,7 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams, useNavigate } from 'react-router-dom';
+import { gsap } from 'gsap';
 import api from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
@@ -29,8 +30,31 @@ export default function TailorPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  const contentRef = useRef(null);
+  const progressRef = useRef(null);
+
   const stepOrder = ['choose', 'upload', 'job', 'result'];
   const currentStepIndex = stepOrder.indexOf(step);
+
+  // Animate step transition
+  useEffect(() => {
+    const el = contentRef.current;
+    if (!el) return;
+    gsap.fromTo(el,
+      { opacity: 0, y: 16, scale: 0.98 },
+      { opacity: 1, y: 0, scale: 1, duration: 0.45, ease: 'power2.out', clearProps: 'transform' }
+    );
+  }, [step]);
+
+  // Animate progress bar
+  useEffect(() => {
+    const el = progressRef.current;
+    if (!el || step === 'choose' || step === 'result') return;
+    const dots = el.querySelectorAll('.step-dot');
+    const lines = el.querySelectorAll('.step-line');
+    gsap.fromTo(dots, { scale: 0.8 }, { scale: 1, duration: 0.3, stagger: 0.08, ease: 'back.out(2)' });
+    gsap.fromTo(lines, { scaleX: 0.8, transformOrigin: 'left' }, { scaleX: 1, duration: 0.3, stagger: 0.08, ease: 'power2.out' });
+  }, [step]);
 
   const handlePathChoice = (path) => {
     setStep(path);
@@ -134,11 +158,11 @@ export default function TailorPage() {
     <div className="max-w-3xl mx-auto px-4 py-6 sm:py-10">
       {/* Progress indicator */}
       {step !== 'choose' && step !== 'result' && (
-        <div className="mb-8 animate-fade-in">
+        <div ref={progressRef} className="mb-8">
           <div className="flex items-center gap-2 mb-2">
             {['CV', 'Job', 'Result'].map((label, i) => (
               <div key={label} className="flex items-center gap-2">
-                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 ${
+                <div className={`step-dot w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 ${
                   i <= currentStepIndex ? 'bg-brand-600 text-white shadow-sm' : 'bg-surface-100 text-surface-400'
                 }`}>
                   {i < currentStepIndex ? (
@@ -148,7 +172,7 @@ export default function TailorPage() {
                   ) : i + 1}
                 </div>
                 <span className={`text-xs font-medium hidden sm:inline ${i <= currentStepIndex ? 'text-surface-700' : 'text-surface-400'}`}>{label}</span>
-                {i < 2 && <div className={`w-8 sm:w-12 h-0.5 rounded-full mx-1 transition-colors duration-300 ${i < currentStepIndex ? 'bg-brand-400' : 'bg-surface-200'}`} />}
+                {i < 2 && <div className={`step-line w-8 sm:w-12 h-0.5 rounded-full mx-1 transition-colors duration-300 ${i < currentStepIndex ? 'bg-brand-400' : 'bg-surface-200'}`} />}
               </div>
             ))}
           </div>
@@ -165,7 +189,7 @@ export default function TailorPage() {
         </div>
       )}
 
-      <div className="animate-slide-up">
+      <div ref={contentRef}>
         {step === 'choose' && <PathChoice onSelect={handlePathChoice} />}
         {step === 'upload' && <UploadStep onComplete={handleCvReady} onBack={() => setStep('choose')} />}
         {step === 'build' && <BuildStep onComplete={handleCvReady} onBack={() => setStep('choose')} language={language} user={user} />}

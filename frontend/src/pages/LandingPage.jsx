@@ -1,41 +1,27 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { gsap } from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import logoImg from '../assets/cvboost-logo.png';
+import { useTilt3D, useGsapScroll, useGsapStagger } from '../hooks/useGsapAnimation';
 
-function useInView(ref, options = {}) {
-  const [isInView, setIsInView] = useState(false);
+gsap.registerPlugin(ScrollTrigger);
+
+function GsapCounter({ target, suffix = '' }) {
+  const ref = useRef(null);
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) { setIsInView(true); observer.unobserve(el); } },
-      { threshold: 0.15, ...options }
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [ref]);
-  return isInView;
-}
-
-function AnimatedCounter({ target, suffix = '', duration = 2000 }) {
-  const [count, setCount] = useState(0);
-  const ref = useRef(null);
-  const inView = useInView(ref);
-
-  useEffect(() => {
-    if (!inView) return;
-    let start = 0;
-    const increment = target / (duration / 16);
-    const timer = setInterval(() => {
-      start += increment;
-      if (start >= target) { setCount(target); clearInterval(timer); }
-      else setCount(Math.floor(start));
-    }, 16);
-    return () => clearInterval(timer);
-  }, [inView, target, duration]);
-
-  return <span ref={ref}>{count}{suffix}</span>;
+    const obj = { val: 0 };
+    let ctr = gsap.to(obj, {
+      val: target, duration: 1.8, ease: 'power2.out',
+      scrollTrigger: { trigger: el, start: 'top 90%', toggleActions: 'play none none reverse' },
+      onUpdate: () => { el.textContent = `${Math.floor(obj.val)}${suffix}`; }
+    });
+    return () => ctr.kill();
+  }, [target, suffix]);
+  return <span ref={ref}>0{suffix}</span>;
 }
 
 const FeatureIcons = {
@@ -72,46 +58,118 @@ const FeatureIcons = {
   )
 };
 
+function HeroParticles() {
+  const ref = useRef(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const particles = el.querySelectorAll('.hero-particle');
+    particles.forEach((p, i) => {
+      gsap.fromTo(p,
+        { opacity: 0, scale: 0 },
+        {
+          opacity: 0.5, scale: 1, duration: 1.5, ease: 'power2.out',
+          scrollTrigger: { trigger: el, start: 'top 70%', toggleActions: 'play none none reverse' },
+          delay: i * 0.15,
+          repeat: -1, yoyo: true, repeatDelay: 3 + i
+        }
+      );
+    });
+  }, []);
+  return ref;
+}
+
 export default function LandingPage() {
   const { t } = useTranslation('common');
   const { t: tTailor } = useTranslation('tailor');
-  const stepsRef = useRef(null);
-  const featuresRef = useRef(null);
-  const statsRef = useRef(null);
+  const heroRef = useRef(null);
+  const stepsRef = useGsapScroll('[data-animate-step]', { stagger: 0.15 });
+  const featuresRef = useGsapStagger('[data-animate-feature]');
+  const statsRef = useGsapScroll('[data-animate-stat]', { stagger: 0.12 });
   const ctaRef = useRef(null);
-  const stepsInView = useInView(stepsRef);
-  const featuresInView = useInView(featuresRef);
-  const statsInView = useInView(statsRef);
-  const ctaInView = useInView(ctaRef);
+  const dashboardRef = useTilt3D(12);
+  const particlesRef = HeroParticles();
+
+  useEffect(() => {
+    const hero = heroRef.current;
+    if (!hero) return;
+    const ctx = gsap.context(() => {
+      const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
+      tl.from(hero.querySelector('[data-animate="badge"]'), { opacity: 0, y: -20, duration: 0.5 })
+        .from(hero.querySelector('[data-animate="heading"]'), { opacity: 0, y: 30, duration: 0.7 }, '-=0.2')
+        .from(hero.querySelector('[data-animate="desc"]'), { opacity: 0, y: 20, duration: 0.6 }, '-=0.3')
+        .from(hero.querySelector('[data-animate="ctas"]'), { opacity: 0, y: 20, duration: 0.6 }, '-=0.3')
+        .from(hero.querySelectorAll('[data-animate="orb"]'), { opacity: 0, scale: 0, duration: 1.2, stagger: 0.2, ease: 'back.out(2)' }, '-=0.4');
+    }, hero);
+    return () => ctx.revert();
+  }, []);
+
+  useEffect(() => {
+    const dashboard = dashboardRef.current;
+    if (!dashboard) return;
+    const ctx = gsap.context(() => {
+      gsap.from(dashboard.querySelector('.dashboard-inner'), {
+        opacity: 0, y: 60, rotationX: 15, duration: 1, ease: 'power3.out',
+        scrollTrigger: { trigger: dashboard, start: 'top 80%', toggleActions: 'play none none reverse' }
+      });
+      gsap.from(dashboard.querySelectorAll('[data-animate="float-card"]'), {
+        opacity: 0, y: 30, scale: 0.9, duration: 0.7, stagger: 0.15, ease: 'back.out(1.7)',
+        scrollTrigger: { trigger: dashboard, start: 'top 75%', toggleActions: 'play none none reverse' }
+      });
+    }, dashboard);
+    return () => ctx.revert();
+  }, []);
+
+  useEffect(() => {
+    const cta = ctaRef.current;
+    if (!cta) return;
+    const ctx = gsap.context(() => {
+      gsap.from(cta, {
+        opacity: 0, scale: 0.88, duration: 0.8, ease: 'elastic.out(1, 0.5)',
+        scrollTrigger: { trigger: cta, start: 'top 85%', toggleActions: 'play none none reverse' }
+      });
+    }, cta);
+    return () => ctx.revert();
+  }, []);
+
+  useEffect(() => {
+    const ctx = gsap.context(() => {
+      gsap.from('.testimonial-card', {
+        opacity: 0, y: 30, scale: 0.95, duration: 0.6, stagger: 0.12, ease: 'power2.out',
+        scrollTrigger: { trigger: '.testimonial-card', start: 'top 85%', toggleActions: 'play none none reverse' }
+      });
+    });
+    return () => ctx.revert();
+  }, []);
 
   return (
     <div className="overflow-hidden">
       {/* Hero Section */}
-      <section className="relative pt-16 pb-20 sm:pt-24 sm:pb-28 px-4" aria-labelledby="hero-heading">
-        <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
-          <div className="absolute -top-40 -right-40 w-80 h-80 bg-brand-200/30 rounded-full blur-3xl animate-float dark:bg-brand-900/20" />
-          <div className="absolute -bottom-20 -left-20 w-60 h-60 bg-brand-100/40 rounded-full blur-3xl animate-float-delayed dark:bg-brand-800/10" />
-          <div className="absolute top-32 left-[15%] w-2 h-2 rounded-full bg-brand-400/40 animate-float" style={{ animationDelay: '0.5s' }} />
-          <div className="absolute top-48 right-[20%] w-3 h-3 rounded-full bg-brand-300/30 animate-float-delayed" style={{ animationDelay: '1s' }} />
-          <div className="absolute bottom-32 left-[30%] w-2 h-2 rounded-full bg-brand-500/20 animate-float" style={{ animationDelay: '1.5s' }} />
-          <div className="absolute top-20 right-[35%] w-1.5 h-1.5 rounded-full bg-brand-400/30 animate-float-delayed" style={{ animationDelay: '0.8s' }} />
+      <section ref={heroRef} className="relative pt-16 pb-20 sm:pt-24 sm:pb-28 px-4" aria-labelledby="hero-heading">
+        <div ref={particlesRef} className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
+          <div className="hero-particle absolute -top-40 -right-40 w-80 h-80 bg-brand-200/30 rounded-full blur-3xl dark:bg-brand-900/20" data-animate="orb" />
+          <div className="hero-particle absolute -bottom-20 -left-20 w-60 h-60 bg-brand-100/40 rounded-full blur-3xl dark:bg-brand-800/10" data-animate="orb" />
+          <div className="hero-particle absolute top-32 left-[15%] w-2 h-2 rounded-full bg-brand-400/40" />
+          <div className="hero-particle absolute top-48 right-[20%] w-3 h-3 rounded-full bg-brand-300/30" />
+          <div className="hero-particle absolute bottom-32 left-[30%] w-2 h-2 rounded-full bg-brand-500/20" />
+          <div className="hero-particle absolute top-20 right-[35%] w-1.5 h-1.5 rounded-full bg-brand-400/30" />
         </div>
 
         <div className="max-w-4xl mx-auto text-center relative">
-          <div className="inline-flex items-center gap-2 badge badge-brand mb-6 animate-fade-in" role="status">
+          <div data-animate="badge" className="inline-flex items-center gap-2 badge badge-brand mb-6" role="status">
             <span className="w-1.5 h-1.5 rounded-full bg-brand-500 animate-pulse" aria-hidden="true" />
             AI-Powered CV Tailoring
           </div>
 
-          <h1 id="hero-heading" className="text-4xl sm:text-5xl md:text-6xl font-extrabold text-surface-900 dark:text-white leading-[1.1] tracking-tight mb-6 animate-slide-up">
+          <h1 id="hero-heading" data-animate="heading" className="text-4xl sm:text-5xl md:text-6xl font-extrabold text-surface-900 dark:text-white leading-[1.1] tracking-tight mb-6">
             {t('tagline')}
           </h1>
 
-          <p className="text-lg sm:text-xl text-surface-500 dark:text-surface-400 max-w-2xl mx-auto mb-10 leading-relaxed animate-slide-up" style={{ animationDelay: '0.05s' }}>
+          <p data-animate="desc" className="text-lg sm:text-xl text-surface-500 dark:text-surface-400 max-w-2xl mx-auto mb-10 leading-relaxed">
             {t('description')}
           </p>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 animate-slide-up" style={{ animationDelay: '0.1s' }}>
+          <div data-animate="ctas" className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link to="/register" className="btn-primary text-base px-8 py-3.5 no-underline w-full sm:w-auto text-center">
               {t('get_started')}
               <svg className="inline-block ml-2 w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -127,7 +185,7 @@ export default function LandingPage() {
       </section>
 
       {/* 3D Dashboard Preview */}
-      <section className="py-12 sm:py-16 px-4 relative" aria-label="Dashboard preview">
+      <section ref={dashboardRef} className="py-12 sm:py-16 px-4 relative" aria-label="Dashboard preview">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-10">
             <p className="text-sm font-semibold text-brand-600 uppercase tracking-wider mb-2">Your Command Center</p>
@@ -141,7 +199,7 @@ export default function LandingPage() {
               <div className="absolute -bottom-16 right-1/4 w-48 h-48 bg-indigo-400/15 rounded-full blur-3xl glow-orb-delayed pointer-events-none" aria-hidden="true" />
 
               {/* Main dashboard frame */}
-              <div className="dashboard-3d shadow-3d rounded-2xl bg-surface-0 dark:bg-surface-800 border border-surface-200/80 dark:border-surface-700/80 overflow-hidden">
+              <div className="dashboard-3d dashboard-inner shadow-3d rounded-2xl bg-surface-0 dark:bg-surface-800 border border-surface-200/80 dark:border-surface-700/80 overflow-hidden">
                 {/* Browser chrome */}
                 <div className="flex items-center gap-2 px-4 py-2.5 bg-surface-50 dark:bg-surface-800/80 border-b border-surface-200/60 dark:border-surface-700/60">
                   <div className="flex gap-1.5">
@@ -228,7 +286,7 @@ export default function LandingPage() {
               </div>
 
               {/* Floating 3D elements */}
-              <div className="absolute -top-6 -right-4 sm:-right-10 float-3d pointer-events-none" aria-hidden="true">
+              <div data-animate="float-card" className="absolute -top-6 -right-4 sm:-right-10 float-3d pointer-events-none" aria-hidden="true">
                 <div className="card-3d bg-surface-0 dark:bg-surface-800 rounded-xl border border-surface-200 dark:border-surface-700 shadow-xl p-3 w-36 sm:w-44">
                   <div className="flex items-center gap-2 mb-2">
                     <div className="w-5 h-5 rounded-full bg-gradient-to-br from-brand-400 to-brand-600" />
@@ -247,7 +305,7 @@ export default function LandingPage() {
                 </div>
               </div>
 
-              <div className="absolute -bottom-4 -left-3 sm:-left-8 float-3d-delayed pointer-events-none" aria-hidden="true">
+              <div data-animate="float-card" className="absolute -bottom-4 -left-3 sm:-left-8 float-3d-delayed pointer-events-none" aria-hidden="true">
                 <div className="card-3d bg-surface-0 dark:bg-surface-800 rounded-xl border border-surface-200 dark:border-surface-700 shadow-xl p-3 w-32 sm:w-40">
                   <div className="flex items-center gap-1.5 mb-2">
                     <div className="w-4 h-4 rounded bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center">
@@ -265,7 +323,7 @@ export default function LandingPage() {
                 </div>
               </div>
 
-              <div className="absolute top-1/2 -right-6 sm:-right-14 float-3d-slow pointer-events-none hidden sm:block" aria-hidden="true">
+              <div data-animate="float-card" className="absolute top-1/2 -right-6 sm:-right-14 float-3d-slow pointer-events-none hidden sm:block" aria-hidden="true">
                 <div className="bg-surface-0 dark:bg-surface-800 rounded-xl border border-surface-200 dark:border-surface-700 shadow-lg p-2.5 w-28">
                   <div className="text-[9px] font-bold text-surface-400 dark:text-surface-500 uppercase tracking-wider mb-1">Interview Prep</div>
                   <div className="flex gap-1 mb-1.5">
@@ -285,7 +343,7 @@ export default function LandingPage() {
       {/* How it works */}
       <section ref={stepsRef} className="py-16 sm:py-20 px-4 bg-surface-0 dark:bg-surface-800 border-y border-surface-100 dark:border-surface-700" aria-labelledby="how-it-works-heading">
         <div className="max-w-5xl mx-auto">
-          <div className={`text-center mb-12 transition-all duration-700 ${stepsInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}>
+          <div className="text-center mb-12">
             <p className="text-sm font-semibold text-brand-600 uppercase tracking-wider mb-2">How it works</p>
             <h2 id="how-it-works-heading" className="text-2xl sm:text-3xl font-bold text-surface-900 dark:text-white">Three steps to your dream job</h2>
           </div>
@@ -334,8 +392,8 @@ export default function LandingPage() {
             ].map((step, i) => (
               <div
                 key={i}
-                className={`relative text-center transition-all duration-700 ${stepsInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
-                style={{ transitionDelay: `${i * 150}ms` }}
+                data-animate-step
+                className="relative text-center"
               >
                 <div className={`relative mx-auto w-14 h-14 rounded-2xl bg-gradient-to-br ${step.color} flex items-center justify-center text-white shadow-lg mb-5 z-10`}>
                   {step.icon}
@@ -352,16 +410,16 @@ export default function LandingPage() {
       {/* Stats Section */}
       <section ref={statsRef} className="py-16 sm:py-20 px-4" aria-labelledby="stats-heading">
         <div className="max-w-4xl mx-auto">
-          <div className={`grid grid-cols-2 md:grid-cols-4 gap-6 transition-all duration-700 ${statsInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             {[
               { value: 500, suffix: '+', label: 'CVs Tailored' },
               { value: 98, suffix: '%', label: 'Satisfaction' },
               { value: 2, suffix: 'min', label: 'Avg. Time' },
               { value: 3, suffix: 'x', label: 'More Interviews' }
             ].map((stat, i) => (
-              <div key={i} className="text-center p-6 rounded-2xl bg-surface-0 dark:bg-surface-800 border border-surface-100 dark:border-surface-700">
+              <div key={i} data-animate-stat className="text-center p-6 rounded-2xl bg-surface-0 dark:bg-surface-800 border border-surface-100 dark:border-surface-700">
                 <div className="text-3xl sm:text-4xl font-extrabold text-brand-600 mb-1">
-                  <AnimatedCounter target={stat.value} suffix={stat.suffix} />
+                  <GsapCounter target={stat.value} suffix={stat.suffix} />
                 </div>
                 <div className="text-sm text-surface-500 dark:text-surface-400">{stat.label}</div>
               </div>
@@ -373,7 +431,7 @@ export default function LandingPage() {
       {/* Features */}
       <section ref={featuresRef} className="py-16 sm:py-20 px-4 bg-surface-0 dark:bg-surface-800 border-y border-surface-100 dark:border-surface-700" aria-labelledby="features-heading">
         <div className="max-w-5xl mx-auto">
-          <div className={`text-center mb-12 transition-all duration-700 ${featuresInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}>
+          <div className="text-center mb-12">
             <p className="text-sm font-semibold text-brand-600 uppercase tracking-wider mb-2">Why CVBoost?</p>
             <h2 id="features-heading" className="text-2xl sm:text-3xl font-bold text-surface-900 dark:text-white">Built for Cameroon&apos;s job market</h2>
           </div>
@@ -387,11 +445,7 @@ export default function LandingPage() {
               { icon: FeatureIcons.zap, title: 'Instant results', desc: 'Tailored CV and cover letter in seconds, not hours.' },
               { icon: FeatureIcons.coin, title: 'Affordable', desc: 'Pay per document or subscribe for unlimited tailoring.' }
             ].map((f, i) => (
-              <div
-                key={i}
-                className={`card p-5 transition-all duration-700 ${featuresInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
-                style={{ transitionDelay: `${i * 80}ms` }}
-              >
+              <div key={i} data-animate-feature className="card p-5">
                 <div className="w-10 h-10 rounded-xl bg-brand-50 dark:bg-brand-900/30 flex items-center justify-center text-brand-600 mb-3">
                   {f.icon}
                 </div>
@@ -414,7 +468,7 @@ export default function LandingPage() {
               { quote: 'The AI actually understood my experience and made it sound professional. Amazing.', name: 'Paul K.', role: 'Software Developer' },
               { quote: 'Finally a CV tool made for Cameroon. The bilingual support is exactly what I needed.', name: 'Aimée T.', role: 'Project Coordinator' }
             ].map((test, i) => (
-              <div key={i} className="card p-5 text-left">
+              <div key={i} className="testimonial-card card p-5 text-left">
                 <div className="flex gap-0.5 mb-3">
                   {[1,2,3,4,5].map(s => (
                     <svg key={s} width="14" height="14" viewBox="0 0 24 24" fill="var(--color-brand-400)" stroke="none">
@@ -441,7 +495,7 @@ export default function LandingPage() {
       {/* CTA */}
       <section ref={ctaRef} className="py-16 sm:py-20 px-4" aria-labelledby="cta-heading">
         <div className="max-w-3xl mx-auto">
-          <div className={`card bg-gradient-to-br from-brand-600 to-brand-800 border-0 p-8 sm:p-12 text-center relative overflow-hidden transition-all duration-700 ${ctaInView ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}>
+          <div className="card bg-gradient-to-br from-brand-600 to-brand-800 border-0 p-8 sm:p-12 text-center relative overflow-hidden">
             <div className="absolute inset-0 opacity-10" aria-hidden="true">
               <div className="absolute top-0 right-0 w-40 h-40 bg-white rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl animate-float" />
               <div className="absolute bottom-0 left-0 w-32 h-32 bg-white rounded-full translate-y-1/2 -translate-x-1/2 blur-2xl animate-float-delayed" />

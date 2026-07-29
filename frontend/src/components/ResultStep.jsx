@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
+import { gsap } from 'gsap';
 import { useAuth } from '../contexts/AuthContext';
 import PaymentModal from './PaymentModal';
 import InterviewPrep from './InterviewPrep';
@@ -28,6 +29,21 @@ export default function ResultStep({ result, onDownload, onReset, loading, docum
 
   const isSubscribed = user?.subscriptionStatus === 'active';
 
+  const animRef = useRef(null);
+  useEffect(() => {
+    const el = animRef.current;
+    if (!el) return;
+    const ctx = gsap.context(() => {
+      const tl = gsap.timeline({ defaults: { ease: 'power2.out' } });
+      tl.from(el.querySelector('.result-header'), { opacity: 0, y: -10, duration: 0.3 })
+        .from(el.querySelector('.result-tabs'), { opacity: 0, y: 10, duration: 0.3 }, '-=0.1')
+        .from(el.querySelector('.result-content'), { opacity: 0, y: 20, duration: 0.4 }, '-=0.1')
+        .from(el.querySelector('.result-download'), { opacity: 0, y: 15, duration: 0.3 }, '-=0.1')
+        .from(el.querySelectorAll('.result-extra > *'), { opacity: 0, y: 20, duration: 0.4, stagger: 0.08 }, '-=0.1');
+    }, el);
+    return () => ctx.revert();
+  }, []);
+
   const handleDownloadClick = () => {
     if (isSubscribed) {
       onDownload(template);
@@ -41,8 +57,8 @@ export default function ResultStep({ result, onDownload, onReset, loading, docum
   };
 
   return (
-    <div>
-      <div className="flex items-start justify-between mb-6">
+    <div ref={animRef}>
+      <div className="flex items-start justify-between mb-6 result-header">
         <div>
           <div className="flex items-center gap-2 mb-1">
             <div className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center">
@@ -63,7 +79,7 @@ export default function ResultStep({ result, onDownload, onReset, loading, docum
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 p-1 bg-surface-100 rounded-xl mb-4">
+      <div className="result-tabs flex gap-1 p-1 bg-surface-100 rounded-xl mb-4">
         {tabs.map((tabItem) => (
           <button key={tabItem.id} onClick={() => setTab(tabItem.id)} className={`flex-1 py-2.5 rounded-lg text-sm font-medium cursor-pointer transition-all duration-200 ${tab === tabItem.id ? 'bg-surface-0 text-surface-900 shadow-sm' : 'text-surface-500 hover:text-surface-700'}`}>
             {tabItem.label}
@@ -115,7 +131,7 @@ export default function ResultStep({ result, onDownload, onReset, loading, docum
       </div>
 
       {/* Content */}
-      <div className="card p-5 sm:p-6 animate-fade-in overflow-hidden" key={`${tab}-${view}`}>
+      <div className="result-content card p-5 sm:p-6 overflow-hidden" key={`${tab}-${view}`}>
         {tab === 'cv' && view === 'preview' && (
           <CVPreview cv={cv} language={result.language} />
         )}
@@ -213,7 +229,7 @@ export default function ResultStep({ result, onDownload, onReset, loading, docum
       </div>
 
       {/* Download button */}
-      <div className="mt-6">
+      <div className="result-download mt-6">
         <button onClick={handleDownloadClick} disabled={loading} className="btn-primary w-full flex items-center justify-center gap-2 py-3.5 text-base">
           {loading ? (
             <>
@@ -243,31 +259,33 @@ export default function ResultStep({ result, onDownload, onReset, loading, docum
       </div>
 
       {/* Interview Prep */}
-      {result.tailoredCV && (
-        <InterviewPrep
-          jobDescription={result.jobDescription}
-          tailoredCV={result.tailoredCV}
-          language={result.language}
-        />
-      )}
+      <div className="result-extra">
+        {result.tailoredCV && (
+          <InterviewPrep
+            jobDescription={result.jobDescription}
+            tailoredCV={result.tailoredCV}
+            language={result.language}
+          />
+        )}
 
-      {/* ATS Score */}
-      <div className="mt-4">
-        <ATSScoreCard
-          cvText={result.originalCVText}
-          jobDescription={result.jobDescription}
-          tailoredCV={result.tailoredCV}
-          gapAnalysis={result.gapAnalysis}
-        />
-      </div>
+        {/* ATS Score */}
+        <div className="mt-4">
+          <ATSScoreCard
+            cvText={result.originalCVText}
+            jobDescription={result.jobDescription}
+            tailoredCV={result.tailoredCV}
+            gapAnalysis={result.gapAnalysis}
+          />
+        </div>
 
-      {/* LinkedIn Generator */}
-      <div className="mt-4">
-        <LinkedInGenerator
-          tailoredCV={result.tailoredCV}
-          jobDescription={result.jobDescription}
-          language={result.language}
-        />
+        {/* LinkedIn Generator */}
+        <div className="mt-4">
+          <LinkedInGenerator
+            tailoredCV={result.tailoredCV}
+            jobDescription={result.jobDescription}
+            language={result.language}
+          />
+        </div>
       </div>
 
       <PaymentModal

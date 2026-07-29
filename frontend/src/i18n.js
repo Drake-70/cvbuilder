@@ -34,13 +34,13 @@ i18n
       order: ['querystring', 'localStorage', 'navigator'],
       lookupQuerystring: 'lang',
       lookupLocalStorage: STORAGE_KEY,
-      caches: ['localStorage'],
-      htmlTag: false
+      caches: ['localStorage']
     }
   });
 
-// Persist language changes as raw string (i18next format)
+// Update <html lang> attribute and persist
 i18n.on('languageChanged', (lng) => {
+  document.documentElement.lang = lng;
   try { localStorage.setItem(STORAGE_KEY, lng); } catch {}
 });
 
