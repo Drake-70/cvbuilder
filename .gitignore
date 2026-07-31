@@ -8,6 +8,9 @@ dist/
 __tests__/
 *.test.js
 coverage/
+test-results/
+playwright-report/
+blob-report/
 .vscode/
 .idea/
 *.sw?

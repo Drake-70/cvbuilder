@@ -7,10 +7,17 @@
     "start": "node backend/server.js",
     "dev": "cd frontend && npm run dev",
     "build": "cd frontend && npm run build",
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:ui": "playwright test --ui",
+    "tunnel": "ngrok http 5173",
     "install:all": "cd backend && npm install && cd ../frontend && npm install",
     "render-build": "npm run build"
   },
   "engines": {
     "node": ">=20.0.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.1"
   }
 }
