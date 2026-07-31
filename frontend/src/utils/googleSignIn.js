@@ -9,9 +9,10 @@ let latestCallback = null;
  * @param {object} options
  * @param {string} options.clientId - Google OAuth client ID
  * @param {(credential: string) => void} options.onCredential - Callback with the ID token
+ * @param {(error: string) => void} [options.onError] - Callback with the GIS error string (cancellation, popup closed, etc.)
  * @param {React.RefObject} options.buttonRef - Ref to the container div for the button
  */
-export function initGoogleSignIn({ clientId, onCredential, buttonRef }) {
+export function initGoogleSignIn({ clientId, onCredential, onError, buttonRef }) {
   if (!clientId || !buttonRef?.current) return;
 
   // Always track the latest callback so the initialized handler never goes stale
@@ -23,7 +24,13 @@ export function initGoogleSignIn({ clientId, onCredential, buttonRef }) {
     if (!initialized) {
       window.google.accounts.id.initialize({
         client_id: clientId,
-        callback: (response) => latestCallback?.(response.credential),
+        callback: (response) => {
+          if (response?.error) {
+            onError?.(response.error);
+            return;
+          }
+          latestCallback?.(response.credential);
+        },
         auto_select: false
       });
       initialized = true;

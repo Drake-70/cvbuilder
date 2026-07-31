@@ -3,34 +3,46 @@
 @variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --color-brand-50: #eef2ff;
-  --color-brand-100: #e0e7ff;
-  --color-brand-200: #c7d2fe;
-  --color-brand-300: #a5b4fc;
-  --color-brand-400: #818cf8;
-  --color-brand-500: #6366f1;
-  --color-brand-600: #4f46e5;
-  --color-brand-700: #4338ca;
-  --color-brand-800: #3730a3;
-  --color-brand-900: #312e81;
+  /* Dark blue brand palette */
+  --color-brand-50: #eef6ff;
+  --color-brand-100: #dbeafe;
+  --color-brand-200: #bfdbfe;
+  --color-brand-300: #93c5fd;
+  --color-brand-400: #60a5fa;
+  --color-brand-500: #3b82f6;
+  --color-brand-600: #1d4ed8;
+  --color-brand-700: #1e40af;
+  --color-brand-800: #1e3a8a;
+  --color-brand-900: #172554;
+  --color-brand-950: #0b1a3a;
 
   --color-surface-0: #ffffff;
-  --color-surface-50: #f8fafc;
-  --color-surface-100: #f1f5f9;
-  --color-surface-200: #e2e8f0;
-  --color-surface-300: #cbd5e1;
+  --color-surface-50: #f6f8fc;
+  --color-surface-100: #eef2f8;
+  --color-surface-200: #dde4ee;
+  --color-surface-300: #c1cbda;
   --color-surface-400: #94a3b8;
   --color-surface-500: #64748b;
   --color-surface-600: #475569;
   --color-surface-700: #334155;
   --color-surface-800: #1e293b;
   --color-surface-900: #0f172a;
+  --color-surface-950: #000000;
 
   --color-emerald-500: #10b981;
   --color-amber-500: #f59e0b;
   --color-rose-500: #f43f5e;
 
   --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Dark mode surfaces lean black (deep charcoal -> pure black) */
+.dark {
+  --color-surface-600: #3f4551;
+  --color-surface-700: #262b33;
+  --color-surface-800: #16181d;
+  --color-surface-900: #0a0b0e;
+  --color-surface-950: #000000;
 }
 
 @layer base {
@@ -70,7 +82,7 @@
 
   input:focus, textarea:focus, select:focus {
     outline: none;
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+    box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.15);
     border-color: var(--color-brand-400) !important;
   }
 
@@ -101,10 +113,11 @@
 @layer components {
   .btn-primary {
     @apply bg-brand-600 text-white px-6 py-2.5 rounded-xl font-semibold
-      hover:bg-brand-700 active:bg-brand-800
+      active:bg-brand-800
       disabled:opacity-40 disabled:cursor-not-allowed
       transition-all duration-200 ease-out
       shadow-sm hover:shadow-md;
+    background-image: linear-gradient(180deg, var(--color-brand-500), var(--color-brand-700));
   }
 
   .btn-primary:active {
@@ -176,6 +189,31 @@
     background: linear-gradient(90deg, var(--color-surface-100) 25%, var(--color-surface-200) 50%, var(--color-surface-100) 75%);
     background-size: 200% 100%;
     animation: shimmer 1.5s ease-in-out infinite;
+  }
+
+  /* ResuMax-style helpers */
+  .kicker {
+    @apply text-xs font-semibold uppercase tracking-widest text-brand-600;
+  }
+
+  .dark .kicker {
+    @apply text-brand-400;
+  }
+
+  .arrow-link {
+    @apply inline-flex items-center gap-1 font-medium text-brand-600 no-underline;
+  }
+
+  .dark .arrow-link {
+    @apply text-brand-400;
+  }
+
+  .arrow-link .arrow {
+    @apply transition-transform duration-200;
+  }
+
+  .arrow-link:hover .arrow {
+    transform: translateX(3px);
   }
 }
 
@@ -413,10 +451,10 @@
   font-weight: 500;
 }
 
-.dark .cv-skill-tag {
-  background: rgba(99, 102, 241, 0.15);
-  color: var(--color-brand-300);
-}
+  .dark .cv-skill-tag {
+    background: rgba(59, 130, 246, 0.16);
+    color: var(--color-brand-300);
+  }
 
 @media (max-width: 640px) {
   .cv-preview {
@@ -450,7 +488,7 @@
 
 .testimonial-card:hover {
   transform: translateY(-4px) scale(1.02);
-  box-shadow: 0 12px 32px -8px rgba(99, 102, 241, 0.15);
+  box-shadow: 0 12px 32px -8px rgba(59, 130, 246, 0.18);
 }
 
 .btn-primary {
@@ -458,8 +496,9 @@
 }
 
 .btn-primary:hover:not(:disabled) {
+  background-image: linear-gradient(180deg, var(--color-brand-400), var(--color-brand-600));
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px -2px rgba(79, 70, 229, 0.4);
+  box-shadow: 0 4px 12px -2px rgba(29, 78, 216, 0.45);
 }
 
 .btn-primary:active:not(:disabled) {
@@ -483,7 +522,7 @@
 }
 
 .input-field:focus {
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+  box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.15);
 }
 
 /* Stagger animation helper */
@@ -501,6 +540,184 @@
 /* Smooth page transitions */
 #main-content {
   animation: fadeIn 0.3s ease-out;
+}
+
+/* Seamless light/dark theme switch:
+   Applied to <html> only while toggling so colors cross-fade smoothly
+   without permanently slowing down every interaction. */
+html.theme-transition,
+html.theme-transition *,
+html.theme-transition *::before,
+html.theme-transition *::after {
+  transition: background-color 0.5s ease, color 0.5s ease, border-color 0.5s ease,
+    fill 0.5s ease, stroke 0.5s ease, box-shadow 0.5s ease, opacity 0.5s ease !important;
+}
+
+/* Brand gradient text */
+.text-gradient-brand {
+  background-image: linear-gradient(120deg, var(--color-brand-600), var(--color-brand-400));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.dark .text-gradient-brand {
+  background-image: linear-gradient(120deg, var(--color-brand-300), var(--color-brand-500));
+}
+
+/* ===== Flying CVs (hero 3D effect) ===== */
+.flying-cvs {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  perspective: 1000px;
+}
+
+.flying-cv {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  padding: 9px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(30, 64, 175, 0.14);
+  box-shadow: 0 14px 36px -10px rgba(15, 23, 42, 0.28);
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+  will-change: transform;
+}
+
+.dark .flying-cv {
+  background: rgba(22, 24, 29, 0.78);
+  border-color: rgba(96, 165, 250, 0.22);
+  box-shadow: 0 14px 36px -10px rgba(0, 0, 0, 0.65);
+}
+
+.flying-cv-1 { width: 132px; top: 10%; left: 3%; animation: cvFloatA 9s ease-in-out infinite; }
+.flying-cv-2 { width: 116px; top: 8%; left: 100%; animation: cvDriftA 15s linear infinite; }
+.flying-cv-3 { width: 108px; top: 44%; left: -4%; animation: cvFloatB 11s ease-in-out infinite; }
+.flying-cv-4 { width: 124px; top: 46%; left: 100%; animation: cvDriftB 18s linear infinite; }
+.flying-cv-5 { width: 96px; top: 76%; left: 6%; animation: cvFloatC 8s ease-in-out infinite; }
+.flying-cv-6 { width: 102px; top: 78%; left: 88%; animation: cvDriftC 20s linear infinite; }
+
+/* Mini-CV placeholder content */
+.cv-m {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.cv-m-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cv-m-head-lines {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cv-m-avatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  flex-shrink: 0;
+  background: linear-gradient(135deg, var(--color-brand-400), var(--color-brand-700));
+}
+
+.cv-m-line {
+  height: 5px;
+  border-radius: 3px;
+  background: var(--color-surface-200);
+}
+
+.dark .cv-m-line {
+  background: #3d4654;
+}
+
+.cv-m-sec {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cv-m-label {
+  height: 4px;
+  width: 42%;
+  border-radius: 3px;
+  background: var(--color-brand-500);
+  opacity: 0.85;
+}
+
+.cv-m-chips {
+  display: flex;
+  gap: 4px;
+}
+
+.cv-m-chip {
+  height: 9px;
+  width: 26px;
+  border-radius: 5px;
+  background: rgba(59, 130, 246, 0.16);
+}
+
+.dark .cv-m-chip {
+  background: rgba(96, 165, 250, 0.24);
+}
+
+/* Floating in place (cards 1, 3, 5) */
+@keyframes cvFloatA {
+  0%, 100% { transform: translate3d(0, 0, 0) rotateY(-18deg) rotateX(9deg) rotate(-4deg); }
+  50%      { transform: translate3d(16px, -26px, 30px) rotateY(12deg) rotateX(16deg) rotate(3deg); }
+}
+
+@keyframes cvFloatB {
+  0%, 100% { transform: translate3d(0, 0, 0) rotateY(20deg) rotateX(-10deg) rotate(5deg); }
+  50%      { transform: translate3d(-18px, 18px, -20px) rotateY(-16deg) rotateX(-14deg) rotate(-4deg); }
+}
+
+@keyframes cvFloatC {
+  0%, 100% { transform: translate3d(0, 0, 0) rotateY(-24deg) rotateX(6deg) rotate(3deg); }
+  50%      { transform: translate3d(22px, 14px, 40px) rotateY(18deg) rotateX(-8deg) rotate(-6deg); }
+}
+
+/* Drifting across the hero (cards 2, 4, 6) */
+@keyframes cvDriftA {
+  0%   { transform: translate3d(0, 0, 0) rotateY(26deg) rotateX(8deg) rotate(5deg); opacity: 0; }
+  6%   { opacity: 1; }
+  80%  { opacity: 1; }
+  100% { transform: translate3d(-46vw, 7vh, 0) rotateY(-22deg) rotateX(12deg) rotate(-6deg); opacity: 0; }
+}
+
+@keyframes cvDriftB {
+  0%   { transform: translate3d(0, 0, 0) rotateY(-26deg) rotateX(10deg) rotate(-5deg); opacity: 0; }
+  6%   { opacity: 1; }
+  80%  { opacity: 1; }
+  100% { transform: translate3d(50vw, -8vh, 0) rotateY(20deg) rotateX(-10deg) rotate(7deg); opacity: 0; }
+}
+
+@keyframes cvDriftC {
+  0%   { transform: translate3d(0, 0, 0) rotateY(20deg) rotateX(-8deg) rotate(4deg); opacity: 0; }
+  6%   { opacity: 1; }
+  80%  { opacity: 1; }
+  100% { transform: translate3d(-36vw, 12vh, 0) rotateY(-28deg) rotateX(6deg) rotate(-8deg); opacity: 0; }
+}
+
+@media (max-width: 640px) {
+  .flying-cv-3,
+  .flying-cv-4 {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flying-cvs {
+    display: none;
+  }
 }
 
 /* Reduced motion */

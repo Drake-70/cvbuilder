@@ -10,6 +10,8 @@ router.post('/refresh', authController.refresh);
 router.post('/logout', authController.logout);
 router.post('/forgot-password', authController.forgotPassword);
 router.post('/reset-password', authController.resetPassword);
+router.get('/verify-email', authController.verifyEmail);
+router.post('/resend-verification', requireAuth, authController.resendVerification);
 router.get('/me', requireAuth, authController.me);
 router.patch('/me', requireAuth, authController.updateMe);
 router.post('/avatar', requireAuth, authController.avatarUpload, authController.uploadAvatar);

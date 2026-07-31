@@ -10,6 +10,7 @@ const LoginPage = lazy(() => import('./pages/LoginPage'));
 const RegisterPage = lazy(() => import('./pages/RegisterPage'));
 const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'));
 const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'));
+const VerifyEmailPage = lazy(() => import('./pages/VerifyEmailPage'));
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 const TailorPage = lazy(() => import('./pages/TailorPage'));
 const PricingPage = lazy(() => import('./pages/PricingPage'));
@@ -34,7 +35,7 @@ function PageLoader() {
 function App() {
   return (
     <AuthProvider>
-      <div className="min-h-screen bg-surface-50 dark:bg-surface-900 transition-colors duration-200">
+      <div className="min-h-screen bg-gradient-to-b from-surface-50 via-surface-50 to-brand-50/60 dark:from-surface-900 dark:via-surface-900 dark:to-brand-950 transition-colors duration-200">
         <Header />
         <main id="main-content">
           <Suspense fallback={<PageLoader />}>
@@ -44,6 +45,7 @@ function App() {
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
               <Route path="/reset-password" element={<ResetPasswordPage />} />
+              <Route path="/verify-email" element={<VerifyEmailPage />} />
               <Route path="/pricing" element={<PricingPage />} />
               <Route path="/about" element={<AboutPage />} />
               <Route path="/contact" element={<ContactPage />} />

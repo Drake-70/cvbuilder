@@ -24,8 +24,9 @@ export default function PricingPage() {
   return (
     <div className="max-w-4xl mx-auto px-4 py-10 sm:py-16 animate-slide-up" role="main">
       <div className="text-center mb-12">
-        <h1 className="text-3xl sm:text-4xl font-bold text-surface-900 mb-3">Simple, Transparent Pricing</h1>
-        <p className="text-surface-500 max-w-lg mx-auto">
+        <p className="kicker mb-3">Pricing</p>
+        <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-surface-900 dark:text-white mb-3">Simple, transparent pricing</h1>
+        <p className="text-surface-500 dark:text-surface-400 max-w-lg mx-auto">
           Pay once per document, or subscribe for unlimited tailoring. All prices in XAF.
         </p>
       </div>
@@ -42,18 +43,18 @@ export default function PricingPage() {
       ) : (
       <div className="grid sm:grid-cols-2 gap-6 max-w-2xl mx-auto">
         {/* One-time */}
-        <div className="card p-6 sm:p-8 relative">
-          <h3 className="text-lg font-bold text-surface-900 mb-1">One-time Download</h3>
-          <p className="text-sm text-surface-500 mb-6">Perfect for a single application</p>
+        <div className="card p-6 sm:p-8 relative flex flex-col">
+          <h3 className="font-bold text-surface-900 dark:text-white mb-1">One-time Download</h3>
+          <p className="text-sm text-surface-500 dark:text-surface-400 mb-6">Perfect for a single application</p>
 
-          <div className="mb-6">
-            <span className="text-4xl font-extrabold text-surface-900">
+          <div className="mb-6 flex items-baseline">
+            <span className="text-5xl font-extrabold tracking-tight text-surface-900 dark:text-white">
               {pricing ? pricing.oneTime.amount.toLocaleString() : '...'}
             </span>
-            <span className="text-surface-500 ml-1">XAF</span>
+            <span className="text-sm text-surface-400 ml-2">XAF / once</span>
           </div>
 
-          <ul className="space-y-3 mb-8">
+          <ul className="space-y-3 mb-8 flex-1">
             {[
               'Tailored CV (.docx)',
               'Matching cover letter',
@@ -61,8 +62,8 @@ export default function PricingPage() {
               'ATS-friendly format',
               'One-time payment'
             ].map((feature, i) => (
-              <li key={i} className="flex items-center gap-2 text-sm text-surface-600">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
+              <li key={i} className="flex items-center gap-2.5 text-sm text-surface-600 dark:text-surface-300">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-brand-500 flex-shrink-0">
                   <polyline points="20,6 9,17 4,12"/>
                 </svg>
                 {feature}
@@ -76,22 +77,22 @@ export default function PricingPage() {
         </div>
 
         {/* Subscription */}
-        <div className="card p-6 sm:p-8 relative border-2 border-brand-400">
+        <div className="card p-6 sm:p-8 relative border-2 border-brand-400 flex flex-col">
           <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
             <span className="badge badge-brand px-3 py-1">Best Value</span>
           </div>
 
-          <h3 className="text-lg font-bold text-surface-900 mb-1">Monthly Subscription</h3>
-          <p className="text-sm text-surface-500 mb-6">Unlimited tailoring for active job seekers</p>
+          <h3 className="font-bold text-surface-900 dark:text-white mb-1">Monthly Subscription</h3>
+          <p className="text-sm text-surface-500 dark:text-surface-400 mb-6">Unlimited tailoring for active job seekers</p>
 
-          <div className="mb-6">
-            <span className="text-4xl font-extrabold text-surface-900">
+          <div className="mb-6 flex items-baseline">
+            <span className="text-5xl font-extrabold tracking-tight text-surface-900 dark:text-white">
               {pricing ? pricing.subscription.amount.toLocaleString() : '...'}
             </span>
-            <span className="text-surface-500 ml-1">XAF / month</span>
+            <span className="text-sm text-surface-400 ml-2">XAF / month</span>
           </div>
 
-          <ul className="space-y-3 mb-8">
+          <ul className="space-y-3 mb-8 flex-1">
             {[
               'Unlimited CV tailoring',
               'Unlimited cover letters',
@@ -99,8 +100,8 @@ export default function PricingPage() {
               'Gap analysis for each',
               'Cancel anytime'
             ].map((feature, i) => (
-              <li key={i} className="flex items-center gap-2 text-sm text-surface-600">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6366f1" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
+              <li key={i} className="flex items-center gap-2.5 text-sm text-surface-600 dark:text-surface-300">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-brand-500 flex-shrink-0">
                   <polyline points="20,6 9,17 4,12"/>
                 </svg>
                 {feature}

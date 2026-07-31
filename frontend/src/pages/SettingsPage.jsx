@@ -126,7 +126,8 @@ export default function SettingsPage() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8 sm:py-12 animate-slide-up" role="main">
-      <h1 className="text-2xl font-bold text-surface-900 dark:text-white mb-1">{t('settings')}</h1>
+      <p className="kicker mb-2">{t('settings')}</p>
+      <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-surface-900 dark:text-white mb-2">Settings</h1>
       <p className="text-sm text-surface-500 dark:text-surface-400 mb-8">{t('settings_desc')}</p>
 
       {/* Profile Photo + Info */}

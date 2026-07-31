@@ -42,13 +42,19 @@ export function AuthProvider({ children }) {
     return res.data;
   };
 
+  const resendVerification = async () => {
+    const res = await api.post('/auth/resend-verification');
+    if (res.data.user) setUser(res.data.user);
+    return res.data;
+  };
+
   const logout = async () => {
     await api.post('/auth/logout');
     setUser(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, googleLogin, logout, fetchUser }}>
+    <AuthContext.Provider value={{ user, loading, login, register, googleLogin, resendVerification, logout, fetchUser }}>
       {children}
     </AuthContext.Provider>
   );

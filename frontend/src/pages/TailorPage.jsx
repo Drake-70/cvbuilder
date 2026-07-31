@@ -135,21 +135,21 @@ export default function TailorPage() {
     <div className="max-w-3xl mx-auto px-4 py-6 sm:py-10">
       {/* Progress indicator */}
       {step !== 'choose' && step !== 'result' && (
-        <div className="mb-8">
-          <div className="flex items-center gap-2 mb-2">
+        <div className="mb-10">
+          <div className="flex items-center gap-4">
             {['CV', 'Job', 'Result'].map((label, i) => (
-              <div key={label} className="flex items-center gap-2">
-                <div className={`step-dot w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 ${
-                  i <= currentStepIndex ? 'bg-brand-600 text-white shadow-sm' : 'bg-surface-100 text-surface-400'
+              <div key={label} className="flex items-center gap-4 flex-1 last:flex-none">
+                <div className={`flex items-center gap-2 text-sm font-medium whitespace-nowrap ${
+                  i <= currentStepIndex ? 'text-surface-900 dark:text-white' : 'text-surface-400 dark:text-surface-500'
                 }`}>
-                  {i < currentStepIndex ? (
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="20,6 9,17 4,12"/>
-                    </svg>
-                  ) : i + 1}
+                  <span className={`font-mono text-xs font-bold ${i <= currentStepIndex ? 'text-brand-600 dark:text-brand-400' : 'text-surface-300 dark:text-surface-600'}`}>
+                    {String(i + 1).padStart(2, '0')}
+                  </span>
+                  <span className="hidden sm:inline">{label}</span>
                 </div>
-                <span className={`text-xs font-medium hidden sm:inline ${i <= currentStepIndex ? 'text-surface-700' : 'text-surface-400'}`}>{label}</span>
-                {i < 2 && <div className={`step-line w-8 sm:w-12 h-0.5 rounded-full mx-1 transition-colors duration-300 ${i < currentStepIndex ? 'bg-brand-400' : 'bg-surface-200'}`} />}
+                {i < 2 && (
+                  <div className={`flex-1 h-px transition-colors duration-300 ${i < currentStepIndex ? 'bg-brand-400' : 'bg-surface-200 dark:bg-surface-700'}`} />
+                )}
               </div>
             ))}
           </div>

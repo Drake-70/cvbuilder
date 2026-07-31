@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { flushSync } from 'react-dom';
 import { getItem, setItem, onStorageChange } from '../utils/storage';
 
 const ThemeContext = createContext(null);
@@ -47,9 +48,34 @@ export function ThemeProvider({ children }) {
     });
   }, []);
 
-  const toggleTheme = useCallback(() => {
-    setThemeState((prev) => (prev === 'dark' ? 'light' : 'dark'));
+  const applyTheme = useCallback((next) => {
+    const root = document.documentElement;
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    // Modern browsers: cross-fade the whole page via the View Transitions API.
+    if (!reduceMotion && typeof document.startViewTransition === 'function') {
+      document.startViewTransition(() => {
+        root.classList.toggle('dark', next === 'dark');
+        setItem(STORAGE_KEY, next);
+        // Flush React synchronously so the snapshot captures the new theme.
+        flushSync(() => setThemeState(next));
+      });
+      return;
+    }
+
+    // Fallback: temporarily enable color transitions so every themeable
+    // property cross-fades smoothly, then remove the class so normal
+    // interactions keep their snappy timings.
+    root.classList.add('theme-transition');
+    root.classList.toggle('dark', next === 'dark');
+    setItem(STORAGE_KEY, next);
+    setThemeState(next);
+    window.setTimeout(() => root.classList.remove('theme-transition'), 600);
   }, []);
+
+  const toggleTheme = useCallback(() => {
+    applyTheme(theme === 'dark' ? 'light' : 'dark');
+  }, [theme, applyTheme]);
 
   return (
     <ThemeContext.Provider value={{ theme, toggleTheme }}>

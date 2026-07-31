@@ -28,6 +28,11 @@ const SALT_ROUNDS = 12;
 const ACCESS_TOKEN_EXPIRY = '15m';
 const REFRESH_TOKEN_EXPIRY = '7d';
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const VERIFICATION_TOKEN_EXPIRY_HOURS = 24;
+
+function hashToken(token) {
+  return crypto.createHash('sha256').update(token).digest('hex');
+}
 
 function generateTokens(userId, tokenVersion = 0) {
   const accessToken = jwt.sign({ userId, tokenVersion }, process.env.JWT_SECRET, { expiresIn: ACCESS_TOKEN_EXPIRY });
@@ -51,8 +56,16 @@ function userResponse(user) {
     documentsGeneratedCount: user.documentsGeneratedCount,
     freeDocumentCredits: user.freeDocumentCredits || 0,
     role: user.role || 'user',
-    hasPassword: !!user.passwordHash
+    hasPassword: !!user.passwordHash,
+    emailVerified: !!user.emailVerified
   };
+}
+
+function issueVerificationToken(user) {
+  const token = crypto.randomBytes(32).toString('hex');
+  user.emailVerificationToken = hashToken(token);
+  user.emailVerificationExpires = new Date(Date.now() + VERIFICATION_TOKEN_EXPIRY_HOURS * 60 * 60 * 1000);
+  return token;
 }
 
 function setTokenCookies(res, accessToken, refreshToken) {
@@ -90,6 +103,13 @@ exports.register = async (req, res, next) => {
 
     const existingUser = await User.findOne({ email: email.toLowerCase() });
     if (existingUser) {
+      if (!existingUser.emailVerified) {
+        const token = issueVerificationToken(existingUser);
+        await existingUser.save();
+        sendVerificationEmail({ email: existingUser.email, token, language: existingUser.preferredLanguage || 'en' }).catch(err => {
+          logger.error(`Verification email failed for ${existingUser.email}: ${err.message}`);
+        });
+      }
       return res.json({ exists: true, message: 'If this email is available, a confirmation has been sent.' });
     }
 
@@ -112,9 +132,11 @@ exports.register = async (req, res, next) => {
     const { accessToken, refreshToken } = generateTokens(user._id);
     setTokenCookies(res, accessToken, refreshToken);
 
-    // Send welcome email (non-blocking)
-    sendVerificationEmail({ email: user.email, token: accessToken || '', language: preferredLanguage || 'en' }).catch(err => {
-      logger.error(`Welcome email failed for ${user.email}: ${err.message}`);
+    // Send verification email (non-blocking)
+    const token = issueVerificationToken(user);
+    await user.save();
+    sendVerificationEmail({ email: user.email, token, language: preferredLanguage || 'en' }).catch(err => {
+      logger.error(`Verification email failed for ${user.email}: ${err.message}`);
     });
 
     res.status(201).json({ user: userResponse(user) });
@@ -302,6 +324,50 @@ exports.resetPassword = async (req, res, next) => {
   }
 };
 
+exports.verifyEmail = async (req, res, next) => {
+  try {
+    const { token } = req.query;
+    if (!token) return res.status(400).json({ error: 'Verification token is required' });
+
+    const user = await User.findOne({
+      emailVerificationToken: hashToken(token),
+      emailVerificationExpires: { $gt: new Date() }
+    });
+
+    if (!user) {
+      return res.status(400).json({ error: 'Invalid or expired verification link' });
+    }
+
+    user.emailVerified = true;
+    user.emailVerificationToken = undefined;
+    user.emailVerificationExpires = undefined;
+    await user.save();
+
+    res.json({ message: 'Email verified successfully' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.resendVerification = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    if (user.emailVerified) return res.json({ message: 'Email already verified' });
+
+    const token = issueVerificationToken(user);
+    await user.save();
+
+    sendVerificationEmail({ email: user.email, token, language: user.preferredLanguage || 'en' }).catch(err => {
+      logger.error(`Verification email failed for ${user.email}: ${err.message}`);
+    });
+
+    res.json({ message: 'Verification email sent' });
+  } catch (err) {
+    next(err);
+  }
+};
+
 exports.googleLogin = async (req, res, next) => {
   try {
     const { credential } = req.body;
@@ -329,6 +395,7 @@ exports.googleLogin = async (req, res, next) => {
     if (user) {
       if (!user.googleId) {
         user.googleId = googleId;
+        user.emailVerified = true;
         await user.save();
       }
     } else {
@@ -336,7 +403,8 @@ exports.googleLogin = async (req, res, next) => {
         email: email.toLowerCase(),
         name: name || email.split('@')[0],
         googleId,
-        preferredLanguage: 'en'
+        preferredLanguage: 'en',
+        emailVerified: true
       });
     }
 

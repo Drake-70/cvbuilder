@@ -42,6 +42,9 @@ const userSchema = new mongoose.Schema({
   freeDocumentCredits: { type: Number, default: 0 },
   resetPasswordToken: { type: String },
   resetPasswordExpires: { type: Date },
+  emailVerified: { type: Boolean, default: false },
+  emailVerificationToken: { type: String },
+  emailVerificationExpires: { type: Date },
   role: {
     type: String,
     enum: ['user', 'admin'],

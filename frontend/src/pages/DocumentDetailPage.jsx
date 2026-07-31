@@ -120,46 +120,62 @@ export default function DocumentDetailPage() {
   return (
     <div className="max-w-4xl mx-auto px-4 py-8 sm:py-12 animate-slide-up" role="main">
       {/* Header */}
-      <div className="flex items-start justify-between mb-6">
-        <div>
-          <button onClick={() => navigate(-1)} className="btn-ghost text-sm mb-2 -ml-2">
-            <svg className="w-4 h-4 mr-1 inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12,19 5,12 12,5"/>
-            </svg>
-            {t('back')}
-          </button>
-          <h1 className="text-2xl font-bold text-surface-900 dark:text-white">{doc.jobTitle || tTailor('tailored_cv')}</h1>
-          <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">
-            {formatDate(doc.createdAt)} &middot; {doc.language === 'fr' ? 'Fran\u00e7ais' : 'English'}
-          </p>
-          {(doc.downloadCount > 0 || doc.viewCount > 0) && (
-            <div className="flex items-center gap-3 mt-2 text-xs text-surface-400">
-              {doc.downloadCount > 0 && <span>{doc.downloadCount} download{doc.downloadCount !== 1 ? 's' : ''}</span>}
-              {doc.viewCount > 0 && <span>{doc.viewCount} view{doc.viewCount !== 1 ? 's' : ''}</span>}
-            </div>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <button onClick={handleShare} disabled={sharing} className="btn-ghost text-sm flex items-center gap-1.5" title="Copy share link">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
-              <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
-            </svg>
-            {copied ? 'Copied!' : 'Share'}
-          </button>
-          <button onClick={handleDownload} disabled={downloading} className="btn-primary flex items-center gap-2">
-            {downloading ? (
-              <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-              </svg>
-            ) : (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/>
-              </svg>
+      <div className="mb-8">
+        <button onClick={() => navigate(-1)} className="btn-ghost text-sm mb-3 -ml-2">
+          <svg className="w-4 h-4 mr-1 inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12,19 5,12 12,5"/>
+          </svg>
+          {t('back')}
+        </button>
+
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <p className="kicker mb-2">Tailored Document</p>
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-surface-900 dark:text-white truncate">
+              {doc.jobTitle || tTailor('tailored_cv')}
+            </h1>
+            <p className="text-sm text-surface-500 dark:text-surface-400 mt-2">
+              {formatDate(doc.createdAt)} &middot; {doc.language === 'fr' ? 'Fran\u00e7ais' : 'English'}
+            </p>
+            {(doc.downloadCount > 0 || doc.viewCount > 0) && (
+              <div className="flex items-center gap-2 mt-4">
+                {doc.downloadCount > 0 && (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-surface-200 dark:border-surface-700 bg-surface-0 dark:bg-surface-800 text-xs font-medium text-surface-500 dark:text-surface-400">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    {doc.downloadCount} download{doc.downloadCount !== 1 ? 's' : ''}
+                  </span>
+                )}
+                {doc.viewCount > 0 && (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-surface-200 dark:border-surface-700 bg-surface-0 dark:bg-surface-800 text-xs font-medium text-surface-500 dark:text-surface-400">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    {doc.viewCount} view{doc.viewCount !== 1 ? 's' : ''}
+                  </span>
+                )}
+              </div>
             )}
-            {isSubscribed ? t('download') : `Pay & ${t('download')}`}
-          </button>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button onClick={handleShare} disabled={sharing} className="btn-ghost text-sm flex items-center gap-1.5" title="Copy share link">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+              </svg>
+              {copied ? 'Copied!' : 'Share'}
+            </button>
+            <button onClick={handleDownload} disabled={downloading} className="btn-primary flex items-center gap-2">
+              {downloading ? (
+                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                </svg>
+              ) : (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+              )}
+              {isSubscribed ? t('download') : `Pay & ${t('download')}`}
+            </button>
+          </div>
         </div>
       </div>
 

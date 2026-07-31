@@ -33,7 +33,7 @@ export default function ReferralWidget() {
 
   return (
     <div className="card p-5 animate-slide-up">
-      <h3 className="font-semibold text-surface-800 mb-3">{t('referral.title', 'Refer a Friend')}</h3>
+      <h3 className="kicker mb-4">{t('referral.title', 'Refer a Friend')}</h3>
 
       {stats?.code ? (
         <div className="mb-4">
@@ -74,18 +74,18 @@ export default function ReferralWidget() {
 
       {/* Stats */}
       {stats && (stats.totalReferrals > 0 || stats.credits > 0) && (
-        <div className="border-t border-surface-100 pt-3 mt-3 grid grid-cols-3 gap-2 text-center">
+        <div className="border-t border-surface-100 dark:border-surface-700 pt-3 mt-3 grid grid-cols-3 gap-2 text-center">
           <div>
-            <p className="text-lg font-bold text-surface-800">{stats.totalReferrals}</p>
-            <p className="text-[10px] text-surface-400">{t('referral.total', 'Referrals')}</p>
+            <p className="text-xl font-extrabold tracking-tight text-surface-900 dark:text-white">{stats.totalReferrals}</p>
+            <p className="text-[10px] font-medium uppercase tracking-wider text-surface-400 mt-0.5">{t('referral.total', 'Referrals')}</p>
           </div>
           <div>
-            <p className="text-lg font-bold text-emerald-500">{stats.successfulReferrals}</p>
-            <p className="text-[10px] text-surface-400">{t('referral.successful', 'Signed Up')}</p>
+            <p className="text-xl font-extrabold tracking-tight text-surface-900 dark:text-white">{stats.successfulReferrals}</p>
+            <p className="text-[10px] font-medium uppercase tracking-wider text-surface-400 mt-0.5">{t('referral.successful', 'Signed Up')}</p>
           </div>
           <div>
-            <p className="text-lg font-bold text-brand-600">{stats.credits}</p>
-            <p className="text-[10px] text-surface-400">{t('referral.credits', 'Free Credits')}</p>
+            <p className="text-xl font-extrabold tracking-tight text-brand-600 dark:text-brand-400">{stats.credits}</p>
+            <p className="text-[10px] font-medium uppercase tracking-wider text-surface-400 mt-0.5">{t('referral.credits', 'Free Credits')}</p>
           </div>
         </div>
       )}

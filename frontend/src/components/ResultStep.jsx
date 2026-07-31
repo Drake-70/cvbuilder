@@ -45,15 +45,9 @@ export default function ResultStep({ result, onDownload, onReset, loading, docum
     <div>
       <div className="flex items-start justify-between mb-6">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <div className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="20,6 9,17 4,12"/>
-              </svg>
-            </div>
-            <h2 className="text-2xl font-bold text-surface-900">{t('tailored_cv')}</h2>
-          </div>
-          <p className="text-sm text-surface-500 ml-10">Your CV has been tailored to match the job posting.</p>
+          <p className="kicker mb-2">The result</p>
+          <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-surface-900 dark:text-white">{t('tailored_cv')}</h2>
+          <p className="text-sm text-surface-500 dark:text-surface-400 mt-2">Your CV has been tailored to match the job posting.</p>
         </div>
         <button onClick={onReset} className="btn-ghost text-sm">
           <svg className="w-4 h-4 mr-1 inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

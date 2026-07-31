@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
@@ -8,17 +8,11 @@ import ReferralWidget from '../components/ReferralWidget';
 import ApplicationTracker from '../components/ApplicationTracker';
 import { useCache, invalidateCacheKey } from '../hooks/useCache';
 import { useToast } from '../contexts/ToastContext';
-import { DashboardSkeleton } from '../components/Skeleton';
-
-function AnimatedCounter({ value }) {
-  return <span>{value || 0}</span>;
-}
 
 export default function DashboardPage() {
   const { t } = useTranslation('common');
   const { t: tTailor } = useTranslation('tailor');
   const { user, fetchUser } = useAuth();
-  const navigate = useNavigate();
   const { toast } = useToast();
 
   const [paymentOpen, setPaymentOpen] = useState(false);
@@ -83,19 +77,72 @@ export default function DashboardPage() {
     return 'Good evening';
   };
 
+  const quickActions = [
+    {
+      to: '/tailor',
+      title: tTailor('upload_cv'),
+      desc: 'Upload an existing CV.',
+      icon: (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="17,8 12,3 7,8"/>
+          <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+      )
+    },
+    {
+      to: '/tailor?path=build',
+      title: tTailor('build_cv'),
+      desc: 'Build from scratch.',
+      icon: (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+        </svg>
+      )
+    },
+    {
+      to: '/cvs',
+      title: t('nav.my_cvs'),
+      desc: 'Manage saved CVs.',
+      icon: (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14,2 14,8 20,8"/>
+          <line x1="16" y1="13" x2="8" y2="13"/>
+          <line x1="16" y1="17" x2="8" y2="17"/>
+        </svg>
+      )
+    }
+  ];
+
+  const stats = [
+    { value: user?.documentsGeneratedCount || 0, label: 'Generated' },
+    { value: documents.length, label: 'Saved' },
+    { value: isSubscribed ? 'Pro' : (user?.freeDocumentCredits || 0), label: isSubscribed ? 'Plan' : 'Free Credits' }
+  ];
+
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8 sm:py-12 animate-slide-up" role="main">
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-8">
-        <Link to="/settings" className="flex items-center gap-3 no-underline group" title={t('settings')}>
-          <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center text-white font-bold text-base shadow-sm group-hover:ring-2 group-hover:ring-brand-300 transition-all" aria-hidden="true">
-            {user?.name?.charAt(0)?.toUpperCase()}
-          </div>
-        </Link>
+    <div className="max-w-4xl mx-auto px-4 py-10 sm:py-14 animate-slide-up" role="main">
+      {/* Hero header */}
+      <div className="flex items-start justify-between gap-4 mb-10">
         <div>
-          <h1 className="text-2xl font-bold text-surface-900 dark:text-white">{getTimeGreeting()}, {user?.name?.split(' ')[0]}</h1>
-          <p className="text-sm text-surface-500 dark:text-surface-400">{t('dashboard')}</p>
+          <p className="kicker mb-2">{getTimeGreeting()}</p>
+          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-surface-900 dark:text-white">
+            {user?.name?.split(' ')[0]}&apos;s job search
+          </h1>
+          <p className="text-sm text-surface-500 dark:text-surface-400 mt-2">
+            {documents.length} tailored document{documents.length !== 1 ? 's' : ''} in your workspace.
+          </p>
         </div>
+        <Link
+          to="/settings"
+          className="w-11 h-11 rounded-full bg-surface-0 dark:bg-surface-800 border border-surface-200 dark:border-surface-700 flex items-center justify-center text-surface-900 dark:text-white font-bold text-base no-underline hover:border-brand-400 transition-colors flex-shrink-0"
+          title={t('settings')}
+          aria-label={t('settings')}
+        >
+          {user?.name?.charAt(0)?.toUpperCase()}
+        </Link>
       </div>
 
       {/* Subscription banner */}
@@ -112,71 +159,41 @@ export default function DashboardPage() {
         </div>
       )}
 
+      {/* Stats strip */}
+      <div className="grid grid-cols-3 mb-10 overflow-hidden rounded-2xl border border-surface-200 dark:border-surface-700 divide-x divide-surface-100 dark:divide-surface-700 animate-slide-up" style={{ animationDelay: '0.05s' }}>
+        {stats.map((s, i) => (
+          <div key={i} className="bg-surface-0 dark:bg-surface-800 px-5 py-5">
+            <p className="text-2xl sm:text-3xl font-extrabold tracking-tight text-surface-900 dark:text-white">{s.value}</p>
+            <p className="text-[11px] font-medium uppercase tracking-wider text-surface-400 mt-1">{s.label}</p>
+          </div>
+        ))}
+      </div>
+
       {/* Quick actions */}
       <div className="grid sm:grid-cols-3 gap-4 mb-8">
-        <Link to="/tailor" className="no-underline group">
-          <div className="card p-5 hover:border-brand-300 dark:hover:border-brand-600 cursor-pointer group-hover:shadow-md transition-all animate-slide-up" style={{ animationDelay: '0s' }}>
-            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white shadow-md mb-3 group-hover:scale-105 transition-transform">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/>
-              </svg>
+        {quickActions.map((action, i) => (
+          <Link key={action.to} to={action.to} className="group no-underline">
+            <div className="card p-5 h-full group-hover:border-brand-300 dark:group-hover:border-brand-600 group-hover:shadow-md transition-all animate-slide-up" style={{ animationDelay: `${0.1 + i * 0.05}s` }}>
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-surface-400 group-hover:text-brand-600 transition-colors">{action.icon}</span>
+                <span className="text-surface-300 dark:text-surface-600 group-hover:text-brand-500 group-hover:translate-x-1 transition-all" aria-hidden="true">&rarr;</span>
+              </div>
+              <h3 className="font-bold text-surface-900 dark:text-white">{action.title}</h3>
+              <p className="text-sm text-surface-500 dark:text-surface-400 mt-0.5">{action.desc}</p>
             </div>
-            <h3 className="font-bold text-surface-900 dark:text-white mb-1">{tTailor('upload_cv')}</h3>
-            <p className="text-sm text-surface-500 dark:text-surface-400">Upload an existing CV.</p>
-          </div>
-        </Link>
-        <Link to="/tailor?path=build" className="no-underline group">
-          <div className="card p-5 hover:border-brand-300 dark:hover:border-brand-600 cursor-pointer group-hover:shadow-md transition-all animate-slide-up" style={{ animationDelay: '0.05s' }}>
-            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-white shadow-md mb-3 group-hover:scale-105 transition-transform">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-              </svg>
-            </div>
-            <h3 className="font-bold text-surface-900 dark:text-white mb-1">{tTailor('build_cv')}</h3>
-            <p className="text-sm text-surface-500 dark:text-surface-400">Build from scratch.</p>
-          </div>
-        </Link>
-        <Link to="/cvs" className="no-underline group">
-          <div className="card p-5 hover:border-brand-300 dark:hover:border-brand-600 cursor-pointer group-hover:shadow-md transition-all animate-slide-up" style={{ animationDelay: '0.1s' }}>
-            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white shadow-md mb-3 group-hover:scale-105 transition-transform">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
-              </svg>
-            </div>
-            <h3 className="font-bold text-surface-900 dark:text-white mb-1">{t('nav.my_cvs')}</h3>
-            <p className="text-sm text-surface-500 dark:text-surface-400">Manage saved CVs.</p>
-          </div>
-        </Link>
+          </Link>
+        ))}
       </div>
 
       {/* Referral Widget */}
-      <div className="mb-8 animate-slide-up" style={{ animationDelay: '0.15s' }}>
+      <div className="mb-8 animate-slide-up" style={{ animationDelay: '0.25s' }}>
         <ReferralWidget />
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-3 gap-3 mb-8">
-        <div className="card p-4 text-center animate-slide-up" style={{ animationDelay: '0.2s' }}>
-          <p className="text-2xl font-bold text-brand-600 dark:text-brand-400">
-            <AnimatedCounter value={user?.documentsGeneratedCount || 0} />
-          </p>
-          <p className="text-xs text-surface-500 dark:text-surface-400 mt-0.5">Generated</p>
-        </div>
-        <div className="card p-4 text-center animate-slide-up" style={{ animationDelay: '0.25s' }}>
-          <p className="text-2xl font-bold text-emerald-500">
-            <AnimatedCounter value={documents.length} />
-          </p>
-          <p className="text-xs text-surface-500 dark:text-surface-400 mt-0.5">Saved</p>
-        </div>
-        <div className="card p-4 text-center animate-slide-up" style={{ animationDelay: '0.3s' }}>
-          <p className="text-2xl font-bold text-surface-600 dark:text-surface-300">{isSubscribed ? 'Pro' : (user?.freeDocumentCredits || 0)}</p>
-          <p className="text-xs text-surface-500 dark:text-surface-400 mt-0.5">{isSubscribed ? 'Plan' : 'Free Credits'}</p>
-        </div>
-      </div>
-
+      {/* Upgrade banner */}
       {!isSubscribed && (
-        <Link to="/pricing" className="no-underline mb-8 block animate-slide-up" style={{ animationDelay: '0.35s' }}>
-          <div className="card bg-gradient-to-r from-brand-50 to-brand-100/50 dark:from-brand-900/20 dark:to-brand-800/10 border-brand-200 dark:border-brand-800/30 p-4 flex items-center gap-3 hover:shadow-md transition-shadow cursor-pointer">
+        <Link to="/pricing" className="no-underline mb-10 block animate-slide-up" style={{ animationDelay: '0.3s' }}>
+          <div className="card bg-gradient-to-r from-brand-50 to-brand-100/50 dark:from-brand-900/20 dark:to-brand-800/10 border-brand-200 dark:border-brand-800/30 p-4 flex items-center gap-3 hover:shadow-md transition-shadow cursor-pointer group">
             <div className="w-9 h-9 rounded-lg bg-brand-500 flex items-center justify-center flex-shrink-0">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <polygon points="13,2 3,14 12,14 11,22 21,10 12,10 13,2"/>
@@ -186,36 +203,34 @@ export default function DashboardPage() {
               <p className="text-sm font-semibold text-brand-800 dark:text-brand-200">Upgrade to Pro</p>
               <p className="text-xs text-brand-600 dark:text-brand-400">Unlimited downloads for 3,000 XAF/month</p>
             </div>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-brand-400">
-              <polyline points="9,18 15,12 9,6"/>
-            </svg>
+            <span className="text-brand-400 group-hover:translate-x-1 transition-transform" aria-hidden="true">&rarr;</span>
           </div>
         </Link>
       )}
 
       {/* Document History */}
-      <div className="animate-slide-up" style={{ animationDelay: '0.4s' }}>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold text-surface-900 dark:text-white">Recent Documents</h2>
+      <div className="animate-slide-up" style={{ animationDelay: '0.35s' }}>
+        <div className="flex items-center justify-between mb-4 px-1">
+          <h2 className="text-sm font-semibold uppercase tracking-widest text-surface-400">Recent Documents</h2>
           {documents.length > 0 && (
             <span className="text-xs text-surface-400 dark:text-surface-500">{documents.length} total</span>
           )}
         </div>
 
         {loadingDocs ? (
-          <div className="space-y-3">
+          <div className="card divide-y divide-surface-100 dark:divide-surface-700 overflow-hidden">
             {[1, 2, 3].map(i => (
-              <div key={i} className="card p-4"><div className="animate-shimmer h-4 w-48 rounded mb-2" /><div className="animate-shimmer h-3 w-32 rounded" /></div>
+              <div key={i} className="p-4"><div className="animate-shimmer h-4 w-48 rounded mb-2" /><div className="animate-shimmer h-3 w-32 rounded" /></div>
             ))}
           </div>
         ) : documents.length === 0 ? (
-          <div className="card p-10 text-center">
-            <div className="w-16 h-16 rounded-2xl bg-brand-50 dark:bg-brand-900/20 flex items-center justify-center mx-auto mb-4">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-brand-400">
+          <div className="card p-12 text-center">
+            <div className="w-14 h-14 rounded-full bg-surface-100 dark:bg-surface-700 flex items-center justify-center mx-auto mb-4">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-surface-400">
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/>
               </svg>
             </div>
-            <h3 className="text-lg font-semibold text-surface-900 dark:text-white mb-2">No documents yet</h3>
+            <h3 className="text-lg font-bold text-surface-900 dark:text-white mb-2">No documents yet</h3>
             <p className="text-sm text-surface-500 dark:text-surface-400 mb-6 max-w-sm mx-auto">
               Start by uploading your CV or building one from scratch. Your tailored documents will appear here.
             </p>
@@ -225,26 +240,19 @@ export default function DashboardPage() {
             </div>
           </div>
         ) : (
-          <div className="space-y-2">
-            {documents.map((doc, i) => (
-              <div key={doc._id} className="card p-4 hover:border-surface-300 dark:hover:border-surface-600 transition-all animate-slide-up group" style={{ animationDelay: `${i * 0.05}s` }}>
+          <div className="card divide-y divide-surface-100 dark:divide-surface-700 overflow-hidden">
+            {documents.map((doc) => (
+              <div key={doc._id} className="px-5 py-4 hover:bg-surface-50 dark:hover:bg-surface-700/40 transition-colors group">
                 <div className="flex items-center gap-4">
-                  <Link to={`/documents/${doc._id}`} className="flex items-center gap-4 flex-1 min-w-0 no-underline">
-                    <div className="w-9 h-9 rounded-lg bg-brand-50 dark:bg-brand-900/20 flex items-center justify-center flex-shrink-0 group-hover:bg-brand-100 dark:group-hover:bg-brand-900/30 transition-colors">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-brand-600 dark:text-brand-400">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/>
-                      </svg>
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-surface-900 dark:text-white truncate group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">{doc.jobTitle || 'Tailored CV'}</p>
-                      <p className="text-xs text-surface-400 dark:text-surface-500">{formatDate(doc.createdAt)} &middot; {doc.language === 'fr' ? 'Fran\u00e7ais' : 'English'}</p>
-                    </div>
+                  <Link to={`/documents/${doc._id}`} className="flex-1 min-w-0 no-underline">
+                    <p className="text-sm font-semibold text-surface-900 dark:text-white truncate group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">{doc.jobTitle || 'Tailored CV'}</p>
+                    <p className="text-xs text-surface-400 dark:text-surface-500 mt-0.5">{formatDate(doc.createdAt)} &middot; {doc.language === 'fr' ? 'Fran\u00e7ais' : 'English'}</p>
                   </Link>
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => handleDownload(doc._id)}
                       disabled={downloadingId === doc._id}
-                      className="p-2 rounded-lg hover:bg-surface-100 dark:hover:bg-surface-800 text-surface-500 hover:text-brand-600 transition-colors cursor-pointer"
+                      className="p-2 rounded-lg hover:bg-surface-100 dark:hover:bg-surface-800 text-surface-400 hover:text-brand-600 transition-colors cursor-pointer"
                       title="Download"
                     >
                       {downloadingId === doc._id ? (
@@ -262,7 +270,6 @@ export default function DashboardPage() {
                     </button>
                   </div>
                 </div>
-                {/* Application Tracker */}
                 <div className="mt-2.5 ml-13 pl-[52px]">
                   <ApplicationTracker
                     documentId={doc._id}

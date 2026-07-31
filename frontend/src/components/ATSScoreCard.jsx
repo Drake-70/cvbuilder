@@ -41,7 +41,7 @@ export default function ATSScoreCard({ cvText, jobDescription, tailoredCV, gapAn
   return (
     <div className="card p-5 animate-slide-up">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="font-semibold text-surface-800">{t('tailor.atsScore', 'ATS Match Score')}</h3>
+        <h3 className="kicker">{t('tailor.atsScore', 'ATS Match Score')}</h3>
         {!score && (
           <button onClick={fetchScore} disabled={loading} className="btn-ghost text-brand-600 font-medium text-sm">
             {loading ? t('tailor.calculating', 'Calculating...') : t('tailor.calculate', 'Calculate Score')}

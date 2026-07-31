@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import logoImg from '../assets/cvboost-logo.png';
+import FlyingCVs from '../components/FlyingCVs';
 
 const FeatureIcons = {
   bilingual: (
@@ -45,8 +46,10 @@ export default function LandingPage() {
       {/* Hero Section */}
       <section className="relative pt-16 pb-20 sm:pt-24 sm:pb-28 px-4" aria-labelledby="hero-heading">
         <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
-          <div className="absolute -top-40 -right-40 w-80 h-80 bg-brand-200/30 rounded-full blur-3xl dark:bg-brand-900/20" />
-          <div className="absolute -bottom-20 -left-20 w-60 h-60 bg-brand-100/40 rounded-full blur-3xl dark:bg-brand-800/10" />
+          <div className="absolute inset-0 bg-gradient-to-b from-brand-50 via-surface-0 to-surface-100 dark:from-brand-950 dark:via-surface-900 dark:to-black" />
+          <div className="absolute -top-40 -right-40 w-80 h-80 bg-brand-400/20 rounded-full blur-3xl dark:bg-brand-500/15" />
+          <div className="absolute -bottom-24 -left-20 w-72 h-72 bg-brand-500/15 rounded-full blur-3xl dark:bg-brand-600/10" />
+          <FlyingCVs />
         </div>
 
         <div className="max-w-4xl mx-auto text-center relative">
@@ -326,7 +329,9 @@ export default function LandingPage() {
       {/* CTA */}
       <section className="py-16 sm:py-20 px-4" aria-labelledby="cta-heading">
         <div className="max-w-3xl mx-auto">
-          <div className="card bg-gradient-to-br from-brand-600 to-brand-800 border-0 p-8 sm:p-12 text-center relative overflow-hidden">
+          <div className="card bg-gradient-to-br from-brand-600 via-brand-700 to-brand-950 border-0 p-8 sm:p-12 text-center relative overflow-hidden">
+            <div className="absolute -top-24 -right-24 w-64 h-64 bg-brand-400/30 rounded-full blur-3xl" aria-hidden="true" />
+            <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-black/20 rounded-full blur-3xl" aria-hidden="true" />
             <div className="relative">
               <h2 id="cta-heading" className="text-2xl sm:text-3xl font-bold text-white mb-3">Ready to stand out?</h2>
               <p className="text-brand-100 mb-8 max-w-md mx-auto">

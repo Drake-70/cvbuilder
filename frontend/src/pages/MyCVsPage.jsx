@@ -75,12 +75,15 @@ export default function MyCVsPage() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8 sm:py-12 animate-slide-up" role="main">
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-start justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-surface-900 dark:text-white">{tTailor('my_cvs')}</h1>
-          <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">{tTailor('my_cvs_desc')}</p>
+          <p className="kicker mb-2">{tTailor('my_cvs')}</p>
+          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-surface-900 dark:text-white">
+            Saved CVs
+          </h1>
+          <p className="text-sm text-surface-500 dark:text-surface-400 mt-2">{tTailor('my_cvs_desc')}</p>
         </div>
-        <Link to="/tailor" className="btn-primary text-sm no-underline flex items-center gap-2">
+        <Link to="/tailor" className="btn-primary text-sm no-underline flex items-center gap-2 flex-shrink-0">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
           </svg>
@@ -89,19 +92,19 @@ export default function MyCVsPage() {
       </div>
 
       {isLoading ? (
-        <div className="space-y-3">
+        <div className="card divide-y divide-surface-100 dark:divide-surface-700 overflow-hidden">
           {[1, 2, 3].map(i => (
-            <div key={i} className="card p-5"><div className="animate-shimmer h-4 w-48 rounded mb-2" /><div className="animate-shimmer h-3 w-32 rounded" /></div>
+            <div key={i} className="p-5"><div className="animate-shimmer h-4 w-48 rounded mb-2" /><div className="animate-shimmer h-3 w-32 rounded" /></div>
           ))}
         </div>
       ) : cvs.length === 0 ? (
         <div className="card p-12 text-center animate-fade-in">
-          <div className="w-16 h-16 rounded-2xl bg-brand-50 dark:bg-brand-900/20 flex items-center justify-center mx-auto mb-4">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-brand-400">
+          <div className="w-14 h-14 rounded-full bg-surface-100 dark:bg-surface-700 flex items-center justify-center mx-auto mb-4">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-surface-400">
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/>
             </svg>
           </div>
-          <h3 className="text-lg font-semibold text-surface-900 dark:text-white mb-2">{tTailor('no_saved_cvs')}</h3>
+          <h3 className="text-lg font-bold text-surface-900 dark:text-white mb-2">{tTailor('no_saved_cvs')}</h3>
           <p className="text-sm text-surface-500 dark:text-surface-400 mb-6 max-w-sm mx-auto">
             {tTailor('no_saved_cvs_desc')}
           </p>
@@ -111,29 +114,29 @@ export default function MyCVsPage() {
           </div>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="card divide-y divide-surface-100 dark:divide-surface-700 overflow-hidden">
           {cvs.map((cv, i) => (
             <div
               key={cv._id}
-              className="card p-5 hover:border-surface-300 dark:hover:border-surface-600 transition-all animate-slide-up group"
+              className="px-5 py-4 hover:bg-surface-50 dark:hover:bg-surface-700/40 transition-colors animate-slide-up group"
               style={{ animationDelay: `${i * 0.05}s` }}
             >
               <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-50 to-brand-100 dark:from-brand-900/30 dark:to-brand-800/30 flex items-center justify-center flex-shrink-0">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-brand-500">
+                <div className="w-10 h-10 rounded-xl border border-surface-200 dark:border-surface-700 bg-surface-50 dark:bg-surface-700/50 flex items-center justify-center flex-shrink-0">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-surface-400 group-hover:text-brand-600 transition-colors">
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/>
                   </svg>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-surface-900 dark:text-white truncate">{cv.label || 'My CV'}</p>
-                  <p className="text-xs text-surface-400 dark:text-surface-500">
+                  <p className="text-sm font-semibold text-surface-900 dark:text-white truncate group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">{cv.label || 'My CV'}</p>
+                  <p className="text-xs text-surface-400 dark:text-surface-500 mt-0.5">
                     {formatDate(cv.createdAt)} &middot; {sourceLabels[cv.source]?.[i18n.language?.startsWith('fr') ? 'fr' : 'en'] || cv.source}
                   </p>
                 </div>
                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button
                     onClick={() => handleView(cv._id)}
-                    className="p-2 rounded-lg hover:bg-surface-100 dark:hover:bg-surface-800 text-surface-500 hover:text-brand-600 transition-colors cursor-pointer"
+                    className="p-2 rounded-lg hover:bg-surface-100 dark:hover:bg-surface-800 text-surface-400 hover:text-brand-600 transition-colors cursor-pointer"
                     title="View"
                   >
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

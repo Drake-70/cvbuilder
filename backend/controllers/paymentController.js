@@ -4,6 +4,7 @@ const User = require('../models/User');
 const TailoredDocument = require('../models/TailoredDocument');
 const paymentService = require('../services/paymentService');
 const pricing = require('../config/pricing');
+const { sendPaymentReceiptEmail } = require('../services/emailService');
 const logger = require('../utils/logger');
 
 exports.initiate = async (req, res, next) => {
@@ -180,6 +181,22 @@ async function activatePayment(payment) {
   } else if (payment.type === 'one-time' && payment.documentId) {
     await TailoredDocument.findByIdAndUpdate(payment.documentId, { paid: true });
     logger.info('Document marked as paid', { documentId: payment.documentId });
+  }
+
+  const user = await User.findById(payment.userId).select('email preferredLanguage');
+  if (user) {
+    sendPaymentReceiptEmail({
+      email: user.email,
+      amount: payment.amount,
+      currency: payment.currency,
+      type: payment.type,
+      reference: payment.campayReference || payment._id,
+      provider: payment.provider,
+      date: payment.createdAt || new Date(),
+      language: user.preferredLanguage || 'en'
+    }).catch(err => {
+      logger.error(`Payment receipt email failed for payment ${payment._id}: ${err.message}`);
+    });
   }
 }
 
