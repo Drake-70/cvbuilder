@@ -1,6 +1,5 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { gsap } from 'gsap';
 import api from '../services/api';
 
 export default function UploadStep({ onComplete, onBack }) {
@@ -54,20 +53,8 @@ export default function UploadStep({ onComplete, onBack }) {
     }
   };
 
-  const animRef = useRef(null);
-  useEffect(() => {
-    const el = animRef.current;
-    if (!el) return;
-    const ctx = gsap.context(() => {
-      gsap.from(el.querySelector('h2, .upload-options, .upload-zone, .paste-area'), {
-        opacity: 0, y: 20, duration: 0.4, stagger: 0.1, ease: 'power2.out'
-      });
-    }, el);
-    return () => ctx.revert();
-  }, []);
-
   return (
-    <div ref={animRef}>
+    <div>
       <button onClick={onBack} className="btn-ghost mb-4 -ml-2">
         <svg className="w-4 h-4 mr-1 inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12,19 5,12 12,5"/>

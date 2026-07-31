@@ -29,9 +29,9 @@ const ACCESS_TOKEN_EXPIRY = '15m';
 const REFRESH_TOKEN_EXPIRY = '7d';
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-function generateTokens(userId) {
-  const accessToken = jwt.sign({ userId }, process.env.JWT_SECRET, { expiresIn: ACCESS_TOKEN_EXPIRY });
-  const refreshToken = jwt.sign({ userId }, process.env.JWT_REFRESH_SECRET, { expiresIn: REFRESH_TOKEN_EXPIRY });
+function generateTokens(userId, tokenVersion = 0) {
+  const accessToken = jwt.sign({ userId, tokenVersion }, process.env.JWT_SECRET, { expiresIn: ACCESS_TOKEN_EXPIRY });
+  const refreshToken = jwt.sign({ userId, tokenVersion }, process.env.JWT_REFRESH_SECRET, { expiresIn: REFRESH_TOKEN_EXPIRY });
   return { accessToken, refreshToken };
 }
 
@@ -49,6 +49,7 @@ function userResponse(user) {
     company: user.company || '',
     subscriptionStatus: user.subscriptionStatus,
     documentsGeneratedCount: user.documentsGeneratedCount,
+    freeDocumentCredits: user.freeDocumentCredits || 0,
     role: user.role || 'user',
     hasPassword: !!user.passwordHash
   };
@@ -74,7 +75,7 @@ function setTokenCookies(res, accessToken, refreshToken) {
 
 exports.register = async (req, res, next) => {
   try {
-    const { email, password, name, preferredLanguage } = req.body;
+    const { email, password, name, preferredLanguage, referralCode } = req.body;
 
     if (!email || !password || !name) {
       return res.status(400).json({ error: 'Email, password, and name are required' });
@@ -89,7 +90,7 @@ exports.register = async (req, res, next) => {
 
     const existingUser = await User.findOne({ email: email.toLowerCase() });
     if (existingUser) {
-      return res.status(409).json({ error: 'Email already registered' });
+      return res.json({ exists: true, message: 'If this email is available, a confirmation has been sent.' });
     }
 
     const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
@@ -99,6 +100,14 @@ exports.register = async (req, res, next) => {
       name,
       preferredLanguage: preferredLanguage || 'en'
     });
+
+    // Apply referral code if provided
+    if (referralCode) {
+      const referralController = require('./referralController');
+      referralController.applyReferralCode(referralCode, user._id).catch(err => {
+        logger.error(`Referral code application failed for ${user.email}: ${err.message}`);
+      });
+    }
 
     const { accessToken, refreshToken } = generateTokens(user._id);
     setTokenCookies(res, accessToken, refreshToken);
@@ -126,17 +135,39 @@ exports.login = async (req, res, next) => {
     }
 
     const user = await User.findOne({ email: email.toLowerCase() });
+
+    // Account lockout check
+    if (user && user.lockoutUntil && user.lockoutUntil > new Date()) {
+      const remaining = Math.ceil((user.lockoutUntil - new Date()) / 1000 / 60);
+      return res.status(429).json({ error: `Account locked. Try again in ${remaining} minute(s).` });
+    }
+
     if (!user || !user.passwordHash) {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
+      user.loginAttempts = (user.loginAttempts || 0) + 1;
+      if (user.loginAttempts >= 5) {
+        user.lockoutUntil = new Date(Date.now() + 15 * 60 * 1000);
+        user.loginAttempts = 0;
+        await user.save();
+        return res.status(429).json({ error: 'Account locked due to too many attempts. Try again in 15 minutes.' });
+      }
+      await user.save();
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
-    const { accessToken, refreshToken } = generateTokens(user._id);
-    setTokenCookies(res, accessToken, refreshToken);
+    // Reset lockout on successful login
+    if (user.loginAttempts || user.lockoutUntil) {
+      user.loginAttempts = 0;
+      user.lockoutUntil = null;
+    }
+
+    const tokens = generateTokens(user._id, user.tokenVersion);
+    setTokenCookies(res, tokens.accessToken, tokens.refreshToken);
+    await user.save();
 
     res.json({ user: userResponse(user) });
   } catch (err) {
@@ -157,7 +188,18 @@ exports.refresh = async (req, res, next) => {
       return res.status(401).json({ error: 'User not found' });
     }
 
-    const tokens = generateTokens(user._id);
+    // Token rotation: reject if tokenVersion doesn't match
+    if (decoded.tokenVersion !== undefined && decoded.tokenVersion !== user.tokenVersion) {
+      user.tokenVersion = (user.tokenVersion || 0) + 1;
+      await user.save();
+      return res.status(401).json({ error: 'Token has been revoked. Please log in again.' });
+    }
+
+    // Increment version to invalidate old refresh tokens
+    user.tokenVersion = (user.tokenVersion || 0) + 1;
+    await user.save();
+
+    const tokens = generateTokens(user._id, user.tokenVersion);
     setTokenCookies(res, tokens.accessToken, tokens.refreshToken);
 
     res.json({ user: userResponse(user) });

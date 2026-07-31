@@ -1,6 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { gsap } from 'gsap';
 import api from '../services/api';
 import SectionGuidance from './SectionGuidance';
 
@@ -41,16 +40,6 @@ export default function BuildStep({ onComplete, onBack, language, user }) {
     : ['Communication', 'Teamwork', 'Leadership', 'Problem Solving', 'Time Management', 'Computer Literacy', 'Microsoft Office', 'Customer Service', 'Project Management', 'Data Analysis', 'Social Media', 'French', 'English', 'Writing'];
 
   const displaySkills = skillOptions.length > 0 ? skillOptions : fallbackSkills;
-
-  const stepContentRef = useRef(null);
-  useEffect(() => {
-    const el = stepContentRef.current;
-    if (!el) return;
-    gsap.fromTo(el,
-      { opacity: 0, y: 12 },
-      { opacity: 1, y: 0, duration: 0.35, ease: 'power2.out', clearProps: 'transform' }
-    );
-  }, [subStep]);
 
   const steps = [
     { label: t('personal_info'), icon: '01' },
@@ -110,7 +99,14 @@ export default function BuildStep({ onComplete, onBack, language, user }) {
         skills: selectedSkills,
         language: lang
       });
-      onComplete(JSON.stringify(res.data), 'build', res.data);
+      const expanded = {
+        ...res.data,
+        name: res.data.name || personalInfo.name,
+        email: res.data.email || personalInfo.email,
+        phone: res.data.phone || personalInfo.phone,
+        location: res.data.location || personalInfo.location
+      };
+      onComplete(JSON.stringify(expanded), 'build', expanded);
     } catch (err) {
       alert(err.response?.data?.error || 'Failed to build CV.');
     } finally {
@@ -150,7 +146,7 @@ export default function BuildStep({ onComplete, onBack, language, user }) {
       </div>
 
       {/* Step content */}
-      <div ref={stepContentRef} className="card p-5 sm:p-6" key={subStep}>
+      <div className="card p-5 sm:p-6" key={subStep}>
         {subStep === 0 && (
           <div className="space-y-4">
             <p className="text-sm text-surface-500 mb-2">Tell us about yourself. Fields marked with * are required.</p>

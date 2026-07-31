@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
@@ -12,7 +12,11 @@ export default function RegisterPage() {
   const { register, googleLogin } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [form, setForm] = useState({ name: '', email: '', password: '', confirmPassword: '' });
+  const [searchParams] = useSearchParams();
+  const [form, setForm] = useState({
+    name: '', email: '', password: '', confirmPassword: '',
+    referralCode: searchParams.get('ref') || ''
+  });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const googleBtnRef = useRef(null);
@@ -41,9 +45,14 @@ export default function RegisterPage() {
 
     setLoading(true);
     try {
-      await register(form.email, form.password, form.name);
-      toast.success(t('create_account'), 'Welcome to CVBoost!');
-      navigate('/dashboard');
+      const data = await register(form.email, form.password, form.name, undefined, form.referralCode || undefined);
+      if (data.exists) {
+        toast.success(t('create_account'), 'Check your email if an account exists.');
+        navigate('/login');
+      } else {
+        toast.success(t('create_account'), 'Welcome to CVBoost!');
+        navigate('/dashboard');
+      }
     } catch (err) {
       const msg = err.response?.data?.error || t('server_error');
       setError(msg);
@@ -221,6 +230,20 @@ export default function RegisterPage() {
                 {form.confirmPassword && form.password !== form.confirmPassword && (
                   <p className="mt-1 text-xs text-rose-500">{t('passwords_mismatch')}</p>
                 )}
+              </div>
+
+              <div>
+                <label htmlFor="register-referral" className="block text-sm font-medium text-surface-500 dark:text-surface-400 mb-1.5">
+                  {t('referral_code', 'Referral Code (optional)')}
+                </label>
+                <input
+                  id="register-referral"
+                  type="text"
+                  value={form.referralCode}
+                  onChange={(e) => setForm({ ...form, referralCode: e.target.value })}
+                  className="input-field"
+                  placeholder="Enter code"
+                />
               </div>
 
               <button type="submit" disabled={loading} className="btn-primary w-full flex items-center justify-center gap-2">

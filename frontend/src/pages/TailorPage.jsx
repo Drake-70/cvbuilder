@@ -1,7 +1,6 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { gsap } from 'gsap';
 import api from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
@@ -30,31 +29,8 @@ export default function TailorPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const contentRef = useRef(null);
-  const progressRef = useRef(null);
-
   const stepOrder = ['choose', 'upload', 'job', 'result'];
   const currentStepIndex = stepOrder.indexOf(step);
-
-  // Animate step transition
-  useEffect(() => {
-    const el = contentRef.current;
-    if (!el) return;
-    gsap.fromTo(el,
-      { opacity: 0, y: 16, scale: 0.98 },
-      { opacity: 1, y: 0, scale: 1, duration: 0.45, ease: 'power2.out', clearProps: 'transform' }
-    );
-  }, [step]);
-
-  // Animate progress bar
-  useEffect(() => {
-    const el = progressRef.current;
-    if (!el || step === 'choose' || step === 'result') return;
-    const dots = el.querySelectorAll('.step-dot');
-    const lines = el.querySelectorAll('.step-line');
-    gsap.fromTo(dots, { scale: 0.8 }, { scale: 1, duration: 0.3, stagger: 0.08, ease: 'back.out(2)' });
-    gsap.fromTo(lines, { scaleX: 0.8, transformOrigin: 'left' }, { scaleX: 1, duration: 0.3, stagger: 0.08, ease: 'power2.out' });
-  }, [step]);
 
   const handlePathChoice = (path) => {
     setStep(path);
@@ -125,7 +101,8 @@ export default function TailorPage() {
         tailoredCV: result.tailoredCV,
         coverLetter: result.coverLetter,
         language: result.language,
-        template
+        template,
+        documentId: savedDocId
       }, { responseType: 'blob' });
 
       const url = window.URL.createObjectURL(new Blob([res.data]));
@@ -158,7 +135,7 @@ export default function TailorPage() {
     <div className="max-w-3xl mx-auto px-4 py-6 sm:py-10">
       {/* Progress indicator */}
       {step !== 'choose' && step !== 'result' && (
-        <div ref={progressRef} className="mb-8">
+        <div className="mb-8">
           <div className="flex items-center gap-2 mb-2">
             {['CV', 'Job', 'Result'].map((label, i) => (
               <div key={label} className="flex items-center gap-2">
@@ -189,7 +166,7 @@ export default function TailorPage() {
         </div>
       )}
 
-      <div ref={contentRef}>
+      <div>
         {step === 'choose' && <PathChoice onSelect={handlePathChoice} />}
         {step === 'upload' && <UploadStep onComplete={handleCvReady} onBack={() => setStep('choose')} />}
         {step === 'build' && <BuildStep onComplete={handleCvReady} onBack={() => setStep('choose')} language={language} user={user} />}

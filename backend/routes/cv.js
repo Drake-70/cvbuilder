@@ -11,7 +11,7 @@ router.post('/expand-bullets', requireAuth, cvController.expandBullets);
 router.post('/save', requireAuth, cvController.save);
 router.get('/list', requireAuth, cvController.list);
 router.get('/skills', cvController.getSkillSuggestions);
-router.get('/{id}', requireAuth, cvController.getById);
-router.delete('/{id}', requireAuth, cvController.deleteCV);
+router.get('/:id', requireAuth, cvController.getById);
+router.delete('/:id', requireAuth, cvController.deleteCV);
 
 module.exports = router;

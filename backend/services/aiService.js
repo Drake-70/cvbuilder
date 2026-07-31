@@ -22,6 +22,10 @@ CRITICAL RULES:
 
 You must return valid JSON matching this structure:
 {
+  "name": "Full name from the CV",
+  "email": "Email from the CV",
+  "phone": "Phone number from the CV",
+  "location": "Location/city from the CV",
   "summary": "Professional summary tailored to the job",
   "experience": [
     { "title": "Job title", "company": "Company name", "dates": "Start - End", "bullets": ["bullet point 1"] }
@@ -131,7 +135,7 @@ ${items.map((item, i) => `${i + 1}. [${item.type}] ${item.original}`).join('\n')
 Personal info: ${JSON.stringify(data.personalInfo)}
 
 Please expand these into a properly structured CV. For each informal/non-traditional item, expand it into a professional bullet point.
-Return JSON with keys: summary, experience, education, skills, languages, additionalSections — matching the CV structure.`;
+Return JSON with keys: name, email, phone, location, summary, experience, education, skills, languages, additionalSections — matching the CV structure.`;
 
   const result = await callGroq(EXPAND_SYSTEM_PROMPT, userMsg, 0.6);
   return JSON.parse(result);

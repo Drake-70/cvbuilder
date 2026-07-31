@@ -3,15 +3,43 @@ const User = require('../models/User');
 const { generateDocx } = require('../services/documentService');
 const crypto = require('crypto');
 
+async function consumeCreditOrCheckAccess(userId, documentId) {
+  const user = await User.findById(userId);
+  if (!user) throw Object.assign(new Error('User not found'), { statusCode: 404 });
+
+  if (user.subscriptionStatus === 'active') return;
+
+  if (user.freeDocumentCredits > 0) {
+    await User.findByIdAndUpdate(userId, { $inc: { freeDocumentCredits: -1 } });
+    return;
+  }
+
+  if (documentId) {
+    const doc = await require('../models/TailoredDocument').findById(documentId);
+    if (doc && doc.paid) return;
+  }
+
+  throw Object.assign(new Error('Payment required. Please subscribe or purchase a download.'), { statusCode: 402 });
+}
+
 exports.generateDocument = async (req, res, next) => {
   try {
-    const { tailoredCV, coverLetter, language, template } = req.body;
+    const { tailoredCV, coverLetter, language, template, documentId } = req.body;
 
     if (!tailoredCV) {
       return res.status(400).json({ error: 'Tailored CV data is required' });
     }
 
-    const buffer = await generateDocx(tailoredCV, coverLetter || '', language || 'en', template || 'modern');
+    await consumeCreditOrCheckAccess(req.user._id, documentId || null);
+
+    const enrichedCV = {
+      ...tailoredCV,
+      name: tailoredCV?.name || req.user.name || '',
+      email: tailoredCV?.email || req.user.email || '',
+      phone: tailoredCV?.phone || '',
+      location: tailoredCV?.location || ''
+    };
+    const buffer = await generateDocx(enrichedCV, coverLetter || '', language || 'en', template || 'modern');
 
     const filename = language === 'fr' ? 'CV_Adapte.docx' : 'Tailored_CV.docx';
 
@@ -19,6 +47,7 @@ exports.generateDocument = async (req, res, next) => {
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.send(Buffer.from(buffer));
   } catch (err) {
+    if (err.statusCode) return res.status(err.statusCode).json({ error: err.message });
     next(err);
   }
 };
@@ -80,16 +109,26 @@ exports.downloadDocument = async (req, res, next) => {
       return res.status(404).json({ error: 'Document not found' });
     }
 
+    await consumeCreditOrCheckAccess(req.user._id, doc._id);
+
     doc.downloadCount = (doc.downloadCount || 0) + 1;
     await doc.save();
 
-    const buffer = await generateDocx(doc.tailoredContent, doc.coverLetter, doc.language, doc.template || 'modern');
+    const enrichedCV = {
+      ...(doc.tailoredContent || {}),
+      name: doc.tailoredContent?.name || req.user.name || '',
+      email: doc.tailoredContent?.email || req.user.email || '',
+      phone: doc.tailoredContent?.phone || '',
+      location: doc.tailoredContent?.location || ''
+    };
+    const buffer = await generateDocx(enrichedCV, doc.coverLetter, doc.language, doc.template || 'modern');
     const filename = doc.language === 'fr' ? 'CV_Adapte.docx' : 'Tailored_CV.docx';
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.send(Buffer.from(buffer));
   } catch (err) {
+    if (err.statusCode) return res.status(err.statusCode).json({ error: err.message });
     next(err);
   }
 };

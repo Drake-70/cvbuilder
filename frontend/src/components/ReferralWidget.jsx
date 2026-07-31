@@ -73,7 +73,7 @@ export default function ReferralWidget() {
       </div>
 
       {/* Stats */}
-      {stats && stats.totalReferrals > 0 && (
+      {stats && (stats.totalReferrals > 0 || stats.credits > 0) && (
         <div className="border-t border-surface-100 pt-3 mt-3 grid grid-cols-3 gap-2 text-center">
           <div>
             <p className="text-lg font-bold text-surface-800">{stats.totalReferrals}</p>

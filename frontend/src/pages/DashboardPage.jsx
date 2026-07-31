@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
@@ -10,26 +10,8 @@ import { useCache, invalidateCacheKey } from '../hooks/useCache';
 import { useToast } from '../contexts/ToastContext';
 import { DashboardSkeleton } from '../components/Skeleton';
 
-function AnimatedCounter({ value, duration = 800 }) {
-  const [display, setDisplay] = useState(0);
-  const ref = useRef(null);
-
-  useEffect(() => {
-    const target = value || 0;
-    if (target === 0) { setDisplay(0); return; }
-    const start = performance.now();
-    const animate = (now) => {
-      const elapsed = now - start;
-      const progress = Math.min(elapsed / duration, 1);
-      const eased = 1 - Math.pow(1 - progress, 3);
-      setDisplay(Math.round(eased * target));
-      if (progress < 1) ref.current = requestAnimationFrame(animate);
-    };
-    ref.current = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(ref.current);
-  }, [value, duration]);
-
-  return <span>{display}</span>;
+function AnimatedCounter({ value }) {
+  return <span>{value || 0}</span>;
 }
 
 export default function DashboardPage() {
@@ -187,8 +169,8 @@ export default function DashboardPage() {
           <p className="text-xs text-surface-500 dark:text-surface-400 mt-0.5">Saved</p>
         </div>
         <div className="card p-4 text-center animate-slide-up" style={{ animationDelay: '0.3s' }}>
-          <p className="text-2xl font-bold text-surface-600 dark:text-surface-300">{isSubscribed ? 'Pro' : 'Free'}</p>
-          <p className="text-xs text-surface-500 dark:text-surface-400 mt-0.5">Plan</p>
+          <p className="text-2xl font-bold text-surface-600 dark:text-surface-300">{isSubscribed ? 'Pro' : (user?.freeDocumentCredits || 0)}</p>
+          <p className="text-xs text-surface-500 dark:text-surface-400 mt-0.5">{isSubscribed ? 'Plan' : 'Free Credits'}</p>
         </div>
       </div>
 

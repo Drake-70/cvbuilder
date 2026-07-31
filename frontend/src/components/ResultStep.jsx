@@ -1,6 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { gsap } from 'gsap';
 import { useAuth } from '../contexts/AuthContext';
 import PaymentModal from './PaymentModal';
 import InterviewPrep from './InterviewPrep';
@@ -28,24 +27,10 @@ export default function ResultStep({ result, onDownload, onReset, loading, docum
   ];
 
   const isSubscribed = user?.subscriptionStatus === 'active';
-
-  const animRef = useRef(null);
-  useEffect(() => {
-    const el = animRef.current;
-    if (!el) return;
-    const ctx = gsap.context(() => {
-      const tl = gsap.timeline({ defaults: { ease: 'power2.out' } });
-      tl.from(el.querySelector('.result-header'), { opacity: 0, y: -10, duration: 0.3 })
-        .from(el.querySelector('.result-tabs'), { opacity: 0, y: 10, duration: 0.3 }, '-=0.1')
-        .from(el.querySelector('.result-content'), { opacity: 0, y: 20, duration: 0.4 }, '-=0.1')
-        .from(el.querySelector('.result-download'), { opacity: 0, y: 15, duration: 0.3 }, '-=0.1')
-        .from(el.querySelectorAll('.result-extra > *'), { opacity: 0, y: 20, duration: 0.4, stagger: 0.08 }, '-=0.1');
-    }, el);
-    return () => ctx.revert();
-  }, []);
+  const hasCredits = (user?.freeDocumentCredits || 0) > 0;
 
   const handleDownloadClick = () => {
-    if (isSubscribed) {
+    if (isSubscribed || hasCredits) {
       onDownload(template);
     } else {
       setPaymentOpen(true);
@@ -57,8 +42,8 @@ export default function ResultStep({ result, onDownload, onReset, loading, docum
   };
 
   return (
-    <div ref={animRef}>
-      <div className="flex items-start justify-between mb-6 result-header">
+    <div>
+      <div className="flex items-start justify-between mb-6">
         <div>
           <div className="flex items-center gap-2 mb-1">
             <div className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center">
@@ -246,14 +231,19 @@ export default function ResultStep({ result, onDownload, onReset, loading, docum
                 <polyline points="7,10 12,15 17,10"/>
                 <line x1="12" y1="15" x2="12" y2="3"/>
               </svg>
-              {isSubscribed ? t('download_both') : `Pay & ${t('download_both')}`}
+              {isSubscribed ? t('download_both') : hasCredits ? t('download_both') : `Pay & ${t('download_both')}`}
             </>
           )}
         </button>
 
-        {!isSubscribed && (
+        {!isSubscribed && !hasCredits && (
           <p className="text-center text-xs text-surface-400 mt-2">
             Preview is free. Payment required to download the .docx file.
+          </p>
+        )}
+        {hasCredits && (
+          <p className="text-center text-xs text-emerald-500 mt-2">
+            You have {user.freeDocumentCredits} free download credit{user.freeDocumentCredits > 1 ? 's' : ''}. This download is free.
           </p>
         )}
       </div>

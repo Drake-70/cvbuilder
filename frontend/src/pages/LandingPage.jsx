@@ -1,27 +1,6 @@
-import { useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { gsap } from 'gsap';
-import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import logoImg from '../assets/cvboost-logo.png';
-
-gsap.registerPlugin(ScrollTrigger);
-
-function GsapCounter({ target, suffix = '' }) {
-  const ref = useRef(null);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const obj = { val: 0 };
-    let ctr = gsap.to(obj, {
-      val: target, duration: 2, ease: 'power2.out',
-      scrollTrigger: { trigger: el, start: 'top 90%' },
-      onUpdate: () => { el.textContent = `${Math.floor(obj.val)}${suffix}`; }
-    });
-    return () => ctr.kill();
-  }, [target, suffix]);
-  return <span ref={ref}>0{suffix}</span>;
-}
 
 const FeatureIcons = {
   bilingual: (
@@ -60,145 +39,31 @@ const FeatureIcons = {
 export default function LandingPage() {
   const { t } = useTranslation('common');
   const { t: tTailor } = useTranslation('tailor');
-  const heroRef = useRef(null);
-  const stepsRef = useRef(null);
-  const featuresRef = useRef(null);
-  const statsRef = useRef(null);
-  const ctaRef = useRef(null);
-  const dashboardRef = useRef(null);
-  const particlesRef = useRef(null);
-
-  useEffect(() => {
-    ScrollTrigger.refresh();
-    const refresh = () => ScrollTrigger.refresh();
-    window.addEventListener('resize', refresh);
-    return () => window.removeEventListener('resize', refresh);
-  }, []);
-
-  useEffect(() => {
-    const hero = heroRef.current;
-    if (!hero) return;
-    const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
-    tl.from(hero.querySelector('[data-animate="badge"]'), { opacity: 0, y: -20, duration: 0.5 })
-      .from(hero.querySelector('[data-animate="heading"]'), { opacity: 0, y: 40, duration: 0.7 }, '-=0.15')
-      .from(hero.querySelector('[data-animate="desc"]'), { opacity: 0, y: 30, duration: 0.6 }, '-=0.3')
-      .from(hero.querySelector('[data-animate="ctas"]'), { opacity: 0, y: 25, duration: 0.5 }, '-=0.25')
-      .from(hero.querySelectorAll('[data-animate="orb"]'), { opacity: 0, scale: 0, duration: 1, stagger: 0.2, ease: 'back.out(2)' }, '-=0.3');
-    gsap.from(hero.querySelectorAll('.hero-particle-dot'), {
-      opacity: 0, scale: 0, duration: 1, stagger: 0.15, ease: 'back.out(3)',
-      scrollTrigger: { trigger: hero, start: 'top 70%' }
-    });
-  }, []);
-
-  useEffect(() => {
-    const db = dashboardRef.current;
-    if (!db) return;
-    gsap.from(db.querySelector('.dashboard-inner'), {
-      opacity: 0, y: 60, rotationX: 15, duration: 1.2, ease: 'power3.out',
-      scrollTrigger: { trigger: db, start: 'top 80%' }
-    });
-    gsap.from(db.querySelectorAll('[data-animate="float-card"]'), {
-      opacity: 0, y: 40, scale: 0.85, duration: 0.7, stagger: 0.2, ease: 'back.out(1.7)',
-      scrollTrigger: { trigger: db, start: 'top 75%' }
-    });
-  }, []);
-
-  useEffect(() => {
-    const el = stepsRef.current;
-    if (!el) return;
-    gsap.from(el.querySelectorAll('[data-animate-step]'), {
-      opacity: 0, y: 40, duration: 0.7, stagger: 0.15, ease: 'power3.out',
-      scrollTrigger: { trigger: el, start: 'top 80%' }
-    });
-  }, []);
-
-  useEffect(() => {
-    const el = featuresRef.current;
-    if (!el) return;
-    gsap.from(el.querySelectorAll('[data-animate-feature]'), {
-      opacity: 0, y: 30, scale: 0.95, duration: 0.5, stagger: 0.08, ease: 'power2.out',
-      scrollTrigger: { trigger: el, start: 'top 85%' }
-    });
-  }, []);
-
-  useEffect(() => {
-    const el = statsRef.current;
-    if (!el) return;
-    gsap.from(el.querySelectorAll('[data-animate-stat]'), {
-      opacity: 0, y: 30, duration: 0.5, stagger: 0.12, ease: 'power2.out',
-      scrollTrigger: { trigger: el, start: 'top 85%' }
-    });
-  }, []);
-
-  useEffect(() => {
-    const el = ctaRef.current;
-    if (!el) return;
-    gsap.from(el, {
-      opacity: 0, scale: 0.85, duration: 1, ease: 'elastic.out(1, 0.5)',
-      scrollTrigger: { trigger: el, start: 'top 85%' }
-    });
-  }, []);
-
-  useEffect(() => {
-    gsap.from('.testimonial-card', {
-      opacity: 0, y: 30, scale: 0.95, duration: 0.6, stagger: 0.12, ease: 'power2.out',
-      scrollTrigger: { trigger: '.testimonial-card', start: 'top 85%' }
-    });
-  }, []);
-
-  useEffect(() => {
-    const el = dashboardRef.current;
-    if (!el) return;
-    const handleMouse = (e) => {
-      const rect = el.getBoundingClientRect();
-      const x = (e.clientX - rect.left) / rect.width - 0.5;
-      const y = (e.clientY - rect.top) / rect.height - 0.5;
-      gsap.to(el.querySelector('.dashboard-inner'), {
-        rotationY: x * 15, rotationX: -y * 15, transformPerspective: 1200,
-        duration: 0.6, ease: 'power2.out'
-      });
-    };
-    const handleLeave = () => {
-      gsap.to(el.querySelector('.dashboard-inner'), {
-        rotationY: 6, rotationX: -3, duration: 0.8, ease: 'elastic.out(1, 0.3)'
-      });
-    };
-    el.addEventListener('mousemove', handleMouse);
-    el.addEventListener('mouseleave', handleLeave);
-    return () => {
-      el.removeEventListener('mousemove', handleMouse);
-      el.removeEventListener('mouseleave', handleLeave);
-    };
-  }, []);
 
   return (
     <div className="overflow-hidden">
       {/* Hero Section */}
-      <section ref={heroRef} className="relative pt-16 pb-20 sm:pt-24 sm:pb-28 px-4" aria-labelledby="hero-heading">
-        <div ref={particlesRef} className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
-          <div className="hero-particle orb absolute -top-40 -right-40 w-80 h-80 bg-brand-200/30 rounded-full blur-3xl dark:bg-brand-900/20" data-animate="orb" />
-          <div className="hero-particle orb absolute -bottom-20 -left-20 w-60 h-60 bg-brand-100/40 rounded-full blur-3xl dark:bg-brand-800/10" data-animate="orb" />
-          <div className="hero-particle-dot absolute top-32 left-[15%] w-2 h-2 rounded-full bg-brand-400/40" />
-          <div className="hero-particle-dot absolute top-48 right-[20%] w-3 h-3 rounded-full bg-brand-300/30" />
-          <div className="hero-particle-dot absolute bottom-32 left-[30%] w-2 h-2 rounded-full bg-brand-500/20" />
-          <div className="hero-particle-dot absolute top-20 right-[35%] w-1.5 h-1.5 rounded-full bg-brand-400/30" />
+      <section className="relative pt-16 pb-20 sm:pt-24 sm:pb-28 px-4" aria-labelledby="hero-heading">
+        <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
+          <div className="absolute -top-40 -right-40 w-80 h-80 bg-brand-200/30 rounded-full blur-3xl dark:bg-brand-900/20" />
+          <div className="absolute -bottom-20 -left-20 w-60 h-60 bg-brand-100/40 rounded-full blur-3xl dark:bg-brand-800/10" />
         </div>
 
         <div className="max-w-4xl mx-auto text-center relative">
-          <div data-animate="badge" className="hero-fade-in inline-flex items-center gap-2 badge badge-brand mb-6" role="status">
+          <div className="inline-flex items-center gap-2 badge badge-brand mb-6" role="status">
             <span className="w-1.5 h-1.5 rounded-full bg-brand-500 animate-pulse" aria-hidden="true" />
             AI-Powered CV Tailoring
           </div>
 
-          <h1 id="hero-heading" data-animate="heading" className="hero-fade-in text-4xl sm:text-5xl md:text-6xl font-extrabold text-surface-900 dark:text-white leading-[1.1] tracking-tight mb-6">
+          <h1 id="hero-heading" className="text-4xl sm:text-5xl md:text-6xl font-extrabold text-surface-900 dark:text-white leading-[1.1] tracking-tight mb-6">
             {t('tagline')}
           </h1>
 
-          <p data-animate="desc" className="hero-fade-in text-lg sm:text-xl text-surface-500 dark:text-surface-400 max-w-2xl mx-auto mb-10 leading-relaxed">
+          <p className="text-lg sm:text-xl text-surface-500 dark:text-surface-400 max-w-2xl mx-auto mb-10 leading-relaxed">
             {t('description')}
           </p>
 
-          <div data-animate="ctas" className="hero-fade-in flex flex-col sm:flex-row items-center justify-center gap-3">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link to="/register" className="btn-primary text-base px-8 py-3.5 no-underline w-full sm:w-auto text-center">
               {t('get_started')}
               <svg className="inline-block ml-2 w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -213,155 +78,98 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* 3D Dashboard Preview */}
-      <section ref={dashboardRef} className="py-12 sm:py-16 px-4 relative" aria-label="Dashboard preview">
+      {/* Dashboard Preview */}
+      <section className="py-12 sm:py-16 px-4 relative" aria-label="Dashboard preview">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-10">
             <p className="text-sm font-semibold text-brand-600 uppercase tracking-wider mb-2">Your Command Center</p>
             <h2 className="text-2xl sm:text-3xl font-bold text-surface-900 dark:text-white">Everything you need, one dashboard</h2>
           </div>
 
-          <div className="perspective-container">
-            <div className="relative">
-              {/* Glow orbs behind the dashboard */}
-              <div className="absolute -top-20 left-1/4 w-64 h-64 bg-brand-400/20 rounded-full blur-3xl glow-orb pointer-events-none" aria-hidden="true" />
-              <div className="absolute -bottom-16 right-1/4 w-48 h-48 bg-indigo-400/15 rounded-full blur-3xl glow-orb-delayed pointer-events-none" aria-hidden="true" />
-
-              {/* Main dashboard frame */}
-              <div className="dashboard-3d dashboard-3d-hover dashboard-inner shadow-3d rounded-2xl bg-surface-0 dark:bg-surface-800 border border-surface-200/80 dark:border-surface-700/80 overflow-hidden">
-                {/* Browser chrome */}
-                <div className="flex items-center gap-2 px-4 py-2.5 bg-surface-50 dark:bg-surface-800/80 border-b border-surface-200/60 dark:border-surface-700/60">
-                  <div className="flex gap-1.5">
-                    <div className="w-2.5 h-2.5 rounded-full bg-rose-400" />
-                    <div className="w-2.5 h-2.5 rounded-full bg-amber-400" />
-                    <div className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
+          <div className="relative">
+            {/* Main dashboard frame */}
+            <div className="rounded-2xl bg-surface-0 dark:bg-surface-800 border border-surface-200/80 dark:border-surface-700/80 overflow-hidden shadow-xl">
+              {/* Browser chrome */}
+              <div className="flex items-center gap-2 px-4 py-2.5 bg-surface-50 dark:bg-surface-800/80 border-b border-surface-200/60 dark:border-surface-700/60">
+                <div className="flex gap-1.5">
+                  <div className="w-2.5 h-2.5 rounded-full bg-rose-400" />
+                  <div className="w-2.5 h-2.5 rounded-full bg-amber-400" />
+                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
+                </div>
+                <div className="flex-1 mx-4">
+                  <div className="h-5 bg-surface-200/80 dark:bg-surface-700/60 rounded-md flex items-center px-3 max-w-xs">
+                    <span className="text-[10px] text-surface-400 dark:text-surface-500 font-mono">cvboost.cm/dashboard</span>
                   </div>
-                  <div className="flex-1 mx-4">
-                    <div className="h-5 bg-surface-200/80 dark:bg-surface-700/60 rounded-md flex items-center px-3 max-w-xs">
-                      <span className="text-[10px] text-surface-400 dark:text-surface-500 font-mono">cvboost.cm/dashboard</span>
-                    </div>
+                </div>
+              </div>
+
+              {/* Dashboard content */}
+              <div className="p-4 sm:p-6 space-y-4">
+                {/* Top row: User greeting + quick actions */}
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center text-white text-xs font-bold shadow-sm">JD</div>
+                  <div>
+                    <div className="h-2.5 w-28 bg-surface-200 dark:bg-surface-600 rounded-full" />
+                    <div className="h-2 w-20 bg-surface-100 dark:bg-surface-700 rounded-full mt-1.5" />
                   </div>
                 </div>
 
-                {/* Dashboard content */}
-                <div className="p-4 sm:p-6 space-y-4">
-                  {/* Top row: User greeting + quick actions */}
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center text-white text-xs font-bold shadow-sm">JD</div>
-                    <div>
-                      <div className="h-2.5 w-28 bg-surface-200 dark:bg-surface-600 rounded-full" />
-                      <div className="h-2 w-20 bg-surface-100 dark:bg-surface-700 rounded-full mt-1.5" />
+                {/* Quick action cards */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-3 rounded-xl bg-gradient-to-br from-blue-500/10 to-indigo-500/10 dark:from-blue-500/5 dark:to-indigo-500/5 border border-blue-200/50 dark:border-blue-800/30">
+                    <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center mb-2 shadow-sm">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/>
+                      </svg>
                     </div>
+                    <div className="h-2 w-16 bg-surface-200 dark:bg-surface-600 rounded-full" />
+                    <div className="h-1.5 w-24 bg-surface-100 dark:bg-surface-700 rounded-full mt-1.5" />
                   </div>
+                  <div className="p-3 rounded-xl bg-gradient-to-br from-amber-500/10 to-orange-500/10 dark:from-amber-500/5 dark:to-orange-500/5 border border-amber-200/50 dark:border-amber-800/30">
+                    <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center mb-2 shadow-sm">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                      </svg>
+                    </div>
+                    <div className="h-2 w-14 bg-surface-200 dark:bg-surface-600 rounded-full" />
+                    <div className="h-1.5 w-20 bg-surface-100 dark:bg-surface-700 rounded-full mt-1.5" />
+                  </div>
+                </div>
 
-                  {/* Quick action cards */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="card-3d p-3 rounded-xl bg-gradient-to-br from-blue-500/10 to-indigo-500/10 dark:from-blue-500/5 dark:to-indigo-500/5 border border-blue-200/50 dark:border-blue-800/30">
-                      <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center mb-2 shadow-sm">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                {/* Stats row */}
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { color: 'from-brand-500 to-brand-600', value: '12' },
+                    { color: 'from-emerald-400 to-emerald-600', value: '8' },
+                    { color: 'from-surface-500 to-surface-600', value: 'Pro' }
+                  ].map((s, i) => (
+                    <div key={i} className="p-2.5 rounded-xl bg-surface-50 dark:bg-surface-700/50 border border-surface-100 dark:border-surface-700 text-center">
+                      <div className={`text-base font-bold bg-gradient-to-r ${s.color} bg-clip-text text-transparent`}>{s.value}</div>
+                      <div className="h-1.5 w-10 bg-surface-200 dark:bg-surface-600 rounded-full mx-auto mt-1" />
+                    </div>
+                  ))}
+                </div>
+
+                {/* Document list items */}
+                <div className="space-y-2">
+                  {[
+                    { title: 'Marketing Manager', badge: 'ATS 94%', color: 'emerald' },
+                    { title: 'Software Developer', badge: 'Pending', color: 'amber' },
+                    { title: 'Project Coordinator', badge: 'Downloaded', color: 'brand' }
+                  ].map((doc, i) => (
+                    <div key={i} className={`flex items-center gap-3 p-3 rounded-xl bg-surface-50 dark:bg-surface-700/40 border border-surface-100 dark:border-surface-700/60 ${i === 0 ? '' : 'opacity-70'}`}>
+                      <div className="w-7 h-7 rounded-lg bg-brand-50 dark:bg-brand-900/30 flex items-center justify-center flex-shrink-0">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-brand-600">
                           <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/>
                         </svg>
                       </div>
-                      <div className="h-2 w-16 bg-surface-200 dark:bg-surface-600 rounded-full" />
-                      <div className="h-1.5 w-24 bg-surface-100 dark:bg-surface-700 rounded-full mt-1.5" />
-                    </div>
-                    <div className="card-3d p-3 rounded-xl bg-gradient-to-br from-amber-500/10 to-orange-500/10 dark:from-amber-500/5 dark:to-orange-500/5 border border-amber-200/50 dark:border-amber-800/30">
-                      <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center mb-2 shadow-sm">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                        </svg>
+                      <div className="flex-1 min-w-0">
+                        <div className="h-2 w-28 bg-surface-200 dark:bg-surface-600 rounded-full" />
+                        <div className="h-1.5 w-16 bg-surface-100 dark:bg-surface-700 rounded-full mt-1.5" />
                       </div>
-                      <div className="h-2 w-14 bg-surface-200 dark:bg-surface-600 rounded-full" />
-                      <div className="h-1.5 w-20 bg-surface-100 dark:bg-surface-700 rounded-full mt-1.5" />
+                      <div className={`badge badge-${doc.color} text-[9px]`}>{doc.badge}</div>
                     </div>
-                  </div>
-
-                  {/* Stats row */}
-                  <div className="grid grid-cols-3 gap-2">
-                    {[
-                      { color: 'from-brand-500 to-brand-600', value: '12' },
-                      { color: 'from-emerald-400 to-emerald-600', value: '8' },
-                      { color: 'from-surface-500 to-surface-600', value: 'Pro' }
-                    ].map((s, i) => (
-                      <div key={i} className="card-3d-back p-2.5 rounded-xl bg-surface-50 dark:bg-surface-700/50 border border-surface-100 dark:border-surface-700 text-center">
-                        <div className={`text-base font-bold bg-gradient-to-r ${s.color} bg-clip-text text-transparent`}>{s.value}</div>
-                        <div className="h-1.5 w-10 bg-surface-200 dark:bg-surface-600 rounded-full mx-auto mt-1" />
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Document list items */}
-                  <div className="space-y-2">
-                    {[
-                      { title: 'Marketing Manager', badge: 'ATS 94%', color: 'emerald' },
-                      { title: 'Software Developer', badge: 'Pending', color: 'amber' },
-                      { title: 'Project Coordinator', badge: 'Downloaded', color: 'brand' }
-                    ].map((doc, i) => (
-                      <div key={i} className={`card-3d-back flex items-center gap-3 p-3 rounded-xl bg-surface-50 dark:bg-surface-700/40 border border-surface-100 dark:border-surface-700/60 ${i === 0 ? '' : 'opacity-70'}`}>
-                        <div className="w-7 h-7 rounded-lg bg-brand-50 dark:bg-brand-900/30 flex items-center justify-center flex-shrink-0">
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-brand-600">
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/>
-                          </svg>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="h-2 w-28 bg-surface-200 dark:bg-surface-600 rounded-full" />
-                          <div className="h-1.5 w-16 bg-surface-100 dark:bg-surface-700 rounded-full mt-1.5" />
-                        </div>
-                        <div className={`badge badge-${doc.color} text-[9px]`}>{doc.badge}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Floating 3D elements */}
-              <div data-animate="float-card" className="absolute -top-6 -right-4 sm:-right-10 float-3d pointer-events-none" aria-hidden="true">
-                <div className="card-3d bg-surface-0 dark:bg-surface-800 rounded-xl border border-surface-200 dark:border-surface-700 shadow-xl p-3 w-36 sm:w-44">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="w-5 h-5 rounded-full bg-gradient-to-br from-brand-400 to-brand-600" />
-                    <div className="h-2 w-16 bg-surface-200 dark:bg-surface-600 rounded-full" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <div className="h-1.5 w-full bg-surface-100 dark:bg-surface-700 rounded-full" />
-                    <div className="h-1.5 w-4/5 bg-surface-100 dark:bg-surface-700 rounded-full" />
-                    <div className="h-1.5 w-3/5 bg-surface-100 dark:bg-surface-700 rounded-full" />
-                  </div>
-                  <div className="mt-2 flex gap-1">
-                    <div className="h-4 w-10 bg-brand-50 dark:bg-brand-900/30 rounded-full" />
-                    <div className="h-4 w-8 bg-brand-50 dark:bg-brand-900/30 rounded-full" />
-                  </div>
-                  <div className="absolute -top-2 -right-2 badge badge-emerald text-[8px] shadow-lg">ATS 94%</div>
-                </div>
-              </div>
-
-              <div data-animate="float-card" className="absolute -bottom-4 -left-3 sm:-left-8 float-3d-delayed pointer-events-none" aria-hidden="true">
-                <div className="card-3d bg-surface-0 dark:bg-surface-800 rounded-xl border border-surface-200 dark:border-surface-700 shadow-xl p-3 w-32 sm:w-40">
-                  <div className="flex items-center gap-1.5 mb-2">
-                    <div className="w-4 h-4 rounded bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center">
-                      <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20,6 9,17 4,12"/></svg>
-                    </div>
-                    <div className="h-2 w-14 bg-surface-200 dark:bg-surface-600 rounded-full" />
-                  </div>
-                  <div className="flex gap-1 mt-1">
-                    <div className="h-1.5 flex-1 bg-emerald-400 rounded-full" />
-                    <div className="h-1.5 flex-1 bg-emerald-400 rounded-full" />
-                    <div className="h-1.5 flex-1 bg-emerald-400 rounded-full" />
-                    <div className="h-1.5 flex-1 bg-emerald-200 dark:bg-emerald-800 rounded-full" />
-                  </div>
-                  <div className="h-1.5 w-20 bg-surface-100 dark:bg-surface-700 rounded-full mt-2" />
-                </div>
-              </div>
-
-              <div data-animate="float-card" className="absolute top-1/2 -right-6 sm:-right-14 float-3d-slow pointer-events-none hidden sm:block" aria-hidden="true">
-                <div className="bg-surface-0 dark:bg-surface-800 rounded-xl border border-surface-200 dark:border-surface-700 shadow-lg p-2.5 w-28">
-                  <div className="text-[9px] font-bold text-surface-400 dark:text-surface-500 uppercase tracking-wider mb-1">Interview Prep</div>
-                  <div className="flex gap-1 mb-1.5">
-                    {[1,2,3,4,5].map(s => (
-                      <div key={s} className={`w-2.5 h-2.5 rounded-sm ${s <= 4 ? 'bg-brand-400' : 'bg-surface-200 dark:bg-surface-600'}`} />
-                    ))}
-                  </div>
-                  <div className="h-1.5 w-full bg-surface-100 dark:bg-surface-700 rounded-full" />
-                  <div className="h-1.5 w-3/4 bg-surface-100 dark:bg-surface-700 rounded-full mt-1" />
+                  ))}
                 </div>
               </div>
             </div>
@@ -370,7 +178,7 @@ export default function LandingPage() {
       </section>
 
       {/* How it works */}
-      <section ref={stepsRef} className="py-16 sm:py-20 px-4 bg-surface-0 dark:bg-surface-800 border-y border-surface-100 dark:border-surface-700" aria-labelledby="how-it-works-heading">
+      <section className="py-16 sm:py-20 px-4 bg-surface-0 dark:bg-surface-800 border-y border-surface-100 dark:border-surface-700" aria-labelledby="how-it-works-heading">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-12">
             <p className="text-sm font-semibold text-brand-600 uppercase tracking-wider mb-2">How it works</p>
@@ -419,11 +227,7 @@ export default function LandingPage() {
                 )
               }
             ].map((step, i) => (
-              <div
-                key={i}
-                data-animate-step
-                className="relative text-center"
-              >
+              <div key={i} className="relative text-center">
                 <div className={`relative mx-auto w-14 h-14 rounded-2xl bg-gradient-to-br ${step.color} flex items-center justify-center text-white shadow-lg mb-5 z-10`}>
                   {step.icon}
                 </div>
@@ -437,19 +241,17 @@ export default function LandingPage() {
       </section>
 
       {/* Stats Section */}
-      <section ref={statsRef} className="py-16 sm:py-20 px-4" aria-labelledby="stats-heading">
+      <section className="py-16 sm:py-20 px-4" aria-labelledby="stats-heading">
         <div className="max-w-4xl mx-auto">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             {[
-              { value: 500, suffix: '+', label: 'CVs Tailored' },
-              { value: 98, suffix: '%', label: 'Satisfaction' },
-              { value: 2, suffix: 'min', label: 'Avg. Time' },
-              { value: 3, suffix: 'x', label: 'More Interviews' }
+              { value: '500+', label: 'CVs Tailored' },
+              { value: '98%', label: 'Satisfaction' },
+              { value: '2min', label: 'Avg. Time' },
+              { value: '3x', label: 'More Interviews' }
             ].map((stat, i) => (
-              <div key={i} data-animate-stat className="text-center p-6 rounded-2xl bg-surface-0 dark:bg-surface-800 border border-surface-100 dark:border-surface-700">
-                <div className="text-3xl sm:text-4xl font-extrabold text-brand-600 mb-1">
-                  <GsapCounter target={stat.value} suffix={stat.suffix} />
-                </div>
+              <div key={i} className="text-center p-6 rounded-2xl bg-surface-0 dark:bg-surface-800 border border-surface-100 dark:border-surface-700">
+                <div className="text-3xl sm:text-4xl font-extrabold text-brand-600 mb-1">{stat.value}</div>
                 <div className="text-sm text-surface-500 dark:text-surface-400">{stat.label}</div>
               </div>
             ))}
@@ -458,7 +260,7 @@ export default function LandingPage() {
       </section>
 
       {/* Features */}
-      <section ref={featuresRef} className="py-16 sm:py-20 px-4 bg-surface-0 dark:bg-surface-800 border-y border-surface-100 dark:border-surface-700" aria-labelledby="features-heading">
+      <section className="py-16 sm:py-20 px-4 bg-surface-0 dark:bg-surface-800 border-y border-surface-100 dark:border-surface-700" aria-labelledby="features-heading">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-12">
             <p className="text-sm font-semibold text-brand-600 uppercase tracking-wider mb-2">Why CVBoost?</p>
@@ -474,7 +276,7 @@ export default function LandingPage() {
               { icon: FeatureIcons.zap, title: 'Instant results', desc: 'Tailored CV and cover letter in seconds, not hours.' },
               { icon: FeatureIcons.coin, title: 'Affordable', desc: 'Pay per document or subscribe for unlimited tailoring.' }
             ].map((f, i) => (
-              <div key={i} data-animate-feature className="card p-5">
+              <div key={i} className="card p-5">
                 <div className="w-10 h-10 rounded-xl bg-brand-50 dark:bg-brand-900/30 flex items-center justify-center text-brand-600 mb-3">
                   {f.icon}
                 </div>
@@ -522,13 +324,9 @@ export default function LandingPage() {
       </section>
 
       {/* CTA */}
-      <section ref={ctaRef} className="py-16 sm:py-20 px-4" aria-labelledby="cta-heading">
+      <section className="py-16 sm:py-20 px-4" aria-labelledby="cta-heading">
         <div className="max-w-3xl mx-auto">
           <div className="card bg-gradient-to-br from-brand-600 to-brand-800 border-0 p-8 sm:p-12 text-center relative overflow-hidden">
-            <div className="absolute inset-0 opacity-10" aria-hidden="true">
-              <div className="absolute top-0 right-0 w-40 h-40 bg-white rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl animate-float" />
-              <div className="absolute bottom-0 left-0 w-32 h-32 bg-white rounded-full translate-y-1/2 -translate-x-1/2 blur-2xl animate-float-delayed" />
-            </div>
             <div className="relative">
               <h2 id="cta-heading" className="text-2xl sm:text-3xl font-bold text-white mb-3">Ready to stand out?</h2>
               <p className="text-brand-100 mb-8 max-w-md mx-auto">

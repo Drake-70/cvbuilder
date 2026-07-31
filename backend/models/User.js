@@ -39,13 +39,17 @@ const userSchema = new mongoose.Schema({
   },
   subscriptionExpiresAt: { type: Date },
   documentsGeneratedCount: { type: Number, default: 0 },
+  freeDocumentCredits: { type: Number, default: 0 },
   resetPasswordToken: { type: String },
   resetPasswordExpires: { type: Date },
   role: {
     type: String,
     enum: ['user', 'admin'],
     default: 'user'
-  }
+  },
+  loginAttempts: { type: Number, default: 0 },
+  lockoutUntil: { type: Date, default: null },
+  tokenVersion: { type: Number, default: 0 }
 }, { timestamps: true });
 
 userSchema.methods.comparePassword = async function (candidatePassword) {

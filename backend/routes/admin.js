@@ -8,7 +8,7 @@ router.use(requireAdmin);
 
 router.get('/dashboard', adminController.getDashboard);
 router.get('/users', adminController.listUsers);
-router.patch('/users/{id}/role', adminController.updateUserRole);
+router.patch('/users/:id/role', adminController.updateUserRole);
 router.get('/payments', adminController.listPayments);
 router.get('/contacts', contactController.list);
 

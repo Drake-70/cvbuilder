@@ -1,23 +1,10 @@
-import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { gsap } from 'gsap';
 
 export default function PathChoice({ onSelect }) {
   const { t } = useTranslation('tailor');
-  const ref = useRef(null);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const ctx = gsap.context(() => {
-      gsap.from(el.querySelector('h2, p'), { opacity: 0, y: 20, duration: 0.5, stagger: 0.12, ease: 'power2.out' });
-      gsap.from(el.querySelectorAll('.path-card'), { opacity: 0, y: 30, scale: 0.92, duration: 0.5, stagger: 0.15, ease: 'back.out(1.7)' });
-    }, el);
-    return () => ctx.revert();
-  }, []);
 
   return (
-    <div ref={ref}>
+    <div>
       <div className="text-center mb-8">
         <h2 className="text-2xl sm:text-3xl font-bold text-surface-900 mb-2">{t('choose_path')}</h2>
         <p className="text-surface-500">Everyone's journey starts somewhere. Pick what works for you.</p>

@@ -15,6 +15,29 @@ exports.getMyCode = async (req, res, next) => {
   }
 };
 
+exports.applyReferralCode = async (code, userId) => {
+  if (!code) return;
+
+  const referral = await Referral.findOne({ code });
+  if (!referral) throw Object.assign(new Error('Invalid referral code'), { statusCode: 404 });
+
+  if (referral.referrerUserId.toString() === userId.toString()) {
+    throw Object.assign(new Error('You cannot use your own referral code'), { statusCode: 400 });
+  }
+
+  if (referral.referredUserId) {
+    throw Object.assign(new Error('This code has already been used'), { statusCode: 400 });
+  }
+
+  referral.referredUserId = userId;
+  await referral.save();
+
+  await Promise.all([
+    User.findByIdAndUpdate(referral.referrerUserId, { $inc: { freeDocumentCredits: 1 } }),
+    User.findByIdAndUpdate(userId, { $inc: { freeDocumentCredits: 1 } })
+  ]);
+};
+
 exports.applyCode = async (req, res, next) => {
   try {
     const { code } = req.body;
@@ -22,30 +45,18 @@ exports.applyCode = async (req, res, next) => {
       return res.status(400).json({ error: 'Referral code is required' });
     }
 
-    const referral = await Referral.findOne({ code });
-    if (!referral) {
-      return res.status(404).json({ error: 'Invalid referral code' });
-    }
+    await exports.applyReferralCode(code, req.user._id);
 
-    if (referral.referrerUserId.toString() === req.user._id.toString()) {
-      return res.status(400).json({ error: 'You cannot use your own referral code' });
-    }
-
-    if (referral.referredUserId) {
-      return res.status(400).json({ error: 'This code has already been used' });
-    }
-
-    referral.referredUserId = req.user._id;
-    await referral.save();
-
-    res.json({ message: 'Referral code applied successfully!' });
+    res.json({ message: 'Referral code applied successfully! You both got a free download credit.' });
   } catch (err) {
+    if (err.statusCode) {
+      return res.status(err.statusCode).json({ error: err.message });
+    }
     next(err);
   }
 };
 
 exports.grantReward = async (referredUserId) => {
-  // Called when a referred user completes their first paid document
   const referral = await Referral.findOne({ referredUserId, rewardGranted: false });
   if (!referral) return;
 
@@ -59,15 +70,17 @@ exports.grantReward = async (referredUserId) => {
 
 exports.getStats = async (req, res, next) => {
   try {
-    const referral = await Referral.findOne({ referrerUserId: req.user._id });
+    let referral = await Referral.findOne({ referrerUserId: req.user._id });
+    if (!referral) {
+      referral = await Referral.create({ referrerUserId: req.user._id });
+    }
     const user = req.user;
 
-    const totalReferrals = await Referral.countDocuments({ referrerUserId: req.user._id });
     const successfulReferrals = await Referral.countDocuments({ referrerUserId: req.user._id, referredUserId: { $ne: null } });
 
     res.json({
-      code: referral?.code || null,
-      totalReferrals,
+      code: referral.code,
+      totalReferrals: successfulReferrals,
       successfulReferrals,
       credits: user.freeDocumentCredits || 0
     });
