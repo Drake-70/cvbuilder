@@ -20,6 +20,7 @@ const documentRoutes = require('./routes/document');
 const paymentRoutes = require('./routes/payment');
 const interviewRoutes = require('./routes/interview');
 const scoreRoutes = require('./routes/score');
+const previewRoutes = require('./routes/preview');
 const linkedinRoutes = require('./routes/linkedin');
 const referralRoutes = require('./routes/referral');
 const ocrRoutes = require('./routes/ocr');
@@ -48,10 +49,12 @@ app.use(cors({
   credentials: true
 }));
 
+const isProd = process.env.NODE_ENV === 'production';
+
 // Rate limiters
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 200,
+  max: isProd ? 200 : 2000,
   message: { error: 'Too many requests, please try again later.' },
   standardHeaders: true,
   legacyHeaders: false
@@ -75,7 +78,7 @@ const paymentLimiter = rateLimit({
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 50,
+  max: isProd ? 50 : 500,
   message: { error: 'Too many auth attempts. Please try again later.' },
   standardHeaders: true,
   legacyHeaders: false
@@ -120,6 +123,7 @@ app.use('/api/document', documentRoutes);
 app.use('/api/payments', paymentLimiter, paymentRoutes);
 app.use('/api/interview-prep', aiLimiter, interviewRoutes);
 app.use('/api/score', scoreRoutes);
+app.use('/api/preview', aiLimiter, previewRoutes);
 app.use('/api/linkedin', aiLimiter, linkedinRoutes);
 app.use('/api/referrals', referralRoutes);
 app.use('/api/ocr', ocrRoutes);

@@ -50,7 +50,7 @@ export default function RegisterPage() {
         toast.success(t('create_account'), 'Check your email if an account exists.');
         navigate('/login');
       } else {
-        toast.success(t('create_account'), 'Welcome to CVBoost!');
+        toast.success(t('create_account'), 'Welcome to CVBoost! Your first download is free.');
         navigate('/dashboard');
       }
     } catch (err) {

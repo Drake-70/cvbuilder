@@ -118,7 +118,8 @@ exports.register = async (req, res, next) => {
       email: email.toLowerCase(),
       passwordHash,
       name,
-      preferredLanguage: preferredLanguage || 'en'
+      preferredLanguage: preferredLanguage || 'en',
+      freeDocumentCredits: 1
     });
 
     // Apply referral code if provided
@@ -404,7 +405,8 @@ exports.googleLogin = async (req, res, next) => {
         name: name || email.split('@')[0],
         googleId,
         preferredLanguage: 'en',
-        emailVerified: true
+        emailVerified: true,
+        freeDocumentCredits: 1
       });
     }
 

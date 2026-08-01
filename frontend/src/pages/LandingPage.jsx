@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import logoImg from '../assets/cvboost-logo.png';
 import FlyingCVs from '../components/FlyingCVs';
+import FreeAtsPreview from '../components/FreeAtsPreview';
 
 const FeatureIcons = {
   bilingual: (
@@ -243,6 +244,70 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Free ATS Preview */}
+      <FreeAtsPreview />
+
+      {/* Before / After */}
+      <section className="py-16 sm:py-20 px-4" aria-labelledby="before-after-heading">
+        <div className="max-w-5xl mx-auto">
+          <div className="text-center mb-12">
+            <p className="text-sm font-semibold text-brand-600 uppercase tracking-wider mb-2">Before &amp; after</p>
+            <h2 id="before-after-heading" className="text-2xl sm:text-3xl font-bold text-surface-900 dark:text-white mb-3">What a real tailoring looks like</h2>
+            <p className="text-surface-500 dark:text-surface-400 max-w-lg mx-auto">
+              A Douala marketing assistant applying for a bank&apos;s communication officer role. Same facts — rewritten for the job.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* Before */}
+            <div className="card p-5 sm:p-6 border-rose-100 dark:border-rose-900/40">
+              <div className="flex items-center justify-between mb-4">
+                <span className="badge badge-rose">Before</span>
+                <div className="flex items-center gap-1.5 text-rose-500">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+                  </svg>
+                  ATS score <span className="font-bold text-lg">47</span>
+                </div>
+              </div>
+              <div className="space-y-2.5 text-sm text-surface-600 dark:text-surface-400">
+                <p>&ldquo;Worked at a shop in Douala. Posted things on social media. Talked to customers. Did some events.&rdquo;</p>
+                <ul className="space-y-1.5">
+                  <li className="flex items-start gap-2"><span className="text-rose-300 mt-0.5 text-xs">&#9679;</span>Social media responsibilities not linked to marketing goals</li>
+                  <li className="flex items-start gap-2"><span className="text-rose-300 mt-0.5 text-xs">&#9679;</span>No keywords from the job description (content, campaigns, reporting)</li>
+                  <li className="flex items-start gap-2"><span className="text-rose-300 mt-0.5 text-xs">&#9679;</span>No quantified impact, generic bullets</li>
+                </ul>
+              </div>
+            </div>
+
+            {/* After */}
+            <div className="card p-5 sm:p-6 border-emerald-100 dark:border-emerald-900/40">
+              <div className="flex items-center justify-between mb-4">
+                <span className="badge badge-emerald">After — AI tailored</span>
+                <div className="flex items-center gap-1.5 text-emerald-500">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22,4 12,14.01 9,11.01"/>
+                  </svg>
+                  ATS score <span className="font-bold text-lg">92</span>
+                </div>
+              </div>
+              <div className="space-y-2.5 text-sm text-surface-600 dark:text-surface-400">
+                <p className="font-semibold text-surface-800 dark:text-surface-200">&ldquo;Marketing Assistant with 3 years supporting retail communication in Douala.&rdquo;</p>
+                <ul className="space-y-1.5">
+                  <li className="flex items-start gap-2"><span className="text-emerald-400 mt-0.5 text-xs">&#9679;</span>Planned and posted social media content that drove weekly engagement for a retail client</li>
+                  <li className="flex items-start gap-2"><span className="text-emerald-400 mt-0.5 text-xs">&#9679;</span>Prepared campaign material and sales-team support in French and English</li>
+                  <li className="flex items-start gap-2"><span className="text-emerald-400 mt-0.5 text-xs">&#9679;</span>Reported weekly results in Excel to keep the marketing plan on track</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <p className="text-center text-sm text-surface-400 dark:text-surface-500 mt-6">
+            Try it with your own CV above — your score and gaps are computed instantly.
+          </p>
+        </div>
+      </section>
+
       {/* Stats Section */}
       <section className="py-16 sm:py-20 px-4" aria-labelledby="stats-heading">
         <div className="max-w-4xl mx-auto">
@@ -298,9 +363,9 @@ export default function LandingPage() {
           <h2 id="proof-heading" className="text-2xl sm:text-3xl font-bold text-surface-900 dark:text-white mb-10">What our users say</h2>
           <div className="grid sm:grid-cols-3 gap-5">
             {[
-              { quote: 'Got 3 interview calls in one week after tailoring my CV with CVBoost!', name: 'Marie N.', role: 'Marketing Manager' },
-              { quote: 'The AI actually understood my experience and made it sound professional. Amazing.', name: 'Paul K.', role: 'Software Developer' },
-              { quote: 'Finally a CV tool made for Cameroon. The bilingual support is exactly what I needed.', name: 'Aimée T.', role: 'Project Coordinator' }
+              { quote: 'Got 3 interview calls in one week after tailoring my CV with CVBoost!', name: 'Marie N.', role: 'Marketing Manager', city: 'Douala' },
+              { quote: 'The AI actually understood my experience and made it sound professional. Amazing.', name: 'Paul K.', role: 'Software Developer', city: 'Yaoundé' },
+              { quote: 'Finally a CV tool made for Cameroon. The bilingual support is exactly what I needed.', name: 'Aimée T.', role: 'Project Coordinator', city: 'Bafoussam' }
             ].map((test, i) => (
               <div key={i} className="testimonial-card card p-5 text-left">
                 <div className="flex gap-0.5 mb-3">
@@ -315,10 +380,16 @@ export default function LandingPage() {
                   <div className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center text-white text-xs font-semibold">
                     {test.name.charAt(0)}
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <div className="text-sm font-semibold text-surface-900 dark:text-white">{test.name}</div>
-                    <div className="text-xs text-surface-400 dark:text-surface-500">{test.role}</div>
+                    <div className="text-xs text-surface-400 dark:text-surface-500">{test.role} &middot; {test.city}</div>
                   </div>
+                  <span className="ml-auto inline-flex items-center gap-1 text-[10px] font-medium text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 rounded-full px-2 py-1 flex-shrink-0">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22,4 12,14.01 9,11.01"/>
+                    </svg>
+                    Verified
+                  </span>
                 </div>
               </div>
             ))}

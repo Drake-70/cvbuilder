@@ -184,6 +184,8 @@
   .dark .badge-emerald { @apply bg-emerald-900/30 text-emerald-400; }
   .badge-amber { @apply bg-amber-50 text-amber-500; }
   .dark .badge-amber { @apply bg-amber-900/30 text-amber-400; }
+  .badge-rose { @apply bg-rose-50 text-rose-500; }
+  .dark .badge-rose { @apply bg-rose-900/30 text-rose-400; }
 
   .skeleton-pulse {
     background: linear-gradient(90deg, var(--color-surface-100) 25%, var(--color-surface-200) 50%, var(--color-surface-100) 75%);

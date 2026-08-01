@@ -122,6 +122,18 @@ export default function PricingPage() {
         </p>
       )}
 
+      <div className="mt-8 max-w-md mx-auto flex items-start gap-3 p-4 rounded-xl bg-emerald-50/70 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-800/30">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-500 flex-shrink-0 mt-0.5">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        </svg>
+        <div className="text-sm text-surface-600 dark:text-surface-300">
+          <p className="font-semibold text-surface-800 dark:text-surface-100">7-day money-back guarantee</p>
+          <p className="text-surface-500 dark:text-surface-400 mt-0.5">
+            Your first download is free on any new account. After that, if a tailored CV doesn&apos;t help you, we refund you in full — no questions asked.
+          </p>
+        </div>
+      </div>
+
       <PaymentModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}

@@ -217,6 +217,13 @@ export default function PaymentModal({ open, onClose, onSuccess, documentId, typ
                 Sandbox mode — use test amounts under 100 XAF
               </p>
             )}
+
+            <p className="text-center text-xs text-surface-400 mt-3 flex items-center justify-center gap-1.5">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              </svg>
+              7-day money-back guarantee — full refund if it doesn&apos;t help.
+            </p>
           </div>
         )}
 
