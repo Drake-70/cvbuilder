@@ -17,7 +17,8 @@ module.exports = defineConfig({
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: [
     {
-      command: 'node backend/server.js',
+      command: 'node server.js',
+      cwd: 'backend',
       url: 'http://localhost:5001/api/health',
       reuseExistingServer: true,
       timeout: 60000,
