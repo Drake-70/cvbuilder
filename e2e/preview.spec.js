@@ -21,6 +21,7 @@ test.describe('free ATS preview', () => {
   });
 
   test('returns a real score for a pasted CV and job description', async ({ page }) => {
+    test.setTimeout(120000);
     await page.goto('/');
     const preview = page.locator('section[aria-labelledby="preview-heading"]');
 

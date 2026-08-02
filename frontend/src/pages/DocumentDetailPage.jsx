@@ -11,7 +11,7 @@ export default function DocumentDetailPage() {
   const navigate = useNavigate();
   const { t } = useTranslation('common');
   const { t: tTailor } = useTranslation('tailor');
-  const { user } = useAuth();
+  const { user, fetchUser } = useAuth();
   const [doc, setDoc] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -50,6 +50,7 @@ export default function DocumentDetailPage() {
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
+      fetchUser();
     } catch (err) {
       if (err.response?.status === 402) {
         setPaymentOpen(true);
@@ -173,7 +174,7 @@ export default function DocumentDetailPage() {
                   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/>
                 </svg>
               )}
-              {isSubscribed ? t('download') : `Pay & ${t('download')}`}
+              {(isSubscribed || (user?.freeDocumentCredits || 0) > 0) ? t('download') : `Pay & ${t('download')}`}
             </button>
           </div>
         </div>

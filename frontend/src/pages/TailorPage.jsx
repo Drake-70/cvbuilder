@@ -14,7 +14,7 @@ export default function TailorPage() {
   const { i18n } = useTranslation();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, fetchUser } = useAuth();
   const { toast } = useToast();
   const initialPath = searchParams.get('path') || null;
   const retTailorId = searchParams.get('retailor') || null;
@@ -113,6 +113,7 @@ export default function TailorPage() {
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
+      fetchUser();
       toast.success('Downloaded', 'Your tailored CV has been saved.');
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to generate document.');
