@@ -7,7 +7,7 @@ export default function PathChoice({ onSelect }) {
     <div>
       <div className="text-center mb-8">
         <h2 className="text-2xl sm:text-3xl font-bold text-surface-900 mb-2">{t('choose_path')}</h2>
-        <p className="text-surface-500">Everyone's journey starts somewhere. Pick what works for you.</p>
+        <p className="text-surface-500">{t('choose_path_desc')}</p>
       </div>
 
       <div className="grid sm:grid-cols-2 gap-4">
@@ -26,7 +26,7 @@ export default function PathChoice({ onSelect }) {
           <h3 className="font-bold text-surface-900 text-lg mb-1">{t('path_upload')}</h3>
           <p className="text-sm text-surface-500 leading-relaxed">{t('path_upload_desc')}</p>
           <div className="mt-4 flex items-center gap-1.5 text-sm font-semibold text-brand-600 group-hover:gap-2.5 transition-all">
-            Continue
+            {t('continue_upload')}
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <line x1="5" y1="12" x2="19" y2="12"/>
               <polyline points="12,5 19,12 12,19"/>
@@ -47,7 +47,7 @@ export default function PathChoice({ onSelect }) {
           <h3 className="font-bold text-surface-900 text-lg mb-1">{t('path_build')}</h3>
           <p className="text-sm text-surface-500 leading-relaxed">{t('path_build_desc')}</p>
           <div className="mt-4 flex items-center gap-1.5 text-sm font-semibold text-brand-600 group-hover:gap-2.5 transition-all">
-            Start building
+            {t('continue_build')}
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <line x1="5" y1="12" x2="19" y2="12"/>
               <polyline points="12,5 19,12 12,19"/>

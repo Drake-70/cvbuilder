@@ -45,9 +45,9 @@ export default function ResultStep({ result, onDownload, onReset, loading, docum
     <div>
       <div className="flex items-start justify-between mb-6">
         <div>
-          <p className="kicker mb-2">The result</p>
+          <p className="kicker mb-2">{t('the_result')}</p>
           <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-surface-900 dark:text-white">{t('tailored_cv')}</h2>
-          <p className="text-sm text-surface-500 dark:text-surface-400 mt-2">Your CV has been tailored to match the job posting.</p>
+          <p className="text-sm text-surface-500 dark:text-surface-400 mt-2">{t('result_desc')}</p>
         </div>
         <button onClick={onReset} className="btn-ghost text-sm">
           <svg className="w-4 h-4 mr-1 inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -86,7 +86,7 @@ export default function ResultStep({ result, onDownload, onReset, loading, docum
               <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/>
               <line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
             </svg>
-            Structured
+            {t('structured')}
           </button>
         </div>
       )}
@@ -119,19 +119,19 @@ export default function ResultStep({ result, onDownload, onReset, loading, docum
           <div className="space-y-5">
             {cv.summary && (
               <div className="animate-slide-up">
-                <h3 className="text-xs font-bold text-brand-600 uppercase tracking-wider mb-2">Summary</h3>
+                <h3 className="text-xs font-bold text-brand-600 uppercase tracking-wider mb-2">{t('section_summary')}</h3>
                 <p className="text-sm text-surface-600 leading-relaxed">{cv.summary}</p>
               </div>
             )}
             {cv.experience && cv.experience.length > 0 && (
               <div className="animate-slide-up" style={{ animationDelay: '0.05s' }}>
-                <h3 className="text-xs font-bold text-brand-600 uppercase tracking-wider mb-3">Experience</h3>
+                <h3 className="text-xs font-bold text-brand-600 uppercase tracking-wider mb-3">{t('section_experience')}</h3>
                 <div className="space-y-4">
                   {cv.experience.map((exp, i) => (
                     <div key={i} className="relative pl-4 border-l-2 border-brand-100">
                       <div className="flex flex-wrap items-baseline gap-x-2">
                         <span className="font-semibold text-surface-900">{exp.title}</span>
-                        {exp.company && <span className="text-sm text-surface-600">at {exp.company}</span>}
+                        {exp.company && <span className="text-sm text-surface-600">{t('at_company', { company: exp.company })}</span>}
                       </div>
                       {exp.dates && <p className="text-xs text-surface-400 mt-0.5">{exp.dates}</p>}
                       {exp.bullets && exp.bullets.length > 0 && (
@@ -150,7 +150,7 @@ export default function ResultStep({ result, onDownload, onReset, loading, docum
             )}
             {cv.education && cv.education.length > 0 && (
               <div className="animate-slide-up" style={{ animationDelay: '0.1s' }}>
-                <h3 className="text-xs font-bold text-brand-600 uppercase tracking-wider mb-3">Education</h3>
+                <h3 className="text-xs font-bold text-brand-600 uppercase tracking-wider mb-3">{t('section_education')}</h3>
                 <div className="space-y-3">
                   {cv.education.map((edu, i) => (
                     <div key={i} className="relative pl-4 border-l-2 border-emerald-200">
@@ -165,7 +165,7 @@ export default function ResultStep({ result, onDownload, onReset, loading, docum
             )}
             {cv.skills && cv.skills.length > 0 && (
               <div className="animate-slide-up" style={{ animationDelay: '0.15s' }}>
-                <h3 className="text-xs font-bold text-brand-600 uppercase tracking-wider mb-2">Skills</h3>
+                <h3 className="text-xs font-bold text-brand-600 uppercase tracking-wider mb-2">{t('section_skills')}</h3>
                 <div className="flex flex-wrap gap-1.5">
                   {cv.skills.map((skill, i) => (<span key={i} className="badge badge-brand">{skill}</span>))}
                 </div>
@@ -225,19 +225,19 @@ export default function ResultStep({ result, onDownload, onReset, loading, docum
                 <polyline points="7,10 12,15 17,10"/>
                 <line x1="12" y1="15" x2="12" y2="3"/>
               </svg>
-              {isSubscribed ? t('download_both') : hasCredits ? t('download_both') : `Pay & ${t('download_both')}`}
+              {isSubscribed || hasCredits ? t('download_both') : t('pay_and_download')}
             </>
           )}
         </button>
 
         {!isSubscribed && !hasCredits && (
           <p className="text-center text-xs text-surface-400 mt-2">
-            Preview is free. Payment required to download the .docx file.
+            {t('download_payment_hint')}
           </p>
         )}
         {hasCredits && (
           <p className="text-center text-xs text-emerald-500 mt-2">
-            You have {user.freeDocumentCredits} free download credit{user.freeDocumentCredits > 1 ? 's' : ''}. This download is free.
+            {t('free_credit_hint', { count: user.freeDocumentCredits })}
           </p>
         )}
       </div>

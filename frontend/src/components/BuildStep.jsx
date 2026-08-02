@@ -149,7 +149,7 @@ export default function BuildStep({ onComplete, onBack, language, user }) {
       <div className="card p-5 sm:p-6" key={subStep}>
         {subStep === 0 && (
           <div className="space-y-4">
-            <p className="text-sm text-surface-500 mb-2">Tell us about yourself. Fields marked with * are required.</p>
+            <p className="text-sm text-surface-500 mb-2">{t('personal_info_hint')}</p>
             <div>
               <label htmlFor="fullName" className="block text-sm font-medium text-surface-700 mb-1.5">{t('full_name')} *</label>
               <input id="fullName" type="text" required value={personalInfo.name} onChange={(e) => setPersonalInfo({ ...personalInfo, name: e.target.value })} className="input-field" placeholder={lang === 'fr' ? 'Votre nom complet' : 'Your full name'} />
@@ -186,7 +186,7 @@ export default function BuildStep({ onComplete, onBack, language, user }) {
               <div key={i} className="border border-surface-200 rounded-xl p-4 space-y-3 animate-slide-up">
                 <div className="flex justify-between items-center">
                   <span className="text-sm font-semibold text-surface-700">{t('education')} {i + 1}</span>
-                  <button onClick={() => removeEducation(i)} className="text-surface-400 hover:text-rose-500 text-xs cursor-pointer transition-colors">&times; Remove</button>
+                  <button onClick={() => removeEducation(i)} className="text-surface-400 hover:text-rose-500 text-xs cursor-pointer transition-colors">&times; {t('remove')}</button>
                 </div>
                 <div className="grid sm:grid-cols-2 gap-3">
                   <div>
@@ -230,7 +230,7 @@ export default function BuildStep({ onComplete, onBack, language, user }) {
               <div key={i} className="border border-surface-200 rounded-xl p-4 space-y-3 animate-slide-up">
                 <div className="flex justify-between items-center">
                   <span className="text-sm font-semibold text-surface-700">{t('experience')} {i + 1}</span>
-                  <button onClick={() => removeExperience(i)} className="text-surface-400 hover:text-rose-500 text-xs cursor-pointer transition-colors">&times; Remove</button>
+                  <button onClick={() => removeExperience(i)} className="text-surface-400 hover:text-rose-500 text-xs cursor-pointer transition-colors">&times; {t('remove')}</button>
                 </div>
                 <div className="grid sm:grid-cols-2 gap-3">
                   <div>
@@ -336,8 +336,8 @@ export default function BuildStep({ onComplete, onBack, language, user }) {
 
             {selectedSkills.length > 0 && (
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs font-medium text-surface-400">{selectedSkills.length} selected</span>
-                <button onClick={() => setSelectedSkills([])} className="text-xs text-surface-400 hover:text-rose-500 cursor-pointer">Clear all</button>
+                <span className="text-xs font-medium text-surface-400">{t('selected_count', { count: selectedSkills.length })}</span>
+                <button onClick={() => setSelectedSkills([])} className="text-xs text-surface-400 hover:text-rose-500 cursor-pointer">{t('clear_all')}</button>
               </div>
             )}
 

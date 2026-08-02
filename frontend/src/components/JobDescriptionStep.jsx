@@ -80,7 +80,7 @@ export default function JobDescriptionStep({
               className="input-field resize-y min-h-[180px]"
             />
             <div className="text-xs text-surface-400 mt-1.5">
-              {jobDescription.length > 0 && `${jobDescription.split(/\s+/).filter(Boolean).length} words`}
+              {jobDescription.length > 0 && t('word_count', { count: jobDescription.split(/\s+/).filter(Boolean).length })}
             </div>
           </div>
         ) : (

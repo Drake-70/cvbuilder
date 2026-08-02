@@ -11,7 +11,7 @@ import JobDescriptionStep from '../components/JobDescriptionStep';
 import ResultStep from '../components/ResultStep';
 
 export default function TailorPage() {
-  const { i18n } = useTranslation();
+  const { i18n, t } = useTranslation('tailor');
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user, fetchUser } = useAuth();
@@ -20,6 +20,7 @@ export default function TailorPage() {
   const retTailorId = searchParams.get('retailor') || null;
 
   const [step, setStep] = useState(initialPath ? (initialPath === 'build' ? 'build' : 'upload') : 'choose');
+  const [sourcePath, setSourcePath] = useState(initialPath === 'build' ? 'build' : 'upload');
   const [cvText, setCvText] = useState('');
   const [savedCvId, setSavedCvId] = useState(null);
   const [savedDocId, setSavedDocId] = useState(null);
@@ -28,12 +29,19 @@ export default function TailorPage() {
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [flowKey, setFlowKey] = useState(0);
 
-  const stepOrder = ['choose', 'upload', 'job', 'result'];
-  const currentStepIndex = stepOrder.indexOf(step);
+  const stepStage = { build: 0, upload: 0, job: 1, result: 2 };
+  const currentStage = stepStage[step] ?? -1;
+  const steps = [
+    { label: t('step_cv') },
+    { label: t('step_job') },
+    { label: t('step_result') }
+  ];
 
   const handlePathChoice = (path) => {
     setStep(path);
+    setSourcePath(path);
     setError('');
   };
 
@@ -123,6 +131,7 @@ export default function TailorPage() {
 
   const handleReset = () => {
     setStep('choose');
+    setFlowKey((k) => k + 1);
     setCvText('');
     setSavedCvId(null);
     setSavedDocId(null);
@@ -138,18 +147,18 @@ export default function TailorPage() {
       {step !== 'choose' && step !== 'result' && (
         <div className="mb-10">
           <div className="flex items-center gap-4">
-            {['CV', 'Job', 'Result'].map((label, i) => (
-              <div key={label} className="flex items-center gap-4 flex-1 last:flex-none">
+            {steps.map((stepItem, i) => (
+              <div key={stepItem.label} className="flex items-center gap-4 flex-1 last:flex-none">
                 <div className={`flex items-center gap-2 text-sm font-medium whitespace-nowrap ${
-                  i <= currentStepIndex ? 'text-surface-900 dark:text-white' : 'text-surface-400 dark:text-surface-500'
+                  i <= currentStage ? 'text-surface-900 dark:text-white' : 'text-surface-400 dark:text-surface-500'
                 }`}>
-                  <span className={`font-mono text-xs font-bold ${i <= currentStepIndex ? 'text-brand-600 dark:text-brand-400' : 'text-surface-300 dark:text-surface-600'}`}>
+                  <span className={`font-mono text-xs font-bold ${i <= currentStage ? 'text-brand-600 dark:text-brand-400' : 'text-surface-300 dark:text-surface-600'}`}>
                     {String(i + 1).padStart(2, '0')}
                   </span>
-                  <span className="hidden sm:inline">{label}</span>
+                  <span className="hidden sm:inline">{stepItem.label}</span>
                 </div>
                 {i < 2 && (
-                  <div className={`flex-1 h-px transition-colors duration-300 ${i < currentStepIndex ? 'bg-brand-400' : 'bg-surface-200 dark:bg-surface-700'}`} />
+                  <div className={`flex-1 h-px transition-colors duration-300 ${i < currentStage ? 'bg-brand-400' : 'bg-surface-200 dark:bg-surface-700'}`} />
                 )}
               </div>
             ))}
@@ -167,11 +176,17 @@ export default function TailorPage() {
         </div>
       )}
 
-      <div>
-        {step === 'choose' && <PathChoice onSelect={handlePathChoice} />}
-        {step === 'upload' && <UploadStep onComplete={handleCvReady} onBack={() => setStep('choose')} />}
-        {step === 'build' && <BuildStep onComplete={handleCvReady} onBack={() => setStep('choose')} language={language} user={user} />}
-        {step === 'job' && (
+      <div key={flowKey}>
+        <div className={step === 'choose' ? '' : 'hidden'} aria-hidden={step !== 'choose'}>
+          <PathChoice onSelect={handlePathChoice} />
+        </div>
+        <div className={step === 'upload' ? '' : 'hidden'} aria-hidden={step !== 'upload'}>
+          <UploadStep onComplete={handleCvReady} onBack={() => { setSourcePath('upload'); setStep('choose'); }} />
+        </div>
+        <div className={step === 'build' ? '' : 'hidden'} aria-hidden={step !== 'build'}>
+          <BuildStep onComplete={handleCvReady} onBack={() => { setSourcePath('build'); setStep('choose'); }} language={language} user={user} />
+        </div>
+        <div className={step === 'job' ? '' : 'hidden'} aria-hidden={step !== 'job'}>
           <JobDescriptionStep
             jobDescription={jobDescription}
             setJobDescription={setJobDescription}
@@ -179,13 +194,13 @@ export default function TailorPage() {
             setLanguage={setLanguage}
             onSubmit={() => handleTailor(false)}
             onSkip={() => handleTailor(true)}
-            onBack={() => setStep('build')}
+            onBack={() => setStep(sourcePath === 'upload' ? 'upload' : 'build')}
             loading={loading}
           />
-        )}
-        {step === 'result' && result && (
-          <ResultStep result={result} onDownload={handleDownload} onReset={handleReset} loading={loading} documentId={savedDocId} />
-        )}
+        </div>
+        <div className={step === 'result' && result ? '' : 'hidden'} aria-hidden={step !== 'result'}>
+          {result && <ResultStep result={result} onDownload={handleDownload} onReset={handleReset} loading={loading} documentId={savedDocId} />}
+        </div>
       </div>
     </div>
   );
