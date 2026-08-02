@@ -44,7 +44,7 @@ exports.initiate = async (req, res, next) => {
       provider = 'orange';
     }
 
-    const reference = `cvboost-${req.user._id.toString().slice(-6)}-${Date.now()}`;
+    const reference = `cvboost-${req.user._id.toString().slice(-6)}-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`;
 
     // Create payment record
     const payment = await Payment.create({
@@ -64,12 +64,20 @@ exports.initiate = async (req, res, next) => {
       ? 'CVBoost Monthly Subscription'
       : 'CVBoost CV Download';
 
-    const result = await paymentService.initiatePayment({
-      phoneNumber: cleanPhone,
-      amount: payAmount,
-      description,
-      reference
-    });
+    let result;
+    try {
+      result = await paymentService.initiatePayment({
+        phoneNumber: cleanPhone,
+        amount: payAmount,
+        description,
+        reference
+      });
+    } catch (err) {
+      payment.status = 'failed';
+      await payment.save();
+      logger.error(`CamPay initiation failed for payment ${payment._id}: ${err.message}`);
+      return res.status(502).json({ error: 'Payment initiation failed. Please try again.' });
+    }
 
     payment.campayReference = result.reference || reference;
     await payment.save();

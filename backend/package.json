@@ -6,8 +6,8 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
-    "test": "jest --forceExit --detectOpenHandles",
-    "test:coverage": "jest --forceExit --detectOpenHandles --coverage"
+    "test": "node --test tests/paymentService.test.js tests/document.test.js tests/sanitize.test.js",
+    "test:coverage": "node --test --experimental-test-coverage tests/paymentService.test.js tests/document.test.js tests/sanitize.test.js"
   },
   "keywords": [],
   "author": "",

@@ -6,15 +6,36 @@ const logger = require('../utils/logger');
 // Live mode: use production credentials
 
 const CAMPAY_BASE_URL = process.env.CAMPAY_API_URL || 'https://api.campay.net/api';
-const isSandbox = process.env.NODE_ENV !== 'production';
+const FETCH_TIMEOUT_MS = 15000;
+
+function isSandbox() {
+  return process.env.NODE_ENV !== 'production';
+}
+
+let cachedToken = null;
+let tokenExpiresAt = 0;
+
+async function fetchWithTimeout(url, options = {}) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 async function getAccessToken() {
-  const res = await fetch(`${CAMPAY_BASE_URL}/token/`, {
+  if (cachedToken && Date.now() < tokenExpiresAt) {
+    return cachedToken;
+  }
+
+  const res = await fetchWithTimeout(`${CAMPAY_BASE_URL}/token/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      username: isSandbox ? process.env.CAMPAY_SANDBOX_USERNAME : process.env.CAMPAY_USERNAME,
-      password: isSandbox ? process.env.CAMPAY_SANDBOX_PASSWORD : process.env.CAMPAY_PASSWORD
+      username: isSandbox() ? process.env.CAMPAY_SANDBOX_USERNAME : process.env.CAMPAY_USERNAME,
+      password: isSandbox() ? process.env.CAMPAY_SANDBOX_PASSWORD : process.env.CAMPAY_PASSWORD
     })
   });
 
@@ -25,13 +46,17 @@ async function getAccessToken() {
   }
 
   const data = await res.json();
-  return data.access;
+  cachedToken = data.access;
+  const ttlSeconds = Number(data.access_expires) > 0 ? Number(data.access_expires) : 3600;
+  tokenExpiresAt = Date.now() + Math.min(Math.max(ttlSeconds, 60), 86400) * 1000;
+
+  return cachedToken;
 }
 
 exports.initiatePayment = async ({ phoneNumber, amount, description, reference }) => {
   const token = await getAccessToken();
 
-  const res = await fetch(`${CAMPAY_BASE_URL}/collect/`, {
+  const res = await fetchWithTimeout(`${CAMPAY_BASE_URL}/collect/`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -39,7 +64,7 @@ exports.initiatePayment = async ({ phoneNumber, amount, description, reference }
     },
     body: JSON.stringify({
       amount: String(amount),
-      phone_number: phoneNumber.replace(/\s/g, ''),
+      phone_number: phoneNumber.replace(/[\s+]/g, ''),
       description: description || 'CVBoost payment',
       reference: reference || `cvboost-${Date.now()}`
     })
@@ -65,7 +90,7 @@ exports.initiatePayment = async ({ phoneNumber, amount, description, reference }
 exports.checkStatus = async (reference) => {
   const token = await getAccessToken();
 
-  const res = await fetch(`${CAMPAY_BASE_URL}/collect/${reference}/`, {
+  const res = await fetchWithTimeout(`${CAMPAY_BASE_URL}/collect/${reference}/`, {
     method: 'GET',
     headers: {
       'Authorization': `Bearer ${token}`
@@ -89,14 +114,17 @@ exports.checkStatus = async (reference) => {
 };
 
 exports.verifyWebhookSignature = (payload, signature) => {
-  // CamPay sends a signature with webhook payloads
-  // In sandbox mode, skip verification for easier testing
-  if (isSandbox) return true;
+  const secret = process.env.CAMPAY_WEBHOOK_SECRET;
+
+  if (!secret) {
+    // In production a webhook secret MUST be configured; otherwise the
+    // endpoint would accept unauthenticated "success" payloads.
+    if (!isSandbox()) return false;
+    logger.warn('CAMPAY_WEBHOOK_SECRET not set; accepting webhook payloads in development only');
+    return true;
+  }
 
   const crypto = require('crypto');
-  const secret = process.env.CAMPAY_WEBHOOK_SECRET;
-  if (!secret) return true;
-
   const expectedSignature = crypto
     .createHmac('sha256', secret)
     .update(JSON.stringify(payload))
@@ -105,4 +133,4 @@ exports.verifyWebhookSignature = (payload, signature) => {
   return signature === expectedSignature;
 };
 
-exports.isSandbox = () => isSandbox;
+exports.isSandbox = () => isSandbox();
