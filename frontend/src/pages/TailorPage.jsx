@@ -111,7 +111,7 @@ export default function TailorPage() {
     try {
       const jd = skipJob ? '' : jobDescription;
       const res = await api.post('/tailor', { cvText, jobDescription: jd, language });
-      const tailored = { ...res.data, cvText, originalCV, jobDescription: jd, language };
+      const tailored = { ...res.data, cvText, originalCVText: cvText, originalCV, jobDescription: jd, language };
       setResult(tailored);
 
       // Save tailored document

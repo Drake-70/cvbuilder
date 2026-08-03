@@ -52,6 +52,7 @@ function userResponse(user) {
     location: user.location || '',
     jobTitle: user.jobTitle || '',
     company: user.company || '',
+    savedSkills: Array.isArray(user.savedSkills) ? user.savedSkills : [],
     subscriptionStatus: user.subscriptionStatus,
     documentsGeneratedCount: user.documentsGeneratedCount,
     freeDocumentCredits: user.freeDocumentCredits || 0,
@@ -246,7 +247,7 @@ exports.me = async (req, res) => {
 
 exports.updateMe = async (req, res, next) => {
   try {
-    const { name, preferredLanguage, currentPassword, newPassword, bio, phone, location, jobTitle, company } = req.body;
+    const { name, preferredLanguage, currentPassword, newPassword, bio, phone, location, jobTitle, company, savedSkills } = req.body;
     const user = await User.findById(req.user._id);
 
     if (name) user.name = name;
@@ -256,6 +257,12 @@ exports.updateMe = async (req, res, next) => {
     if (location !== undefined) user.location = location;
     if (jobTitle !== undefined) user.jobTitle = jobTitle;
     if (company !== undefined) user.company = company;
+    if (savedSkills !== undefined) {
+      const cleaned = (Array.isArray(savedSkills) ? savedSkills : [])
+        .map((s) => String(s).trim())
+        .filter(Boolean);
+      user.savedSkills = [...new Set(cleaned)].slice(0, 100);
+    }
 
     if (currentPassword && newPassword) {
       if (newPassword.length < 6) {

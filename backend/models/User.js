@@ -29,6 +29,7 @@ const userSchema = new mongoose.Schema({
   location: { type: String, default: '' },
   jobTitle: { type: String, default: '' },
   company: { type: String, default: '' },
+  savedSkills: { type: [String], default: [] },
   googleId: { type: String, sparse: true },
   facebookId: { type: String, sparse: true },
   linkedinId: { type: String, sparse: true },

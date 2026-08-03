@@ -3,6 +3,7 @@ const pdfParse = require('pdf-parse');
 const mammoth = require('mammoth');
 const CV = require('../models/CV');
 const { expandQuestionnaireInput } = require('../services/aiService');
+const { parseCVText } = require('../services/cvParser');
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -46,7 +47,7 @@ exports.uploadCV = async (req, res, next) => {
       return res.status(400).json({ error: 'Could not extract text from the file. Try pasting your CV content instead.' });
     }
 
-    res.json({ cvText: text.trim(), filename: req.file.originalname });
+    res.json({ cvText: text.trim(), parsedSections: parseCVText(text), filename: req.file.originalname });
   } catch (err) {
     if (err.message && err.message.includes('Unsupported')) {
       return res.status(400).json({ error: err.message });
@@ -61,7 +62,7 @@ exports.pasteCV = async (req, res, next) => {
     if (!cvText || cvText.trim().length === 0) {
       return res.status(400).json({ error: 'CV text is required' });
     }
-    res.json({ cvText: cvText.trim() });
+    res.json({ cvText: cvText.trim(), parsedSections: parseCVText(cvText) });
   } catch (err) {
     next(err);
   }

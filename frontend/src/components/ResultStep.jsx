@@ -242,14 +242,22 @@ export default function ResultStep({ result, onDownload, onReset, loading, docum
           <div className="whitespace-pre-wrap text-sm text-surface-600 leading-relaxed animate-fade-in">{coverLetter}</div>
         )}
         {tab === 'gaps' && (
-          <BeforeAfterGaps
-            originalText={result.cvText || ''}
-            originalCV={result.originalCV || null}
-            tailoredCV={cv}
-            coverLetter={coverLetter}
-            gaps={gaps}
-            language={result.language}
-          />
+          <div className="space-y-5">
+            <ATSScoreCard
+              cvText={result.originalCVText || result.cvText}
+              jobDescription={result.jobDescription}
+              tailoredCV={cv}
+              gapAnalysis={gaps}
+            />
+            <BeforeAfterGaps
+              originalText={result.cvText || ''}
+              originalCV={result.originalCV || null}
+              tailoredCV={cv}
+              coverLetter={coverLetter}
+              gaps={gaps}
+              language={result.language}
+            />
+          </div>
         )}
       </div>
 

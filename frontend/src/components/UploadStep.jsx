@@ -25,7 +25,7 @@ export default function UploadStep({ onComplete, onBack }) {
       const res = await api.post('/cv/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
-      onComplete(res.data.cvText, 'upload');
+      onComplete(res.data.cvText, 'upload', res.data.parsedSections || null);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to extract text. Try pasting instead.');
       setFileName('');
@@ -45,7 +45,7 @@ export default function UploadStep({ onComplete, onBack }) {
     setLoading(true);
     try {
       const res = await api.post('/cv/paste', { cvText: pasteText.trim() });
-      onComplete(res.data.cvText, 'paste');
+      onComplete(res.data.cvText, 'paste', res.data.parsedSections || null);
     } catch {
       onComplete(pasteText.trim(), 'paste');
     } finally {

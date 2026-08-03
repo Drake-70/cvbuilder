@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import api from '../services/api';
 import SectionGuidance from './SectionGuidance';
@@ -26,6 +26,35 @@ export default function BuildStep({ onComplete, onBack, language, user }) {
   const [noEducation, setNoEducation] = useState(false);
   const [noExperience, setNoExperience] = useState(false);
   const [expandingBullets, setExpandingBullets] = useState(false);
+  const [savedSkills, setSavedSkills] = useState([]);
+  const [savedSkillsLoaded, setSavedSkillsLoaded] = useState(false);
+  const skillsInitialized = useRef(false);
+
+  useEffect(() => {
+    let active = true;
+    api.get('/auth/me')
+      .then((res) => {
+        if (!active) return;
+        const skills = Array.isArray(res.data?.user?.savedSkills) ? res.data.user.savedSkills : [];
+        setSavedSkills(skills);
+      })
+      .catch(() => {})
+      .finally(() => { if (active) setSavedSkillsLoaded(true); });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    if (subStep === 4 && savedSkillsLoaded && !skillsInitialized.current) {
+      skillsInitialized.current = true;
+      setSelectedSkills(prev => {
+        const next = [...prev];
+        savedSkills.forEach((s) => {
+          if (!next.some(x => x.toLowerCase() === s.toLowerCase())) next.push(s);
+        });
+        return next;
+      });
+    }
+  }, [subStep, savedSkillsLoaded, savedSkills]);
 
   useEffect(() => {
     if (subStep === 4 && personalInfo.targetRole && skillOptions.length === 0) {
@@ -39,7 +68,14 @@ export default function BuildStep({ onComplete, onBack, language, user }) {
     ? ['Communication', 'Travail d\'équipe', 'Leadership', 'Résolution de problèmes', 'Gestion du temps', 'Informatique', 'Microsoft Office', 'Service client', 'Gestion de projet', 'Analyse de données', 'Réseaux sociaux', 'Français', 'Anglais', 'Rédaction', 'Attention aux détails', 'Adaptabilité', 'Fiabilité', 'Bilingue (français/anglais)', 'Email', 'Excel', 'Recherche sur Internet', 'Comptabilité de base', 'Écoute active', 'Gestion des conflits', 'Multitâches', 'Prise de parole en public', 'Planification d\'événements', 'Budgetisation', 'Tenue de livres', 'Google Docs', 'PowerPoint']
     : ['Communication', 'Teamwork', 'Leadership', 'Problem Solving', 'Time Management', 'Computer Literacy', 'Microsoft Office', 'Customer Service', 'Project Management', 'Data Analysis', 'Social Media', 'French', 'English', 'Writing', 'Attention to Detail', 'Adaptability', 'Reliability', 'Bilingual (English/French)', 'Email', 'Excel', 'Internet Research', 'Basic Accounting', 'Active Listening', 'Conflict Resolution', 'Multi-tasking', 'Public Speaking', 'Event Planning', 'Budgeting', 'Bookkeeping', 'Google Docs', 'PowerPoint'];
 
-  const displaySkills = skillOptions.length > 0 ? skillOptions : fallbackSkills;
+  const displaySkills = (() => {
+    const base = skillOptions.length > 0 ? skillOptions : fallbackSkills;
+    const merged = [...base];
+    savedSkills.forEach((s) => {
+      if (!merged.some(x => x.toLowerCase() === s.toLowerCase())) merged.unshift(s);
+    });
+    return merged;
+  })();
 
   const steps = [
     { label: t('personal_info'), icon: '01' },
@@ -107,6 +143,9 @@ export default function BuildStep({ onComplete, onBack, language, user }) {
         location: res.data.location || personalInfo.location
       };
       onComplete(JSON.stringify(expanded), 'build', expanded);
+      if (user) {
+        api.patch('/auth/me', { savedSkills: selectedSkills }).catch(() => {});
+      }
     } catch (err) {
       alert(err.response?.data?.error || 'Failed to build CV.');
     } finally {
