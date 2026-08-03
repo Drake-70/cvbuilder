@@ -34,7 +34,12 @@ const app = express();
 
 // Security
 // Security — CSP is declared in frontend/index.html meta tag (single source of truth)
-app.use(helmet({ contentSecurityPolicy: false }));
+// referrerPolicy must NOT be no-referrer or Google Identity Services rejects the button
+// with "[GSI_LOGGER]: The given origin is not allowed for the given client ID".
+app.use(helmet({
+  contentSecurityPolicy: false,
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' }
+}));
 
 // CORS — supports comma-separated list of origins
 const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:5173')
