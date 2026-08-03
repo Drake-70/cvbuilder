@@ -11,6 +11,8 @@ const errorHandler = require('./middleware/errorHandler');
 const sanitize = require('./middleware/sanitize');
 const csrfProtection = require('./middleware/csrf');
 const logger = require('./utils/logger');
+const posthog = require('./config/posthog');
+const { setupExpressRequestContext } = require('posthog-node');
 const { cacheMiddleware, invalidateCache } = require('./middleware/cache');
 
 const authRoutes = require('./routes/auth');
@@ -31,6 +33,10 @@ const aiRoutes = require('./routes/ai');
 const draftRoutes = require('./routes/draft');
 
 const app = express();
+
+if (posthog) {
+  setupExpressRequestContext(posthog, app);
+}
 
 // Observability — Sentry is enabled only when SENTRY_DSN is set
 let Sentry = null;

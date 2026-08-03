@@ -4,6 +4,7 @@ const ShareView = require('../models/ShareView');
 const { generateDocx } = require('../services/documentService');
 const { generatePdf } = require('../services/pdfService');
 const crypto = require('crypto');
+const posthog = require('../config/posthog');
 
 const FORMATS = { docx: true, pdf: true };
 
@@ -91,6 +92,13 @@ exports.saveDocument = async (req, res, next) => {
 
     await User.findByIdAndUpdate(req.user._id, { $inc: { documentsGeneratedCount: 1 } });
 
+    if (posthog) {
+      posthog.capture({
+        event: 'document_saved',
+        properties: { language: doc.language, template: doc.template, has_base_cv: Boolean(doc.baseCvId) }
+      });
+    }
+
     res.status(201).json(doc);
   } catch (err) {
     next(err);
@@ -148,6 +156,13 @@ exports.downloadDocument = async (req, res, next) => {
       : await generateDocx(enrichedCV, doc.coverLetter, doc.language, doc.template || 'modern');
     const filename = filenameFor(outFormat, doc.language);
 
+    if (posthog) {
+      posthog.capture({
+        event: 'document_downloaded',
+        properties: { format: outFormat, language: doc.language, download_count: doc.downloadCount }
+      });
+    }
+
     res.setHeader('Content-Type', contentTypeFor(outFormat));
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.send(Buffer.from(buffer));
@@ -176,6 +191,12 @@ exports.updateApplicationStatus = async (req, res, next) => {
     if (!doc) {
       return res.status(404).json({ error: 'Document not found' });
     }
+    if (posthog) {
+      posthog.capture({
+        event: 'application_status_updated',
+        properties: { application_status: doc.applicationStatus || null, company_provided: Boolean(companyApplied) }
+      });
+    }
     res.json(doc);
   } catch (err) {
     next(err);
@@ -202,6 +223,10 @@ exports.shareDocument = async (req, res, next) => {
     if (!doc.shareToken) {
       doc.shareToken = crypto.randomBytes(16).toString('hex');
       await doc.save();
+    }
+
+    if (posthog) {
+      posthog.capture({ event: 'document_shared' });
     }
 
     res.json({ shareToken: doc.shareToken, shareUrl: `/shared/${doc.shareToken}` });

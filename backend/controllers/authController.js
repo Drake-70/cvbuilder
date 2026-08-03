@@ -5,6 +5,7 @@ const multer = require('multer');
 const User = require('../models/User');
 const { sendPasswordResetEmail, sendVerificationEmail } = require('../services/emailService');
 const logger = require('../utils/logger');
+const posthog = require('../config/posthog');
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -87,6 +88,19 @@ function setTokenCookies(res, accessToken, refreshToken) {
   });
 }
 
+function identifyUser(user) {
+  if (!posthog) return;
+
+  posthog.identify({
+    distinctId: user._id.toString(),
+    properties: {
+      email: user.email,
+      name: user.name,
+      subscription_status: user.subscriptionStatus
+    }
+  });
+}
+
 exports.register = async (req, res, next) => {
   try {
     const { email, password, name, preferredLanguage, referralCode } = req.body;
@@ -133,6 +147,14 @@ exports.register = async (req, res, next) => {
 
     const { accessToken, refreshToken } = generateTokens(user._id);
     setTokenCookies(res, accessToken, refreshToken);
+    identifyUser(user);
+    if (posthog) {
+      posthog.capture({
+        distinctId: user._id.toString(),
+        event: 'account_registered',
+        properties: { authentication_method: 'password', preferred_language: user.preferredLanguage }
+      });
+    }
 
     // Send verification email (non-blocking)
     const token = issueVerificationToken(user);
@@ -192,6 +214,14 @@ exports.login = async (req, res, next) => {
     const tokens = generateTokens(user._id, user.tokenVersion);
     setTokenCookies(res, tokens.accessToken, tokens.refreshToken);
     await user.save();
+    identifyUser(user);
+    if (posthog) {
+      posthog.capture({
+        distinctId: user._id.toString(),
+        event: 'user_logged_in',
+        properties: { authentication_method: 'password' }
+      });
+    }
 
     res.json({ user: userResponse(user) });
   } catch (err) {
@@ -399,6 +429,7 @@ exports.googleLogin = async (req, res, next) => {
     if (!email) return res.status(400).json({ error: 'Google account must have an email' });
 
     let user = await User.findOne({ $or: [{ googleId }, { email: email.toLowerCase() }] });
+    const isNewUser = !user;
 
     if (user) {
       if (!user.googleId) {
@@ -419,6 +450,14 @@ exports.googleLogin = async (req, res, next) => {
 
     const tokens = generateTokens(user._id);
     setTokenCookies(res, tokens.accessToken, tokens.refreshToken);
+    identifyUser(user);
+    if (posthog) {
+      posthog.capture({
+        distinctId: user._id.toString(),
+        event: isNewUser ? 'account_registered' : 'user_logged_in',
+        properties: { authentication_method: 'google', preferred_language: user.preferredLanguage }
+      });
+    }
 
     res.json({ user: userResponse(user) });
   } catch (err) {
