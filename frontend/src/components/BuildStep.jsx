@@ -62,7 +62,7 @@ export default function BuildStep({ onComplete, onBack, language, user }) {
         .then(res => setSkillOptions(res.data.skills || []))
         .catch(() => {});
     }
-  }, [subStep, personalInfo.targetRole]);
+  }, [subStep, personalInfo.targetRole, skillOptions.length]);
 
   const fallbackSkills = lang === 'fr'
     ? ['Communication', 'Travail d\'équipe', 'Leadership', 'Résolution de problèmes', 'Gestion du temps', 'Informatique', 'Microsoft Office', 'Service client', 'Gestion de projet', 'Analyse de données', 'Réseaux sociaux', 'Français', 'Anglais', 'Rédaction', 'Attention aux détails', 'Adaptabilité', 'Fiabilité', 'Bilingue (français/anglais)', 'Email', 'Excel', 'Recherche sur Internet', 'Comptabilité de base', 'Écoute active', 'Gestion des conflits', 'Multitâches', 'Prise de parole en public', 'Planification d\'événements', 'Budgetisation', 'Tenue de livres', 'Google Docs', 'PowerPoint']

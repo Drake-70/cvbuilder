@@ -6,7 +6,6 @@ import CVPreview from '../components/CVPreview';
 
 export default function SharedCVPage() {
   const { token } = useParams();
-  const { t } = useTranslation('common');
   const { t: tTailor } = useTranslation('tailor');
   const [doc, setDoc] = useState(null);
   const [loading, setLoading] = useState(true);

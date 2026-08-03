@@ -1,12 +1,10 @@
 import { useState } from 'react';
-import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import PaymentModal from '../components/PaymentModal';
 import { useCache } from '../hooks/useCache';
 import { PricingSkeleton } from '../components/Skeleton';
 
 export default function PricingPage() {
-  const { t } = useTranslation('common');
   const { user, fetchUser } = useAuth();
   const { data: pricing, isLoading } = useCache('/payments/pricing', { staleTime: 300_000 });
   const [modalOpen, setModalOpen] = useState(false);

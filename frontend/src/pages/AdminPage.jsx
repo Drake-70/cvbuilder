@@ -1,11 +1,9 @@
-import { useState, useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import api from '../services/api';
 
 export default function AdminPage() {
-  const { t } = useTranslation('common');
   const { user } = useAuth();
   const { toast } = useToast();
   const [tab, setTab] = useState('overview');
@@ -17,12 +15,7 @@ export default function AdminPage() {
 
   const isAdmin = user?.role === 'admin';
 
-  useEffect(() => {
-    if (!isAdmin) return;
-    loadDashboard();
-  }, [isAdmin]);
-
-  const loadDashboard = async () => {
+  const loadDashboard = useCallback(async () => {
     setLoading(true);
     try {
       const res = await api.get('/admin/dashboard');
@@ -33,7 +26,12 @@ export default function AdminPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    loadDashboard();
+  }, [isAdmin, loadDashboard]);
 
   const loadUsers = async (q = '') => {
     try {

@@ -54,11 +54,16 @@ export default function LoginPage() {
     setError('');
   };
 
+  const googleCredentialRef = useRef(handleGoogleCredential);
+  googleCredentialRef.current = handleGoogleCredential;
+  const googleErrorRef = useRef(handleGoogleError);
+  googleErrorRef.current = handleGoogleError;
+
   useEffect(() => {
     initGoogleSignIn({
       clientId: import.meta.env.VITE_GOOGLE_CLIENT_ID,
-      onCredential: handleGoogleCredential,
-      onError: handleGoogleError,
+      onCredential: (credential) => googleCredentialRef.current(credential),
+      onError: () => googleErrorRef.current(),
       buttonRef: googleBtnRef
     });
   }, []);

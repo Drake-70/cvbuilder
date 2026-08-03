@@ -1,10 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import { useTranslation } from 'react-i18next';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 
 export default function PaymentModal({ open, onClose, onSuccess, documentId, type = 'one-time' }) {
-  const { t } = useTranslation('common');
   const { toast } = useToast();
   const [phoneNumber, setPhoneNumber] = useState('');
   const [provider, setProvider] = useState('mtn');

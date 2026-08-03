@@ -7,6 +7,7 @@ const backendRoot = path.resolve(__dirname, '..', 'backend');
 const mongoose = require(path.join(backendRoot, 'node_modules', 'mongoose'));
 
 function readEnv(key) {
+  if (process.env[key]) return process.env[key];
   const content = fs.readFileSync(path.join(backendRoot, '.env'), 'utf8');
   const m = content.match(new RegExp(`^${key}=(.*)$`, 'm'));
   return m ? m[1].trim() : null;

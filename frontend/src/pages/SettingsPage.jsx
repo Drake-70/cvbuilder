@@ -27,7 +27,6 @@ export default function SettingsPage() {
   const [savingPassword, setSavingPassword] = useState(false);
 
   const [language, setLanguage] = useState(user?.preferredLanguage || 'en');
-  const [savingLang, setSavingLang] = useState(false);
 
   const [deletePassword, setDeletePassword] = useState('');
   const [deleting, setDeleting] = useState(false);

@@ -1,14 +1,12 @@
 import { useState, useRef, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import api from '../services/api';
 import { useCache, invalidateCacheKey } from '../hooks/useCache';
 import { useToast } from '../contexts/ToastContext';
 
 export default function MyCVsPage() {
-  const { t } = useTranslation('common');
   const { t: tTailor } = useTranslation('tailor');
-  const navigate = useNavigate();
   const { toast } = useToast();
   const prevFocusRef = useRef(null);
   const modalRef = useRef(null);

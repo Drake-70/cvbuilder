@@ -6,7 +6,6 @@ import api from '../services/api';
 
 export default function ContactPage() {
   const { t } = useTranslation('common');
-  const { t: tAuth } = useTranslation('auth');
   const { user } = useAuth();
   const { toast } = useToast();
   const [form, setForm] = useState({

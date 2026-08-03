@@ -13,11 +13,12 @@ const STATUS_OPTIONS = [
 
 export default function ApplicationTracker({ documentId, currentStatus, currentCompany, currentAppliedAt, onUpdate }) {
   const { t } = useTranslation();
-  if (!documentId) return null;
   const [status, setStatus] = useState(currentStatus || 'draft');
   const [company, setCompany] = useState(currentCompany || '');
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  if (!documentId) return null;
 
   const save = async () => {
     setSaving(true);

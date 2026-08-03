@@ -16,7 +16,7 @@ export default function DocumentDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [downloading, setDownloading] = useState(false);
-  const [format, setFormat] = useState('docx');
+  const [format] = useState('docx');
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [shareUrl, setShareUrl] = useState('');
   const [sharing, setSharing] = useState(false);
