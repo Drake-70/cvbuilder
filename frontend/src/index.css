@@ -340,6 +340,46 @@
   color: #fffbeb;
 }
 
+/* A4 paper sheet (210 x 297 mm) used by the Before/After diff view */
+.a4-sheet {
+  width: 100%;
+  max-width: 794px;
+  margin-inline: auto;
+  aspect-ratio: 210 / 297;
+  overflow-y: auto;
+  background: #ffffff;
+  color: var(--color-surface-900);
+  border: 1px solid var(--color-surface-200);
+  border-radius: 6px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1), 0 16px 40px rgba(0, 0, 0, 0.12);
+}
+
+.dark .a4-sheet {
+  border-color: var(--color-surface-700);
+}
+
+.a4-sheet .cv-preview-wrapper {
+  height: 100%;
+  max-height: none;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+}
+
+.a4-sheet .cv-preview {
+  padding: 2rem 2.25rem;
+}
+
+.cv-preview--plain {
+  padding: 2rem 2.25rem;
+  font-size: 0.82rem;
+  line-height: 1.6;
+  color: var(--color-surface-600);
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: 'Georgia', 'Times New Roman', serif;
+}
+
 .cv-header {
   text-align: center;
   padding-bottom: 1rem;

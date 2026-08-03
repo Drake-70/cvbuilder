@@ -1,12 +1,12 @@
 import { useTranslation } from 'react-i18next';
 import { highlightText } from '../utils/gapKeywords';
 
-export default function CVPreview({ cv, language = 'en', highlightTerms = [] }) {
+export default function CVPreview({ cv, language = 'en', highlightTerms = [], markClass = 'cv-hl-new' }) {
   const { t } = useTranslation('tailor');
   if (!cv) return null;
 
   const isFr = language === 'fr';
-  const hl = (text) => highlightText(text, highlightTerms, 'cv-hl-new');
+  const hl = (text) => highlightText(text, highlightTerms, markClass);
 
   return (
     <div className="cv-preview-wrapper">

@@ -20,6 +20,10 @@ const draftSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  originalCV: {
+    type: mongoose.Schema.Types.Mixed,
+    default: null
+  },
   savedCvId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'CV',

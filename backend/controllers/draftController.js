@@ -12,7 +12,7 @@ exports.getDraft = async (req, res, next) => {
 
 exports.saveDraft = async (req, res, next) => {
   try {
-    const { step, sourcePath, cvText, savedCvId, savedDocId, jobDescription, language } = req.body;
+    const { step, sourcePath, cvText, originalCV, savedCvId, savedDocId, jobDescription, language } = req.body;
 
     const draft = await Draft.findOneAndUpdate(
       { userId: req.user._id },
@@ -21,6 +21,7 @@ exports.saveDraft = async (req, res, next) => {
           ...(step !== undefined ? { step } : {}),
           ...(sourcePath !== undefined ? { sourcePath } : {}),
           ...(cvText !== undefined ? { cvText } : {}),
+          ...(originalCV !== undefined ? { originalCV } : {}),
           ...(savedCvId !== undefined ? { savedCvId: savedCvId || null } : {}),
           ...(savedDocId !== undefined ? { savedDocId: savedDocId || null } : {}),
           ...(jobDescription !== undefined ? { jobDescription } : {}),

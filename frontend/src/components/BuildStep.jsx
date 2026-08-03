@@ -36,8 +36,8 @@ export default function BuildStep({ onComplete, onBack, language, user }) {
   }, [subStep, personalInfo.targetRole]);
 
   const fallbackSkills = lang === 'fr'
-    ? ['Communication', 'Travail d\'équipe', 'Leadership', 'R\u00e9solution de probl\u00e8mes', 'Gestion du temps', 'Informatique', 'Microsoft Office', 'Service client', 'Gestion de projet', 'Analyse de donn\u00e9es', 'R\u00e9seaux sociaux', 'Fran\u00e7ais', 'Anglais', 'R\u00e9daction']
-    : ['Communication', 'Teamwork', 'Leadership', 'Problem Solving', 'Time Management', 'Computer Literacy', 'Microsoft Office', 'Customer Service', 'Project Management', 'Data Analysis', 'Social Media', 'French', 'English', 'Writing'];
+    ? ['Communication', 'Travail d\'équipe', 'Leadership', 'Résolution de problèmes', 'Gestion du temps', 'Informatique', 'Microsoft Office', 'Service client', 'Gestion de projet', 'Analyse de données', 'Réseaux sociaux', 'Français', 'Anglais', 'Rédaction', 'Attention aux détails', 'Adaptabilité', 'Fiabilité', 'Bilingue (français/anglais)', 'Email', 'Excel', 'Recherche sur Internet', 'Comptabilité de base', 'Écoute active', 'Gestion des conflits', 'Multitâches', 'Prise de parole en public', 'Planification d\'événements', 'Budgetisation', 'Tenue de livres', 'Google Docs', 'PowerPoint']
+    : ['Communication', 'Teamwork', 'Leadership', 'Problem Solving', 'Time Management', 'Computer Literacy', 'Microsoft Office', 'Customer Service', 'Project Management', 'Data Analysis', 'Social Media', 'French', 'English', 'Writing', 'Attention to Detail', 'Adaptability', 'Reliability', 'Bilingual (English/French)', 'Email', 'Excel', 'Internet Research', 'Basic Accounting', 'Active Listening', 'Conflict Resolution', 'Multi-tasking', 'Public Speaking', 'Event Planning', 'Budgeting', 'Bookkeeping', 'Google Docs', 'PowerPoint'];
 
   const displaySkills = skillOptions.length > 0 ? skillOptions : fallbackSkills;
 

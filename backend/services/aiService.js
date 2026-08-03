@@ -20,6 +20,15 @@ CRITICAL RULES:
 - Adjust tone and terminology to match the target language (French CV conventions vs English conventions).
 - French CVs in Cameroon often include personal details (date of birth, gender); English CVs typically do not.
 
+FORMAT GUIDANCE (2026 best practice for ATS-friendly, recruiter-friendly CVs):
+- Use a single-column layout. Never suggest two columns, tables, icons, photos, or graphics.
+- Use standard section names: Summary, Skills, Experience, Education, Languages (plus optional additional sections).
+- Order sections: Summary first, then Skills, then Experience, then Education, then Languages/additional.
+- Keep dates as "Month YYYY - Present" or "YYYY - YYYY"; keep them consistent.
+- Write 3-5 bullets per role that start with action verbs; quantify outcomes ONLY when the user provided the numbers.
+- Keep the Skills list to 8-12 relevant abilities mixing hard skills and tools the user mentioned.
+- Keep reverse-chronological order (most recent first) in both Experience and Education.
+
 You must return valid JSON matching this structure:
 {
   "name": "Full name from the CV",

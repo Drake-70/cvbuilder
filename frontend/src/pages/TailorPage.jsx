@@ -22,6 +22,7 @@ export default function TailorPage() {
   const [step, setStep] = useState(initialPath ? (initialPath === 'build' ? 'build' : 'upload') : 'choose');
   const [sourcePath, setSourcePath] = useState(initialPath === 'build' ? 'build' : 'upload');
   const [cvText, setCvText] = useState('');
+  const [originalCV, setOriginalCV] = useState(null);
   const [savedCvId, setSavedCvId] = useState(null);
   const [savedDocId, setSavedDocId] = useState(null);
   const [jobDescription, setJobDescription] = useState('');
@@ -50,6 +51,7 @@ export default function TailorPage() {
         if (d.step) setStep(d.step);
         if (d.sourcePath) setSourcePath(d.sourcePath);
         if (d.cvText) setCvText(d.cvText);
+        if (d.originalCV) setOriginalCV(d.originalCV);
         if (d.savedCvId) setSavedCvId(d.savedCvId);
         if (d.savedDocId) setSavedDocId(d.savedDocId);
         if (d.jobDescription) setJobDescription(d.jobDescription);
@@ -68,6 +70,7 @@ export default function TailorPage() {
         step,
         sourcePath,
         cvText,
+        originalCV,
         savedCvId,
         savedDocId,
         jobDescription,
@@ -75,7 +78,7 @@ export default function TailorPage() {
       }).catch(() => {});
     }, 1200);
     return () => clearTimeout(timer);
-  }, [user, step, sourcePath, cvText, savedCvId, savedDocId, jobDescription, language, result]);
+  }, [user, step, sourcePath, cvText, originalCV, savedCvId, savedDocId, jobDescription, language, result]);
 
   const handlePathChoice = (path) => {
     setStep(path);
@@ -85,6 +88,7 @@ export default function TailorPage() {
 
   const handleCvReady = useCallback(async (text, source, parsedSections) => {
     setCvText(text);
+    setOriginalCV(parsedSections || null);
     setStep('job');
     setError('');
 
@@ -107,7 +111,7 @@ export default function TailorPage() {
     try {
       const jd = skipJob ? '' : jobDescription;
       const res = await api.post('/tailor', { cvText, jobDescription: jd, language });
-      const tailored = { ...res.data, cvText, jobDescription: jd, language };
+      const tailored = { ...res.data, cvText, originalCV, jobDescription: jd, language };
       setResult(tailored);
 
       // Save tailored document
@@ -174,6 +178,7 @@ export default function TailorPage() {
     setStep('choose');
     setFlowKey((k) => k + 1);
     setCvText('');
+    setOriginalCV(null);
     setSavedCvId(null);
     setSavedDocId(null);
     setJobDescription('');

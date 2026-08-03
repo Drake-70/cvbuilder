@@ -244,6 +244,7 @@ export default function ResultStep({ result, onDownload, onReset, loading, docum
         {tab === 'gaps' && (
           <BeforeAfterGaps
             originalText={result.cvText || ''}
+            originalCV={result.originalCV || null}
             tailoredCV={cv}
             coverLetter={coverLetter}
             gaps={gaps}

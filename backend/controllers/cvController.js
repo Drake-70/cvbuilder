@@ -174,7 +174,7 @@ const SKILLS_BY_ROLE = {
   'marketing': ['Social Media Marketing', 'Google Ads', 'Facebook Ads', 'SEO', 'Content Writing', 'Email Marketing', 'Google Analytics', 'Canva', 'Copywriting', 'CRM', 'Branding', 'Market Research'],
   'accountant': ['QuickBooks', 'Excel', 'Financial Reporting', 'Tax Preparation', 'GAAP', 'Accounts Payable', 'Accounts Receivable', 'Budgeting', 'SAP', 'Payroll', 'Auditing', 'MS Excel'],
   'project manager': ['Agile', 'Scrum', 'MS Project', 'Jira', 'Risk Management', 'Budget Management', 'Stakeholder Management', 'Communication', 'Leadership', 'Planning', 'PMP', 'Kanban'],
-  'customer service': ['Communication', 'Problem Solving', 'CRM', 'Zendesk', 'Intercom', 'Conflict Resolution', 'Patience', 'Multitasking', 'Microsoft Office', 'Teamwork', 'Empathy', 'Time Management'],
+  'customer service': ['Communication', 'Problem Solving', 'CRM', 'Zendesk', 'Intercom', 'Conflict Resolution', 'Patience', 'Multitasking', 'Microsoft Office', 'Teamwork', 'Empathy', 'Time Management', 'Active Listening', 'Phone Etiquette', 'Complaint Handling', 'Live Chat Support', 'Data Entry', 'Customer Retention', 'Upselling', 'Scheduling', 'Email Support', 'Bilingual (English/French)'],
   'teacher': ['Lesson Planning', 'Classroom Management', 'Student Assessment', 'Curriculum Development', 'Communication', 'Patience', 'Microsoft Office', 'Google Classroom', 'Differentiated Instruction', 'Parent Communication'],
   'nurse': ['Patient Care', 'Vital Signs', 'Medication Administration', 'Electronic Health Records', 'CPR', 'IV Therapy', 'Triage', 'Infection Control', 'Communication', 'Empathy', 'Documentation', 'Teamwork'],
   'driver': ['Driving License', 'Navigation', 'Route Planning', 'Vehicle Maintenance', 'Safety Regulations', 'Time Management', 'Reliability', 'Customer Service', 'Communication', 'Physical Fitness'],
@@ -184,7 +184,11 @@ const SKILLS_BY_ROLE = {
   'cook': ['Food Preparation', 'Kitchen Safety', 'Menu Planning', 'Inventory Management', 'Food Hygiene', 'Time Management', 'Teamwork', 'Creativity', 'Communication', 'Cleanliness'],
   'sewing': ['Pattern Making', 'Fabric Cutting', 'Machine Operation', 'Hand Sewing', 'Textile Knowledge', 'Attention to Detail', 'Color Coordination', 'Measurement', 'Design', 'Alterations'],
   'agriculture': ['Crop Management', 'Soil Analysis', 'Irrigation', 'Pest Control', 'Harvesting', 'Livestock Care', 'Farm Equipment', 'Weather Monitoring', 'Sustainability', 'Physical Stamina'],
-  'default': ['Communication', 'Teamwork', 'Problem Solving', 'Time Management', 'Leadership', 'Computer Literacy', 'Microsoft Office', 'Customer Service', 'Organization', 'Adaptability', 'Critical Thinking', 'Interpersonal Skills']
+  'secretary': ['Word Processing', 'Typing', 'Shorthand', 'Scheduling', 'Email Management', 'File Organization', 'Microsoft Office', 'Meeting Coordination', 'Travel Arrangements', 'Data Entry', 'Record Keeping', 'Office Equipment', 'Communication', 'Discretion', 'Multi-tasking', 'Customer Service'],
+  'sales': ['Sales Presentations', 'Negotiation', 'Customer Relationship Management', 'Lead Generation', 'Cold Calling', 'Product Knowledge', 'Closing Deals', 'CRM Software', 'Follow-up', 'Communication', 'Persuasion', 'Networking', 'Target Achievement', 'Market Research', 'Reporting'],
+  'logistics': ['Inventory Management', 'Route Planning', 'Shipping Documentation', 'Customs Clearance', 'Warehouse Operations', 'Fleet Coordination', 'Freight Management', 'Supply Chain', 'Order Processing', 'Tracking Systems', 'Excel', 'Problem Solving', 'Safety Compliance', 'Time Management'],
+  'hr': ['Recruitment', 'Interviewing', 'Employee Onboarding', 'Payroll', 'Labor Law', 'Performance Management', 'Conflict Resolution', 'HR Software', 'Employment Contracts', 'Training & Development', 'Attendance Tracking', 'Communication', 'Confidentiality', 'Team Building'],
+  'default': ['Communication', 'Teamwork', 'Problem Solving', 'Time Management', 'Leadership', 'Computer Literacy', 'Microsoft Office', 'Customer Service', 'Organization', 'Adaptability', 'Critical Thinking', 'Interpersonal Skills', 'Reliability', 'Attention to Detail', 'Fast Learner', 'Bilingual (English/French)', 'Basic Accounting', 'Email', 'Internet Research', 'Mobile Apps', 'Social Media']
 };
 
 exports.getSkillSuggestions = async (req, res) => {
