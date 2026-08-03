@@ -4,6 +4,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
+import analytics from '../utils/analytics';
 import PathChoice from '../components/PathChoice';
 import UploadStep from '../components/UploadStep';
 import BuildStep from '../components/BuildStep';
@@ -133,6 +134,7 @@ export default function TailorPage() {
 
       setStep('result');
       toast.success('CV Tailored', 'Your CV and cover letter are ready to preview.');
+      analytics.track('tailor_completed', { language, hasJob: Boolean(jd) });
 
       api.delete('/drafts').catch(() => {});
     } catch (err) {
@@ -167,6 +169,7 @@ export default function TailorPage() {
       link.remove();
       window.URL.revokeObjectURL(url);
       fetchUser();
+      analytics.track('document_download', { template, format });
       toast.success('Downloaded', 'Your tailored CV has been saved.');
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to generate document.');
@@ -174,8 +177,11 @@ export default function TailorPage() {
     }
   };
 
-  const handleReset = () => {
-    setStep('choose');
+  const handleCoverLetterSelect = (letter) => {
+    setResult((prev) => (prev ? { ...prev, coverLetter: letter } : prev));
+  };
+
+  const handleReset = () => {    setStep('choose');
     setFlowKey((k) => k + 1);
     setCvText('');
     setOriginalCV(null);
@@ -246,7 +252,7 @@ export default function TailorPage() {
           />
         </div>
         <div className={step === 'result' && result ? '' : 'hidden'} aria-hidden={step !== 'result'}>
-          {result && <ResultStep result={result} onDownload={handleDownload} onReset={handleReset} loading={loading} documentId={savedDocId} />}
+          {result && <ResultStep result={result} onDownload={handleDownload} onReset={handleReset} loading={loading} documentId={savedDocId} onCoverLetterSelect={handleCoverLetterSelect} />}
         </div>
       </div>
     </div>

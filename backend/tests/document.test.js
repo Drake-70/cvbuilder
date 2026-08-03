@@ -79,7 +79,7 @@ test('generateDocx outputs an A4 page size (11906x16838 twips)', async () => {
 });
 
 test('generateDocx supports all templates and they produce distinct output', async () => {
-  assert.deepEqual(TEMPLATES.sort(), ['classic', 'creative', 'modern']);
+  assert.deepEqual(TEMPLATES.sort(), ['bold', 'classic', 'creative', 'minimal', 'modern', 'professional']);
   const buffers = {};
   for (const tpl of TEMPLATES) {
     buffers[tpl] = await generateDocx(sampleCV, sampleCoverLetter, 'en', tpl);

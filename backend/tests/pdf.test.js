@@ -21,7 +21,7 @@ const sampleCV = {
 const sampleCoverLetter = 'Dear Hiring Manager,\nI am excited to apply for this role.';
 
 test('generatePdf produces a valid PDF for every template', async () => {
-  assert.deepEqual(PDF_TEMPLATES.sort(), ['classic', 'creative', 'modern']);
+  assert.deepEqual(PDF_TEMPLATES.sort(), ['bold', 'classic', 'creative', 'minimal', 'modern', 'professional']);
   for (const tpl of PDF_TEMPLATES) {
     const buffer = await generatePdf(sampleCV, sampleCoverLetter, 'en', tpl);
     assert.ok(buffer.length > 0, `${tpl} PDF should be non-empty`);

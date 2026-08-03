@@ -11,7 +11,9 @@ const referralSchema = new mongoose.Schema({
   referredUserId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    default: null
+    default: null,
+    sparse: true,
+    index: true
   },
   code: {
     type: String,

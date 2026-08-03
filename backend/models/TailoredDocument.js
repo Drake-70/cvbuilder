@@ -57,13 +57,14 @@ const tailoredDocumentSchema = new mongoose.Schema({
   },
   template: {
     type: String,
-    enum: ['modern', 'classic', 'creative'],
+    enum: ['modern', 'classic', 'creative', 'professional', 'minimal', 'bold'],
     default: 'modern'
   },
   shareToken: {
     type: String,
     default: null,
-    sparse: true
+    sparse: true,
+    index: true
   },
   downloadCount: {
     type: Number,
@@ -74,5 +75,7 @@ const tailoredDocumentSchema = new mongoose.Schema({
     default: 0
   }
 }, { timestamps: true });
+
+tailoredDocumentSchema.index({ userId: 1, createdAt: -1 });
 
 module.exports = mongoose.model('TailoredDocument', tailoredDocumentSchema);

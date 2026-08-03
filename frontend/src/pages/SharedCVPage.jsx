@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import api from '../services/api';
+import analytics from '../utils/analytics';
 import CVPreview from '../components/CVPreview';
 
 export default function SharedCVPage() {
@@ -16,6 +17,7 @@ export default function SharedCVPage() {
       try {
         const res = await api.get(`/document/shared/${token}`);
         setDoc(res.data);
+        analytics.track('shared_cv_viewed', { hasCoverLetter: Boolean(res.data.coverLetter) });
       } catch (err) {
         setError(err.response?.status === 404 ? 'This CV link is no longer available.' : 'Failed to load CV.');
       } finally {

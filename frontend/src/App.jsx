@@ -1,6 +1,7 @@
-import { lazy, Suspense } from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { lazy, Suspense, useEffect } from 'react';
+import { Routes, Route, useLocation } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
+import analytics from './utils/analytics';
 import Header from './components/Header';
 import ProtectedRoute from './components/ProtectedRoute';
 import { DashboardSkeleton } from './components/Skeleton';
@@ -33,6 +34,12 @@ function PageLoader() {
 }
 
 function App() {
+  const location = useLocation();
+
+  useEffect(() => {
+    analytics.page(location.pathname);
+  }, [location.pathname]);
+
   return (
     <AuthProvider>
       <div className="min-h-screen bg-gradient-to-b from-surface-50 via-surface-50 to-brand-50/60 dark:from-surface-900 dark:via-surface-900 dark:to-brand-950 transition-colors duration-200">

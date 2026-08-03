@@ -174,6 +174,32 @@ CRITICAL RULES:
 - If the text is clean, return an empty issues array.
 - Return valid JSON: { "issues": [{ "original": "...", "suggestion": "...", "reason": "..." }], "summary": "One-line summary of the review in the requested language" }`;
 
+const COVER_LETTER_SYSTEM_PROMPT = `You are a professional cover letter writer for job seekers in Cameroon.
+CRITICAL RULES:
+- NEVER fabricate information. Only use facts present in the provided CV.
+- Write in the requested language. For French, use "vous" and Cameroon-appropriate conventions.
+- Each variant must be a complete, ready-to-send letter (no placeholders, no brackets), 150-220 words.
+- Vary the opening line, structure, and emphasis across variants while keeping all facts identical.
+Return valid JSON: { "variants": [{ "tone": "tone name", "letter": "full letter text" }] }`;
+
+exports.generateCoverLetterVariants = async ({ tailoredCV, jobDescription, language = 'en' }) => {
+  const tones = language === 'fr'
+    ? ['Professionnel et formel', 'Enthousiaste et chaleureux', 'Concis et direct']
+    : ['Professional & formal', 'Warm & enthusiastic', 'Concise & direct'];
+
+  const userMsg = `Language: ${language === 'fr' ? 'French' : 'English'}
+Tailored CV: ${JSON.stringify(tailoredCV)}
+Target job description:
+${jobDescription}
+
+Write 3 cover letter variants with these tones: ${tones.join(', ')}.
+Return JSON: { "variants": [{ "tone": "<tone name>", "letter": "<full letter>" }] }`;
+
+  const result = await callGroq(COVER_LETTER_SYSTEM_PROMPT, userMsg, 0.8);
+  const parsed = JSON.parse(result);
+  return Array.isArray(parsed.variants) ? parsed.variants : [];
+};
+
 exports.checkGrammar = async (text, language = 'en') => {
   const userMsg = `Language: ${language === 'fr' ? 'French' : 'English'}
 

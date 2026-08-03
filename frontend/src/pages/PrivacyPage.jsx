@@ -138,7 +138,7 @@ export default function PrivacyPage() {
             <section>
               <h2 className="text-xl font-bold text-surface-900 mb-3">9. Cookies</h2>
               <p className="text-surface-600 leading-relaxed">
-                CVBoost uses essential HTTP-only cookies for authentication (access and refresh tokens). We do not use tracking cookies, advertising cookies, or third-party analytics cookies. Your language and theme preferences are stored in your browser&apos;s localStorage, not in cookies.
+                CVBoost uses essential HTTP-only cookies for authentication (access and refresh tokens). We do not use advertising cookies or third-party ad tracking. When enabled, we use privacy-respecting, self-hosted-style analytics (PostHog) that stores a random identifier in your browser&apos;s localStorage — never in cookies — solely to understand aggregate product usage. Your language and theme preferences are also stored in localStorage, not in cookies.
               </p>
             </section>
 

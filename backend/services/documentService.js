@@ -59,6 +59,45 @@ const TEMPLATES = {
     bandRule: '7C3AED',
     companyStyle: 'plain',
     contactColor: '4B5563'
+  },
+  professional: {
+    font: 'Segoe UI',
+    headingColor: '1E3A8A',
+    headingRule: '1E3A8A',
+    nameColor: '111827',
+    nameSize: 30,
+    nameFont: 'Segoe UI',
+    band: null,
+    bandRule: '1E3A8A',
+    companyStyle: 'italic',
+    contactColor: '374151',
+    nameAlign: AlignmentType.LEFT
+  },
+  minimal: {
+    font: 'Aptos',
+    headingColor: '374151',
+    headingRule: '9CA3AF',
+    nameColor: '111827',
+    nameSize: 26,
+    nameFont: 'Aptos',
+    band: null,
+    bandRule: '9CA3AF',
+    companyStyle: 'plain',
+    contactColor: '6B7280',
+    nameAlign: AlignmentType.LEFT
+  },
+  bold: {
+    font: 'Verdana',
+    headingColor: '111827',
+    headingRule: '111827',
+    nameColor: 'FFFFFF',
+    nameSize: 30,
+    nameFont: 'Verdana',
+    band: '111827',
+    bandRule: '111827',
+    companyStyle: 'plain',
+    contactColor: '4B5563',
+    nameAlign: AlignmentType.CENTER
   }
 };
 
@@ -210,7 +249,7 @@ function nameHeader(cv, tpl, labels, lang) {
   } else {
     paragraphs.push(new Paragraph({
       heading: HeadingLevel.TITLE,
-      alignment: tpl.nameFont === 'Times New Roman' ? AlignmentType.LEFT : AlignmentType.CENTER,
+      alignment: tpl.nameAlign || (tpl.nameFont === 'Times New Roman' ? AlignmentType.LEFT : AlignmentType.CENTER),
       spacing: { after: 60 },
       children: [textRun(cv.name || '', { size: tpl.nameSize, font: tpl.nameFont, bold: true, color: tpl.nameColor })]
     }));

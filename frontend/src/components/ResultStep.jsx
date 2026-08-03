@@ -8,8 +8,9 @@ import LinkedInGenerator from './LinkedInGenerator';
 import CVPreview from './CVPreview';
 import BeforeAfterGaps from './BeforeAfterGaps';
 import api from '../services/api';
+import analytics from '../utils/analytics';
 
-export default function ResultStep({ result, onDownload, onReset, loading, documentId }) {
+export default function ResultStep({ result, onDownload, onReset, loading, documentId, onCoverLetterSelect }) {
   const { t } = useTranslation('tailor');
   const { t: tCommon } = useTranslation('common');
   const { user } = useAuth();
@@ -21,9 +22,13 @@ export default function ResultStep({ result, onDownload, onReset, loading, docum
   const [grammarIssues, setGrammarIssues] = useState(null);
   const [grammarLoading, setGrammarLoading] = useState(false);
   const [grammarError, setGrammarError] = useState('');
+  const [coverVariants, setCoverVariants] = useState([]);
+  const [coverVariantsLoading, setCoverVariantsLoading] = useState(false);
+  const [coverVariantsError, setCoverVariantsError] = useState('');
+  const [activeCoverVariant, setActiveCoverVariant] = useState(null);
 
   const cv = result.tailoredCV || {};
-  const coverLetter = result.coverLetter || '';
+  const coverLetter = activeCoverVariant?.letter || result.coverLetter || '';
   const gaps = result.gapAnalysis || [];
 
   const tabs = [
@@ -66,8 +71,7 @@ export default function ResultStep({ result, onDownload, onReset, loading, docum
     return parts.join('\n');
   };
 
-  const runGrammarCheck = async () => {
-    setGrammarLoading(true);
+  const runGrammarCheck = async () => {    setGrammarLoading(true);
     setGrammarError('');
     setGrammarIssues(null);
     try {
@@ -78,6 +82,30 @@ export default function ResultStep({ result, onDownload, onReset, loading, docum
     } finally {
       setGrammarLoading(false);
     }
+  };
+
+  const generateCoverVariants = async () => {
+    setCoverVariantsLoading(true);
+    setCoverVariantsError('');
+    try {
+      const res = await api.post('/tailor/cover-letter', {
+        tailoredCV: result.tailoredCV,
+        jobDescription: result.jobDescription,
+        language: result.language || 'en'
+      });
+      setCoverVariants(res.data.variants || []);
+      analytics.track('cover_variant_generated', { count: (res.data.variants || []).length });
+    } catch (err) {
+      setCoverVariantsError(err.response?.data?.error || t('cover_variants_failed', 'Failed to generate alternate versions. Please try again.'));
+    } finally {
+      setCoverVariantsLoading(false);
+    }
+  };
+
+  const selectCoverVariant = (variant) => {
+    setActiveCoverVariant(variant);
+    if (onCoverLetterSelect) onCoverLetterSelect(variant.letter);
+    analytics.track('cover_variant_selected', { tone: variant.tone });
   };
 
   return (
@@ -133,7 +161,7 @@ export default function ResultStep({ result, onDownload, onReset, loading, docum
       {/* Template Selector */}
       <div className="flex flex-wrap items-center gap-2 mb-4">
         <span className="text-xs font-medium text-surface-400">{t('template', 'Template')}:</span>
-        {['modern', 'classic', 'creative'].map(tpl => (
+        {['modern', 'classic', 'creative', 'professional', 'minimal', 'bold'].map(tpl => (
           <button
             key={tpl}
             onClick={() => setTemplate(tpl)}
@@ -239,7 +267,59 @@ export default function ResultStep({ result, onDownload, onReset, loading, docum
         )}
 
         {tab === 'cover' && (
-          <div className="whitespace-pre-wrap text-sm text-surface-600 leading-relaxed animate-fade-in">{coverLetter}</div>
+          <div className="space-y-5 animate-fade-in">
+            <div className="whitespace-pre-wrap text-sm text-surface-600 leading-relaxed">{coverLetter}</div>
+
+            {activeCoverVariant && (
+              <button
+                onClick={() => {
+                  setActiveCoverVariant(null);
+                  if (onCoverLetterSelect) onCoverLetterSelect(result.coverLetter || '');
+                }}
+                className="btn-ghost text-xs text-brand-600"
+              >
+                {t('cover_reset_original', 'Back to original version')}
+              </button>
+            )}
+
+            <div className="border-t border-surface-100 pt-4">
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                <h3 className="kicker">{t('cover_variants_title', 'Alternate Versions')}</h3>
+                <button onClick={generateCoverVariants} disabled={coverVariantsLoading} className="btn-ghost text-brand-600 font-medium text-sm">
+                  {coverVariantsLoading ? t('generating') : t('cover_generate_variants', 'Generate alternate versions')}
+                </button>
+              </div>
+              <p className="text-xs text-surface-400 mb-3">{t('cover_variants_desc', 'Get 3 differently-toned cover letters based on the same facts. Pick the one that fits best.')}</p>
+
+              {coverVariantsError && <p className="text-rose-500 text-sm mb-3">{coverVariantsError}</p>}
+
+              {coverVariantsLoading && (
+                <div className="flex items-center gap-2 text-sm text-surface-400 animate-pulse">
+                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                  </svg>
+                  {t('generating')}
+                </div>
+              )}
+
+              {coverVariants.length > 0 && (
+                <div className="grid gap-3">
+                  {coverVariants.map((variant, i) => (
+                    <div key={i} className={`rounded-xl border p-4 transition-all ${activeCoverVariant?.letter === variant.letter ? 'border-brand-300 bg-brand-50/40' : 'border-surface-200'}`}>
+                      <div className="flex items-center justify-between gap-2 mb-2">
+                        <span className="text-xs font-bold uppercase tracking-wider text-brand-600">{variant.tone}</span>
+                        <button onClick={() => selectCoverVariant(variant)} className="btn-sm btn-primary px-3 py-1.5 text-xs rounded-lg">
+                          {t('cover_use_version', 'Use this version')}
+                        </button>
+                      </div>
+                      <p className="text-xs text-surface-500 line-clamp-3">{variant.letter}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         )}
         {tab === 'gaps' && (
           <div className="space-y-5">

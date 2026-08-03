@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
+import analytics from '../utils/analytics';
 import PaymentModal from '../components/PaymentModal';
 import CVPreview from '../components/CVPreview';
 
@@ -21,6 +22,8 @@ export default function DocumentDetailPage() {
   const [shareUrl, setShareUrl] = useState('');
   const [sharing, setSharing] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [stats, setStats] = useState(null);
+  const [statsLoading, setStatsLoading] = useState(false);
 
   const isSubscribed = user?.subscriptionStatus === 'active';
 
@@ -52,6 +55,7 @@ export default function DocumentDetailPage() {
       link.remove();
       window.URL.revokeObjectURL(url);
       fetchUser();
+      analytics.track('document_download', { format: fmt, documentId: id });
     } catch (err) {
       if (err.response?.status === 402) {
         setPaymentOpen(true);
@@ -79,6 +83,20 @@ export default function DocumentDetailPage() {
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank', 'noopener');
   };
 
+  useEffect(() => {
+    if (!shareUrl) return;
+    const fetchStats = async () => {
+      setStatsLoading(true);
+      try {
+        const res = await api.get(`/document/${id}/share-stats`);
+        setStats(res.data);
+      } catch { /* silent */ } finally {
+        setStatsLoading(false);
+      }
+    };
+    fetchStats();
+  }, [shareUrl, id]);
+
   const formatDate = (dateStr) => new Date(dateStr).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
   const handleShare = async () => {
@@ -96,6 +114,7 @@ export default function DocumentDetailPage() {
       navigator.clipboard.writeText(window.location.origin + url);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+      analytics.track('share_link_created', { documentId: id });
     } catch { /* silent */ } finally {
       setSharing(false);
     }
@@ -247,6 +266,75 @@ export default function DocumentDetailPage() {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Share Insights */}
+      {shareUrl && (
+        <div className="card p-5 sm:p-6 mb-6">
+          <div className="flex items-center justify-between mb-1">
+            <h3 className="text-xs font-bold text-brand-600 uppercase tracking-wider">Share Insights</h3>
+            {statsLoading && <span className="text-xs text-surface-400 animate-pulse">Loading…</span>}
+          </div>
+          <p className="text-xs text-surface-400 mb-4">Views, downloads and referrers for this shared CV link.</p>
+
+          {stats && (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <div className="grid grid-cols-2 gap-3 mb-4">
+                  <div className="rounded-xl border border-surface-200 p-3">
+                    <p className="text-2xl font-extrabold text-surface-900">{stats.viewCount}</p>
+                    <p className="text-xs text-surface-400">Total views</p>
+                  </div>
+                  <div className="rounded-xl border border-surface-200 p-3">
+                    <p className="text-2xl font-extrabold text-surface-900">{stats.downloadCount}</p>
+                    <p className="text-xs text-surface-400">Downloads</p>
+                  </div>
+                </div>
+                {stats.perDay.length > 0 ? (
+                  <div className="flex items-end gap-1 h-24">
+                    {stats.perDay.map((d) => (
+                      <div key={d.date} className="flex-1 flex flex-col items-center gap-1" title={`${d.date}: ${d.count} view${d.count !== 1 ? 's' : ''}`}>
+                        <div className="w-full bg-brand-100 rounded-t" style={{ height: `${Math.max(4, (d.count / Math.max(...stats.perDay.map((x) => x.count))) * 100)}%` }} />
+                        <span className="text-[9px] text-surface-400">{d.date.slice(8)}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-surface-400">No views in the last 30 days yet.</p>
+                )}
+              </div>
+
+              <div>
+                {stats.referers.length > 0 && (
+                  <div className="mb-4">
+                    <p className="text-xs font-semibold text-surface-500 mb-2">Top referrers</p>
+                    <div className="space-y-1.5">
+                      {stats.referers.map((r, i) => (
+                        <div key={i} className="flex items-center justify-between text-sm">
+                          <span className="text-surface-600 truncate">{r.referer}</span>
+                          <span className="text-surface-400 text-xs font-medium">{r.count}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {stats.recentViews.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold text-surface-500 mb-2">Recent views</p>
+                    <div className="space-y-1.5">
+                      {stats.recentViews.map((v, i) => (
+                        <div key={i} className="flex items-center justify-between text-sm">
+                          <span className="text-surface-600 truncate max-w-[60%]">{v.userAgent || 'Unknown device'}</span>
+                          <span className="text-surface-400 text-xs">{new Date(v.createdAt).toLocaleDateString()}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
 

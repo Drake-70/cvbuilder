@@ -1,5 +1,6 @@
 const TailoredDocument = require('../models/TailoredDocument');
 const User = require('../models/User');
+const ShareView = require('../models/ShareView');
 const { generateDocx } = require('../services/documentService');
 const { generatePdf } = require('../services/pdfService');
 const crypto = require('crypto');
@@ -219,7 +220,61 @@ exports.getSharedDocument = async (req, res, next) => {
     doc.viewCount = (doc.viewCount || 0) + 1;
     await doc.save();
 
+    try {
+      const crypto = require('crypto');
+      const ipHash = crypto.createHash('sha256').update(req.ip || req.socket?.remoteAddress || 'unknown').digest('hex');
+      await ShareView.create({
+        token: req.params.token,
+        ipHash,
+        userAgent: (req.headers['user-agent'] || '').slice(0, 300),
+        referer: (req.headers.referer || '').slice(0, 300)
+      });
+    } catch {
+      // View logging must never break the shared CV page
+    }
+
     res.json(doc);
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.getShareStats = async (req, res, next) => {
+  try {
+    const doc = await TailoredDocument.findOne({ _id: req.params.id, userId: req.user._id });
+    if (!doc) return res.status(404).json({ error: 'Document not found' });
+    if (!doc.shareToken) {
+      return res.json({ viewCount: 0, downloadCount: 0, perDay: [], referers: [], recentViews: [] });
+    }
+
+    const since = new Date();
+    since.setDate(since.getDate() - 30);
+
+    const [perDay, referers, recent] = await Promise.all([
+      ShareView.aggregate([
+        { $match: { token: doc.shareToken, createdAt: { $gte: since } } },
+        { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } }, count: { $sum: 1 } } },
+        { $sort: { _id: 1 } }
+      ]),
+      ShareView.aggregate([
+        { $match: { token: doc.shareToken, referer: { $ne: '' } } },
+        { $group: { _id: '$referer', count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+        { $limit: 10 }
+      ]),
+      ShareView.find({ token: doc.shareToken })
+        .sort({ createdAt: -1 })
+        .limit(20)
+        .select('userAgent referer createdAt')
+    ]);
+
+    res.json({
+      viewCount: doc.viewCount || 0,
+      downloadCount: doc.downloadCount || 0,
+      perDay: perDay.map((d) => ({ date: d._id, count: d.count })),
+      referers: referers.map((r) => ({ referer: r._id, count: r.count })),
+      recentViews: recent
+    });
   } catch (err) {
     next(err);
   }

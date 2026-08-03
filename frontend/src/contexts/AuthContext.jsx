@@ -1,7 +1,13 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import api from '../services/api';
+import analytics from '../utils/analytics';
 
 const AuthContext = createContext(null);
+
+const trackUser = (user, event) => {
+  if (user?._id) analytics.identify(user);
+  analytics.track(event);
+};
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -11,6 +17,7 @@ export function AuthProvider({ children }) {
     try {
       const res = await api.get('/auth/me');
       setUser(res.data.user);
+      if (res.data.user?._id) analytics.identify(res.data.user);
     } catch {
       setUser(null);
     } finally {
@@ -25,6 +32,7 @@ export function AuthProvider({ children }) {
   const login = async (email, password) => {
     const res = await api.post('/auth/login', { email, password });
     setUser(res.data.user);
+    trackUser(res.data.user, 'login');
     return res.data;
   };
 
@@ -33,12 +41,14 @@ export function AuthProvider({ children }) {
     if (res.data.user) {
       setUser(res.data.user);
     }
+    trackUser(res.data.user, 'signup');
     return res.data;
   };
 
   const googleLogin = async (credential) => {
     const res = await api.post('/auth/google-login', { credential });
     setUser(res.data.user);
+    trackUser(res.data.user, 'login');
     return res.data;
   };
 

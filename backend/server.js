@@ -32,6 +32,18 @@ const draftRoutes = require('./routes/draft');
 
 const app = express();
 
+// Observability — Sentry is enabled only when SENTRY_DSN is set
+let Sentry = null;
+if (process.env.SENTRY_DSN) {
+  Sentry = require('@sentry/node');
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    environment: process.env.NODE_ENV || 'development',
+    tracesSampleRate: 0.1,
+    integrations: [Sentry.expressIntegration()]
+  });
+}
+
 // Security
 // Security — CSP is declared in frontend/index.html meta tag (single source of truth)
 // referrerPolicy must NOT be no-referrer or Google Identity Services rejects the button
@@ -142,12 +154,29 @@ app.use('/api/ai', aiLimiter, aiRoutes);
 app.use('/api/drafts', draftRoutes);
 
 // Error handler
+if (Sentry) Sentry.setupExpressErrorHandler(app);
 app.use(errorHandler);
 
 // Serve frontend in production
 if (process.env.NODE_ENV === 'production') {
   const frontendDist = path.join(__dirname, '..', 'frontend', 'dist');
-  app.use(express.static(frontendDist));
+  // CDN-friendly caching: Vite emits content-hashed asset filenames (immutable),
+  // index.html must revalidate, and everything else is safe to cache briefly.
+  const hashedAsset = /[\\/]assets\/[^\\/]+-[a-f0-9]{8}\./;
+  app.use(express.static(frontendDist, {
+    maxAge: '1y',
+    immutable: true,
+    index: false,
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith('.html')) {
+        res.setHeader('Cache-Control', 'no-cache');
+      } else if (hashedAsset.test(filePath)) {
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      } else {
+        res.setHeader('Cache-Control', 'public, max-age=3600');
+      }
+    }
+  }));
   app.get('/{*splat}', (_req, res) => {
     res.sendFile(path.join(frontendDist, 'index.html'));
   });

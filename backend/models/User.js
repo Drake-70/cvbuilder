@@ -30,7 +30,7 @@ const userSchema = new mongoose.Schema({
   jobTitle: { type: String, default: '' },
   company: { type: String, default: '' },
   savedSkills: { type: [String], default: [] },
-  googleId: { type: String, sparse: true },
+  googleId: { type: String, sparse: true, index: true },
   facebookId: { type: String, sparse: true },
   linkedinId: { type: String, sparse: true },
   subscriptionStatus: {
@@ -41,10 +41,10 @@ const userSchema = new mongoose.Schema({
   subscriptionExpiresAt: { type: Date },
   documentsGeneratedCount: { type: Number, default: 0 },
   freeDocumentCredits: { type: Number, default: 0 },
-  resetPasswordToken: { type: String },
+  resetPasswordToken: { type: String, sparse: true, index: true },
   resetPasswordExpires: { type: Date },
   emailVerified: { type: Boolean, default: false },
-  emailVerificationToken: { type: String },
+  emailVerificationToken: { type: String, sparse: true, index: true },
   emailVerificationExpires: { type: Date },
   role: {
     type: String,

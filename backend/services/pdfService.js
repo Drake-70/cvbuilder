@@ -56,6 +56,39 @@ const TEMPLATES = {
     band: '7C3AED',
     companyItalic: false,
     contactColor: '4B5563'
+  },
+  professional: {
+    font: 'Helvetica',
+    heading: '1E3A8A',
+    headingRule: '1E3A8A',
+    nameColor: '111827',
+    nameSize: 24,
+    nameAlign: 'left',
+    band: null,
+    companyItalic: true,
+    contactColor: '374151'
+  },
+  minimal: {
+    font: 'Helvetica',
+    heading: '374151',
+    headingRule: '9CA3AF',
+    nameColor: '111827',
+    nameSize: 20,
+    nameAlign: 'left',
+    band: null,
+    companyItalic: false,
+    contactColor: '6B7280'
+  },
+  bold: {
+    font: 'Helvetica',
+    heading: '111827',
+    headingRule: '111827',
+    nameColor: 'FFFFFF',
+    nameSize: 24,
+    nameAlign: 'center',
+    band: '111827',
+    companyItalic: false,
+    contactColor: '4B5563'
   }
 };
 
