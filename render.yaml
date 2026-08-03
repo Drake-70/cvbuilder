@@ -29,6 +29,10 @@ services:
         sync: false
       - key: VITE_POSTHOG_HOST
         sync: false
+      - key: POSTHOG_PROJECT_TOKEN
+        sync: false
+      - key: POSTHOG_HOST
+        sync: false
       - key: CORS_ORIGIN
         fromService:
           name: cvboost
