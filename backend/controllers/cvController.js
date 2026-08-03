@@ -4,6 +4,7 @@ const mammoth = require('mammoth');
 const CV = require('../models/CV');
 const { expandQuestionnaireInput } = require('../services/aiService');
 const { parseCVText } = require('../services/cvParser');
+const posthog = require('../config/posthog');
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -125,6 +126,13 @@ exports.save = async (req, res, next) => {
       source: source || 'upload'
     });
 
+    if (posthog) {
+      posthog.capture({
+        event: 'cv_saved',
+        properties: { source: cv.source }
+      });
+    }
+
     res.status(201).json(cv);
   } catch (err) {
     next(err);
@@ -162,6 +170,10 @@ exports.deleteCV = async (req, res, next) => {
     if (!cv) {
       return res.status(404).json({ error: 'CV not found' });
     }
+    if (posthog) {
+      posthog.capture({ event: 'cv_deleted' });
+    }
+
     res.json({ message: 'CV deleted' });
   } catch (err) {
     next(err);

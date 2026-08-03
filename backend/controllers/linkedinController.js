@@ -1,4 +1,5 @@
 const { generateLinkedInProfile } = require('../services/linkedinService');
+const posthog = require('../config/posthog');
 
 exports.generate = async (req, res, next) => {
   try {
@@ -9,6 +10,12 @@ exports.generate = async (req, res, next) => {
     }
 
     const result = await generateLinkedInProfile(tailoredCV, jobDescription, language || 'en');
+    if (posthog) {
+      posthog.capture({
+        event: 'linkedin_profile_generated',
+        properties: { language: language || 'en', has_job_description: Boolean(jobDescription) }
+      });
+    }
     res.json(result);
   } catch (err) {
     if (err.message && err.message.includes('JSON')) {

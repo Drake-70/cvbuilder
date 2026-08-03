@@ -6,6 +6,7 @@ const paymentService = require('../services/paymentService');
 const pricing = require('../config/pricing');
 const { sendPaymentReceiptEmail } = require('../services/emailService');
 const logger = require('../utils/logger');
+const posthog = require('../config/posthog');
 
 exports.initiate = async (req, res, next) => {
   try {
@@ -83,6 +84,13 @@ exports.initiate = async (req, res, next) => {
     await payment.save();
 
     const USSD_SHORTCODES = { mtn: '*126#', orange: '#150#' };
+
+    if (posthog) {
+      posthog.capture({
+        event: 'payment_initiated',
+        properties: { payment_type: payType, amount: payAmount, currency: pricing.CURRENCY, provider }
+      });
+    }
 
     res.json({
       paymentId: payment._id,
@@ -197,6 +205,14 @@ async function activatePayment(payment) {
     logger.info('Document marked as paid', { documentId: payment.documentId });
 
     documentAttachment = await buildDocumentAttachment(payment.documentId);
+  }
+
+  if (posthog) {
+    posthog.capture({
+      distinctId: payment.userId.toString(),
+      event: 'payment_completed',
+      properties: { payment_type: payment.type, amount: payment.amount, currency: payment.currency, provider: payment.provider }
+    });
   }
 
   const user = await User.findById(payment.userId).select('email preferredLanguage');

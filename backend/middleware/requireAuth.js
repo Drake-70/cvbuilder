@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const posthog = require('../config/posthog');
 
 const requireAuth = async (req, res, next) => {
   try {
@@ -15,6 +16,11 @@ const requireAuth = async (req, res, next) => {
     }
 
     req.user = user;
+
+    if (posthog) {
+      return posthog.withContext({ distinctId: user._id.toString() }, () => next());
+    }
+
     next();
   } catch (err) {
     if (err.name === 'TokenExpiredError') {

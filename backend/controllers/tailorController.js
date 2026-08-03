@@ -1,4 +1,5 @@
 const { tailorCV, generateCoverLetterVariants } = require('../services/aiService');
+const posthog = require('../config/posthog');
 
 exports.tailor = async (req, res, next) => {
   try {
@@ -12,6 +13,12 @@ exports.tailor = async (req, res, next) => {
     }
 
     const result = await tailorCV(cvText, jobDescription, language || 'en');
+    if (posthog) {
+      posthog.capture({
+        event: 'cv_tailored',
+        properties: { language: language || 'en' }
+      });
+    }
     res.json(result);
   } catch (err) {
     if (err.message && err.message.includes('JSON')) {
@@ -34,6 +41,12 @@ exports.coverLetterVariants = async (req, res, next) => {
       jobDescription,
       language: language || 'en'
     });
+    if (posthog) {
+      posthog.capture({
+        event: 'cover_letter_generated',
+        properties: { language: language || 'en', variant_count: variants.length }
+      });
+    }
     res.json({ variants });
   } catch (err) {
     if (err.message && err.message.includes('JSON')) {
