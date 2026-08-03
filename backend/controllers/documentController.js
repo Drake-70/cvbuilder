@@ -3,6 +3,7 @@ const User = require('../models/User');
 const ShareView = require('../models/ShareView');
 const { generateDocx } = require('../services/documentService');
 const { generatePdf } = require('../services/pdfService');
+const posthog = require('../config/posthog');
 const crypto = require('crypto');
 
 const FORMATS = { docx: true, pdf: true };
@@ -92,6 +93,8 @@ exports.saveDocument = async (req, res, next) => {
     await User.findByIdAndUpdate(req.user._id, { $inc: { documentsGeneratedCount: 1 } });
 
     res.status(201).json(doc);
+
+    posthog.captureFor(req, 'document_saved', { language: language || 'en' });
   } catch (err) {
     next(err);
   }
@@ -151,6 +154,8 @@ exports.downloadDocument = async (req, res, next) => {
     res.setHeader('Content-Type', contentTypeFor(outFormat));
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.send(Buffer.from(buffer));
+
+    posthog.captureFor(req, 'document_downloaded', { format: outFormat, template: doc.template || 'modern' });
   } catch (err) {
     if (err.statusCode) return res.status(err.statusCode).json({ error: err.message });
     next(err);
@@ -177,6 +182,8 @@ exports.updateApplicationStatus = async (req, res, next) => {
       return res.status(404).json({ error: 'Document not found' });
     }
     res.json(doc);
+
+    posthog.captureFor(req, 'application_status_updated', { applicationStatus: applicationStatus || null });
   } catch (err) {
     next(err);
   }
@@ -194,8 +201,36 @@ exports.deleteDocument = async (req, res, next) => {
   }
 };
 
-exports.shareDocument = async (req, res, next) => {
+exports.downloadSharedDocument = async (req, res, next) => {
   try {
+    const doc = await TailoredDocument.findOne({ shareToken: req.params.token });
+    if (!doc) return res.status(404).json({ error: 'Document not found or no longer shared' });
+
+    doc.downloadCount = (doc.downloadCount || 0) + 1;
+    await doc.save();
+
+    const enrichedCV = {
+      ...(doc.tailoredContent || {}),
+      name: doc.tailoredContent?.name || '',
+      email: doc.tailoredContent?.email || '',
+      phone: '',
+      location: ''
+    };
+    const outFormat = normalizeFormat(req.query.format);
+    const buffer = outFormat === 'pdf'
+      ? await generatePdf(enrichedCV, doc.coverLetter, doc.language, doc.template || 'modern')
+      : await generateDocx(enrichedCV, doc.coverLetter, doc.language, doc.template || 'modern');
+    const filename = filenameFor(outFormat, doc.language);
+
+    res.setHeader('Content-Type', contentTypeFor(outFormat));
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(Buffer.from(buffer));
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.shareDocument = async (req, res, next) => {  try {
     const doc = await TailoredDocument.findOne({ _id: req.params.id, userId: req.user._id });
     if (!doc) return res.status(404).json({ error: 'Document not found' });
 
@@ -205,6 +240,8 @@ exports.shareDocument = async (req, res, next) => {
     }
 
     res.json({ shareToken: doc.shareToken, shareUrl: `/shared/${doc.shareToken}` });
+
+    posthog.captureFor(req, 'document_shared');
   } catch (err) {
     next(err);
   }

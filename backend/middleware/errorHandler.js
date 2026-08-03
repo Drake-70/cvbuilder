@@ -1,7 +1,14 @@
 const logger = require('../utils/logger');
+const posthog = require('../config/posthog');
 
 const errorHandler = (err, req, res, _next) => {
   logger.error(err.message, { stack: err.stack, path: req.path, method: req.method });
+
+  posthog.captureException(err, req?.user?._id ? req.user._id.toString() : 'anonymous', {
+    method: req.method,
+    path: req.path,
+    statusCode: err.statusCode || 500
+  });
 
   if (err.name === 'ValidationError') {
     const messages = Object.values(err.errors).map(e => e.message);

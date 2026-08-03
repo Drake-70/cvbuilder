@@ -6,6 +6,7 @@ const paymentService = require('../services/paymentService');
 const pricing = require('../config/pricing');
 const { sendPaymentReceiptEmail } = require('../services/emailService');
 const logger = require('../utils/logger');
+const posthog = require('../config/posthog');
 
 exports.initiate = async (req, res, next) => {
   try {
@@ -95,6 +96,13 @@ exports.initiate = async (req, res, next) => {
       ussdShortcode: USSD_SHORTCODES[provider] || '*126#',
       message: 'Check your phone to approve the payment'
     });
+
+    posthog.captureFor(req, 'payment_initiated', {
+      type: payType,
+      amount: payAmount,
+      provider,
+      currency: pricing.CURRENCY
+    });
   } catch (err) {
     next(err);
   }
@@ -126,6 +134,12 @@ exports.status = async (req, res, next) => {
 
         // Activate purchase
         await activatePayment(payment);
+
+        posthog.captureFor(req, 'payment_completed', {
+          type: payment.type,
+          amount: payment.amount,
+          provider: payment.provider
+        });
 
         return res.json({ status: 'success', paymentId: payment._id });
       } else if (camPayStatus.status === 'FAILED') {
@@ -168,6 +182,13 @@ exports.webhook = async (req, res, next) => {
       payment.status = 'success';
       await payment.save();
       await activatePayment(payment);
+
+      posthog.capture('payment_completed', payment.userId ? payment.userId.toString() : 'anonymous', {
+        type: payment.type,
+        amount: payment.amount,
+        provider: payment.provider,
+        source: 'webhook'
+      });
     } else if (status === 'FAILED') {
       payment.status = 'failed';
       await payment.save();

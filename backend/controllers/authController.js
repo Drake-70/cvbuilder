@@ -5,6 +5,7 @@ const multer = require('multer');
 const User = require('../models/User');
 const { sendPasswordResetEmail, sendVerificationEmail } = require('../services/emailService');
 const logger = require('../utils/logger');
+const posthog = require('../config/posthog');
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -142,6 +143,15 @@ exports.register = async (req, res, next) => {
     });
 
     res.status(201).json({ user: userResponse(user) });
+
+    posthog.identify(user._id.toString(), {
+      name: user.name,
+      email: user.email,
+      language: user.preferredLanguage || 'en'
+    });
+    posthog.capture('account_registered', user._id.toString(), {
+      hasReferral: Boolean(referralCode)
+    });
   } catch (err) {
     next(err);
   }
@@ -194,6 +204,13 @@ exports.login = async (req, res, next) => {
     await user.save();
 
     res.json({ user: userResponse(user) });
+
+    posthog.identify(user._id.toString(), {
+      name: user.name,
+      email: user.email,
+      language: user.preferredLanguage || 'en'
+    });
+    posthog.capture('user_logged_in', user._id.toString());
   } catch (err) {
     next(err);
   }
@@ -421,6 +438,13 @@ exports.googleLogin = async (req, res, next) => {
     setTokenCookies(res, tokens.accessToken, tokens.refreshToken);
 
     res.json({ user: userResponse(user) });
+
+    posthog.identify(user._id.toString(), {
+      name: user.name,
+      email: user.email,
+      language: user.preferredLanguage || 'en'
+    });
+    posthog.capture('user_logged_in', user._id.toString(), { provider: 'google' });
   } catch (err) {
     if (err.message?.includes('Token used too late') || err.message?.includes('Invalid token')) {
       return res.status(401).json({ error: 'Invalid Google credential' });

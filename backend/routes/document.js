@@ -23,6 +23,7 @@ router.delete('/:id', requireAuth, (req, res, next) => {
 }, documentController.deleteDocument);
 router.post('/:id/share', requireAuth, documentController.shareDocument);
 router.get('/:id/share-stats', requireAuth, documentController.getShareStats);
+router.get('/shared/:token/download', documentController.downloadSharedDocument);
 router.get('/shared/:token', documentController.getSharedDocument);
 
 module.exports = router;

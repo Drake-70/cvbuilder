@@ -1,6 +1,7 @@
 const { generateInterviewQuestions } = require('../services/aiService');
 const User = require('../models/User');
 const logger = require('../utils/logger');
+const posthog = require('../config/posthog');
 
 // Interview prep: gated behind subscription only (not one-time payment)
 // This is a deliberate decision — interview prep is a subscription-tier perk
@@ -33,6 +34,8 @@ exports.generate = async (req, res, next) => {
     );
 
     res.json(result);
+
+    posthog.captureFor(req, 'interview_prep_generated', { language: language || 'en' });
   } catch (err) {
     if (err.message && err.message.includes('JSON')) {
       return res.status(502).json({ error: 'AI returned an invalid response. Please try again.' });

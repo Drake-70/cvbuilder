@@ -11,6 +11,7 @@ export default function SharedCVPage() {
   const [doc, setDoc] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
     const fetchShared = async () => {
@@ -26,6 +27,27 @@ export default function SharedCVPage() {
     };
     fetchShared();
   }, [token]);
+
+  const handleDownload = async (format) => {
+    setDownloading(true);
+    try {
+      const res = await api.get(`/document/shared/${token}/download?format=${format}`, { responseType: 'blob' });
+      const filename = doc?.language === 'fr' ? `CV_Adapte.${format}` : `Tailored_CV.${format}`;
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      analytics.track('shared_cv_downloaded', { format, hasCoverLetter: Boolean(doc?.coverLetter) });
+    } catch {
+      setError('Failed to download. Please try again.');
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -58,11 +80,33 @@ export default function SharedCVPage() {
   return (
     <div className="max-w-4xl mx-auto px-4 py-8 sm:py-12 animate-slide-up" role="main">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-surface-900 dark:text-white">{doc.jobTitle || tTailor('tailored_cv')}</h1>
-        <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">
-          Shared CV &middot; {doc.language === 'fr' ? 'Fran\u00e7ais' : 'English'}
-        </p>
-        <p className="text-xs text-surface-400 mt-1">Powered by CVBoost</p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-bold text-surface-900 dark:text-white">{doc.jobTitle || tTailor('tailored_cv')}</h1>
+            <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">
+              Shared CV &middot; {doc.language === 'fr' ? 'Fran\u00e7ais' : 'English'}
+            </p>
+            <p className="text-xs text-surface-400 mt-1">Powered by CVBoost</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => handleDownload('pdf')}
+              disabled={downloading}
+              className="btn-ghost text-sm flex items-center gap-1.5"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              PDF
+            </button>
+            <button
+              onClick={() => handleDownload('docx')}
+              disabled={downloading}
+              className="btn-primary text-sm flex items-center gap-1.5"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              {downloading ? tTailor('generating') : 'Download'}
+            </button>
+          </div>
+        </div>
       </div>
 
       <div className="card p-5 sm:p-6 mb-6">
