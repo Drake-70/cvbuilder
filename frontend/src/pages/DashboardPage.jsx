@@ -275,6 +275,7 @@ export default function DashboardPage() {
                     documentId={doc._id}
                     currentStatus={doc.applicationStatus}
                     currentCompany={doc.companyApplied}
+                    currentAppliedAt={doc.appliedAt}
                     onUpdate={(updated) => setDocuments(prev => prev.map(d => d._id === doc._id ? { ...d, ...updated } : d))}
                   />
                 </div>

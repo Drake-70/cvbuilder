@@ -82,6 +82,8 @@ exports.initiate = async (req, res, next) => {
     payment.campayReference = result.reference || reference;
     await payment.save();
 
+    const USSD_SHORTCODES = { mtn: '*126#', orange: '#150#' };
+
     res.json({
       paymentId: payment._id,
       reference: payment.campayReference,
@@ -89,6 +91,8 @@ exports.initiate = async (req, res, next) => {
       amount: payAmount,
       currency: pricing.CURRENCY,
       provider,
+      ussdCode: result.ussdCode || null,
+      ussdShortcode: USSD_SHORTCODES[provider] || '*126#',
       message: 'Check your phone to approve the payment'
     });
   } catch (err) {
@@ -176,6 +180,8 @@ exports.webhook = async (req, res, next) => {
 };
 
 async function activatePayment(payment) {
+  let documentAttachment = null;
+
   if (payment.type === 'subscription') {
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + pricing.SUBSCRIPTION_DURATION_DAYS);
@@ -189,6 +195,8 @@ async function activatePayment(payment) {
   } else if (payment.type === 'one-time' && payment.documentId) {
     await TailoredDocument.findByIdAndUpdate(payment.documentId, { paid: true });
     logger.info('Document marked as paid', { documentId: payment.documentId });
+
+    documentAttachment = await buildDocumentAttachment(payment.documentId);
   }
 
   const user = await User.findById(payment.userId).select('email preferredLanguage');
@@ -201,10 +209,34 @@ async function activatePayment(payment) {
       reference: payment.campayReference || payment._id,
       provider: payment.provider,
       date: payment.createdAt || new Date(),
-      language: user.preferredLanguage || 'en'
+      language: user.preferredLanguage || 'en',
+      attachments: documentAttachment ? [documentAttachment] : undefined
     }).catch(err => {
       logger.error(`Payment receipt email failed for payment ${payment._id}: ${err.message}`);
     });
+  }
+}
+
+async function buildDocumentAttachment(documentId) {
+  try {
+    const { generateDocx } = require('../services/documentService');
+    const doc = await TailoredDocument.findById(documentId);
+    if (!doc) return null;
+
+    const cv = {
+      ...(doc.tailoredContent || {}),
+      name: doc.tailoredContent?.name || '',
+      email: doc.tailoredContent?.email || '',
+      phone: doc.tailoredContent?.phone || '',
+      location: doc.tailoredContent?.location || ''
+    };
+    const buffer = await generateDocx(cv, doc.coverLetter, doc.language, doc.template || 'modern');
+    const filename = doc.language === 'fr' ? 'CV_Adapte.docx' : 'Tailored_CV.docx';
+
+    return { filename, content: Buffer.from(buffer) };
+  } catch (err) {
+    logger.error(`Failed to build document attachment for ${documentId}: ${err.message}`);
+    return null;
   }
 }
 

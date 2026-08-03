@@ -27,6 +27,8 @@ const ocrRoutes = require('./routes/ocr');
 const guidanceRoutes = require('./routes/guidance');
 const contactRoutes = require('./routes/contact');
 const adminRoutes = require('./routes/admin');
+const aiRoutes = require('./routes/ai');
+const draftRoutes = require('./routes/draft');
 
 const app = express();
 
@@ -131,6 +133,8 @@ app.use('/api/ocr', ocrRoutes);
 app.use('/api/guidance', guidanceRoutes);
 app.use('/api/contact', contactLimiter, contactRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/ai', aiLimiter, aiRoutes);
+app.use('/api/drafts', draftRoutes);
 
 // Error handler
 app.use(errorHandler);

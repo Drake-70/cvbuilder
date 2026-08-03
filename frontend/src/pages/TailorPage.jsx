@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import api from '../services/api';
@@ -38,6 +38,44 @@ export default function TailorPage() {
     { label: t('step_job') },
     { label: t('step_result') }
   ];
+
+  // Restore a saved draft when starting a fresh visit
+  useEffect(() => {
+    if (!user || initialPath || retTailorId) return;
+    let cancelled = false;
+    api.get('/drafts')
+      .then((res) => {
+        if (cancelled || !res.data?.exists) return;
+        const d = res.data;
+        if (d.step) setStep(d.step);
+        if (d.sourcePath) setSourcePath(d.sourcePath);
+        if (d.cvText) setCvText(d.cvText);
+        if (d.savedCvId) setSavedCvId(d.savedCvId);
+        if (d.savedDocId) setSavedDocId(d.savedDocId);
+        if (d.jobDescription) setJobDescription(d.jobDescription);
+        if (d.language) setLanguage(d.language);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [user, initialPath, retTailorId]);
+
+  // Autosave draft (debounced) while the user is mid-wizard
+  useEffect(() => {
+    if (!user || result) return;
+    if (step === 'choose' && !cvText && !jobDescription) return;
+    const timer = setTimeout(() => {
+      api.put('/drafts', {
+        step,
+        sourcePath,
+        cvText,
+        savedCvId,
+        savedDocId,
+        jobDescription,
+        language
+      }).catch(() => {});
+    }, 1200);
+    return () => clearTimeout(timer);
+  }, [user, step, sourcePath, cvText, savedCvId, savedDocId, jobDescription, language, result]);
 
   const handlePathChoice = (path) => {
     setStep(path);
@@ -91,6 +129,8 @@ export default function TailorPage() {
 
       setStep('result');
       toast.success('CV Tailored', 'Your CV and cover letter are ready to preview.');
+
+      api.delete('/drafts').catch(() => {});
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to tailor CV. Please try again.');
       toast.error('Tailoring Failed', err.response?.data?.error || 'Please try again.');
@@ -99,7 +139,7 @@ export default function TailorPage() {
     }
   };
 
-  const handleDownload = async (template = 'modern') => {
+  const handleDownload = async (template = 'modern', format = 'docx') => {
     if (!result) {
       toast.error('No Result', 'No tailored CV available. Please tailor a CV first.');
       return;
@@ -110,13 +150,14 @@ export default function TailorPage() {
         coverLetter: result.coverLetter,
         language: result.language,
         template,
+        format,
         documentId: savedDocId
       }, { responseType: 'blob' });
 
       const url = window.URL.createObjectURL(new Blob([res.data]));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', result.language === 'fr' ? 'CV_Adapte.docx' : 'Tailored_CV.docx');
+      link.setAttribute('download', result.language === 'fr' ? `CV_Adapte.${format}` : `Tailored_CV.${format}`);
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -138,6 +179,7 @@ export default function TailorPage() {
     setJobDescription('');
     setResult(null);
     setError('');
+    api.delete('/drafts').catch(() => {});
     navigate('/tailor');
   };
 

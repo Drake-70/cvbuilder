@@ -12,6 +12,7 @@ export default function PaymentModal({ open, onClose, onSuccess, documentId, typ
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [pricing, setPricing] = useState(null);
+  const [paymentInfo, setPaymentInfo] = useState(null);
   const pollRef = useRef(null);
   const prevFocusRef = useRef(null);
   const modalRef = useRef(null);
@@ -23,6 +24,7 @@ export default function PaymentModal({ open, onClose, onSuccess, documentId, typ
       setStep('form');
       setPhoneNumber('');
       setError('');
+      setPaymentInfo(null);
       requestAnimationFrame(() => {
         const firstFocusable = modalRef.current?.querySelector('button, input, [tabindex]:not([tabindex="-1"])');
         firstFocusable?.focus();
@@ -72,6 +74,7 @@ export default function PaymentModal({ open, onClose, onSuccess, documentId, typ
         documentId
       });
 
+      setPaymentInfo(res.data);
       setStep('waiting');
       const paymentId = res.data.paymentId;
 
@@ -239,6 +242,31 @@ export default function PaymentModal({ open, onClose, onSuccess, documentId, typ
               A payment prompt has been sent to your {provider === 'mtn' ? 'MTN MoMo' : 'Orange Money'} number.
               Approve it to continue.
             </p>
+
+            {paymentInfo?.ussdShortcode && (
+              <div className="bg-surface-50 border border-surface-200 rounded-xl p-4 mb-4 text-left">
+                <p className="text-xs font-semibold text-surface-500 uppercase tracking-wider mb-2">No prompt? Pay by USSD</p>
+                <p className="text-sm text-surface-700 mb-1">
+                  Dial <span className="font-mono font-bold text-brand-700">{paymentInfo.ussdShortcode}</span> on your phone
+                  {paymentInfo.ussdCode ? <> and enter the code <span className="font-mono font-bold text-brand-700">{paymentInfo.ussdCode}</span></> : ''}.
+                </p>
+                <p className="text-xs text-surface-400">Complete the payment, then wait for confirmation here.</p>
+              </div>
+            )}
+
+            {paymentInfo?.ussdShortcode && (
+              <div className="flex justify-center mb-4">
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&qzone=1&data=${encodeURIComponent(paymentInfo.ussdShortcode)}`}
+                  alt="Payment QR code"
+                  width="120"
+                  height="120"
+                  className="rounded-lg border border-surface-200"
+                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                />
+              </div>
+            )}
+
             <div className="flex items-center justify-center gap-2 text-sm text-surface-400">
               <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>

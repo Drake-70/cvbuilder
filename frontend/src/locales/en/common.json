@@ -81,11 +81,21 @@
     "title": "Refer a Friend",
     "yourCode": "Your referral code:",
     "shareHint": "Share this code with friends. You both get a free download when they sign up!",
+    "shareWhatsApp": "Share on WhatsApp",
+    "whatsappMsg": "Get a free CV download when you sign up with my code! {link}",
     "applyCode": "Have a referral code?",
     "codePlaceholder": "Enter referral code",
     "apply": "Apply",
     "total": "Referrals",
     "successful": "Signed Up",
-    "credits": "Free Credits"
+    "credits": "Free Credits",
+    "milestone": "Next milestone in {{n}} more referrals",
+    "earnedMsg": "You have earned {{n}} free download(s) from referrals!",
+    "pendingMsg": "Invite friends to start earning free downloads."
+  },
+  "tracker": {
+    "followUpHint": "It's been {{days}} days since you applied. A polite follow-up can boost your chances.",
+    "followUpWhatsApp": "Send follow-up",
+    "whatsappFollowUp": "Hello! I applied for the position at {{company}} on {{date}} and wanted to follow up on the status of my application. I'm really excited about the opportunity and happy to provide any additional information. Thank you!"
   }
 }

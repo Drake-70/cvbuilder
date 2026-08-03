@@ -81,11 +81,21 @@
     "title": "Parrainez un Ami",
     "yourCode": "Votre code de parrainage :",
     "shareHint": "Partagez ce code avec vos amis. Vous recevez tous les deux un téléchargement gratuit lorsqu'il s'inscrit !",
+    "shareWhatsApp": "Partager sur WhatsApp",
+    "whatsappMsg": "Obtenez un téléchargement de CV gratuit en vous inscrivant avec mon code ! {link}",
     "applyCode": "Vous avez un code de parrainage ?",
     "codePlaceholder": "Entrez le code de parrainage",
     "apply": "Appliquer",
     "total": "Parrainages",
     "successful": "Inscrits",
-    "credits": "Crédits Gratuits"
+    "credits": "Crédits Gratuits",
+    "milestone": "Prochain palier dans {{n}} parrainage(s)",
+    "earnedMsg": "Vous avez gagné {{n}} téléchargement(s) gratuit(s) grâce à vos parrainages !",
+    "pendingMsg": "Invitez des amis pour commencer à gagner des téléchargements gratuits."
+  },
+  "tracker": {
+    "followUpHint": "Cela fait {{days}} jours que vous avez postulé. Une relance polie peut augmenter vos chances.",
+    "followUpWhatsApp": "Envoyer une relance",
+    "whatsappFollowUp": "Bonjour ! J'ai postulé pour le poste chez {{company}} le {{date}} et je souhaitais prendre des nouvelles de ma candidature. Je suis très enthousiaste à propos de cette opportunité et je suis disponible pour fournir toute information supplémentaire. Merci !"
   }
 }

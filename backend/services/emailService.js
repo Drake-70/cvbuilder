@@ -30,17 +30,17 @@ function getTransporter() {
 
 const FROM = process.env.SMTP_FROM || 'CVBoost <noreply@cvboost.app>';
 
-async function sendMail({ to, subject, html, text }) {
+async function sendMail({ to, subject, html, text, attachments }) {
   const transport = getTransporter();
 
   if (!transport) {
-    logger.info(`[EMAIL — console only] To: ${to} | Subject: ${subject}`);
+    logger.info(`[EMAIL — console only] To: ${to} | Subject: ${subject} | Attachments: ${(attachments || []).map(a => a.filename).join(', ') || 'none'}`);
     logger.info(`[EMAIL body] ${text || html}`);
     return { success: true, consoleOnly: true };
   }
 
   try {
-    const info = await transport.sendMail({ from: FROM, to, subject, html, text });
+    const info = await transport.sendMail({ from: FROM, to, subject, html, text, attachments });
     logger.info(`Email sent to ${to}: ${info.messageId}`);
     return { success: true, messageId: info.messageId };
   } catch (err) {
@@ -133,7 +133,7 @@ async function sendVerificationEmail({ email, token, language = 'en' }) {
   });
 }
 
-async function sendPaymentReceiptEmail({ email, amount, currency = 'XAF', type = 'one-time', reference, provider, date, language = 'en' }) {
+async function sendPaymentReceiptEmail({ email, amount, currency = 'XAF', type = 'one-time', reference, provider, date, language = 'en', attachments }) {
   const providerLabel = provider === 'orange' ? 'Orange Money' : 'MTN MoMo';
   const typeLabel = type === 'subscription' ? 'Monthly subscription' : 'CV download';
   const typeLabelFr = type === 'subscription' ? 'Abonnement mensuel' : 'Téléchargement de CV';
@@ -179,11 +179,22 @@ async function sendPaymentReceiptEmail({ email, amount, currency = 'XAF', type =
     `
   };
 
+  const attachmentNote = attachments && attachments.length > 0
+    ? (language === 'fr'
+        ? '<p style="color:#334155;font-weight:600;">Vos documents (CV et lettre de motivation) sont joints à cet email.</p>'
+        : '<p style="color:#334155;font-weight:600;">Your documents (CV and cover letter) are attached to this email.</p>')
+    : '';
+  const htmlBody = (bodies[language] || bodies.en).replace(
+    '<hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0;" />',
+    `${attachmentNote}<hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0;" />`
+  );
+
   return sendMail({
     to: email,
     subject: subjects[language] || subjects.en,
-    html: bodies[language] || bodies.en,
-    text: `Payment confirmed (${amount} ${currency}): ${reference}`
+    html: htmlBody,
+    text: `Payment confirmed (${amount} ${currency}): ${reference}`,
+    attachments
   });
 }
 

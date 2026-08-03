@@ -155,3 +155,22 @@ Tailored CV: ${JSON.stringify(tailoredCV)}`;
   const result = await callGroq(systemPrompt, userMsg, 0.7);
   return JSON.parse(result);
 };
+
+const GRAMMAR_SYSTEM_PROMPT = `You are a meticulous proofreader for CVs, resumes, and cover letters.
+Review the text for spelling mistakes, grammar errors, awkward phrasing, and typos.
+
+CRITICAL RULES:
+- Do NOT change factual content or rephrase for style. Only flag genuine errors.
+- For each issue, provide the exact original snippet, a corrected suggestion, and a brief reason.
+- If the text is clean, return an empty issues array.
+- Return valid JSON: { "issues": [{ "original": "...", "suggestion": "...", "reason": "..." }], "summary": "One-line summary of the review in the requested language" }`;
+
+exports.checkGrammar = async (text, language = 'en') => {
+  const userMsg = `Language: ${language === 'fr' ? 'French' : 'English'}
+
+Text to review:
+${text}`;
+
+  const result = await callGroq(GRAMMAR_SYSTEM_PROMPT, userMsg, 0.2);
+  return JSON.parse(result);
+};

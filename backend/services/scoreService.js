@@ -54,6 +54,8 @@ exports.computeATSScore = (cvText, jobDescription, tailoredCV, gapAnalysis) => {
   if (!tailoredCV?.summary) tips.push('Add a professional summary tailored to this role.');
   if (tailoredCV?.experience?.[0]?.bullets?.length < 3) tips.push('Add more detail to your experience bullets.');
 
+  const missingKeywords = jdWords.filter(w => !cvWords.has(w));
+
   return {
     score,
     breakdown: {
@@ -62,7 +64,11 @@ exports.computeATSScore = (cvText, jobDescription, tailoredCV, gapAnalysis) => {
       gaps: gapScore,
       structure: structurePoints
     },
-    tips
+    tips,
+    keywords: {
+      matched: matchedKeywords,
+      missing: missingKeywords
+    }
   };
 };
 

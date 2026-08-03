@@ -1,7 +1,25 @@
 const TailoredDocument = require('../models/TailoredDocument');
 const User = require('../models/User');
 const { generateDocx } = require('../services/documentService');
+const { generatePdf } = require('../services/pdfService');
 const crypto = require('crypto');
+
+const FORMATS = { docx: true, pdf: true };
+
+function normalizeFormat(format) {
+  return FORMATS[format] ? format : 'docx';
+}
+
+function filenameFor(format, language) {
+  const base = language === 'fr' ? 'CV_Adapte' : 'Tailored_CV';
+  return `${base}.${format}`;
+}
+
+function contentTypeFor(format) {
+  return format === 'pdf'
+    ? 'application/pdf'
+    : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+}
 
 async function consumeCreditOrCheckAccess(userId, documentId) {
   const user = await User.findById(userId);
@@ -24,7 +42,7 @@ async function consumeCreditOrCheckAccess(userId, documentId) {
 
 exports.generateDocument = async (req, res, next) => {
   try {
-    const { tailoredCV, coverLetter, language, template, documentId } = req.body;
+    const { tailoredCV, coverLetter, language, template, documentId, format } = req.body;
 
     if (!tailoredCV) {
       return res.status(400).json({ error: 'Tailored CV data is required' });
@@ -39,12 +57,14 @@ exports.generateDocument = async (req, res, next) => {
       phone: tailoredCV?.phone || '',
       location: tailoredCV?.location || ''
     };
-    const buffer = await generateDocx(enrichedCV, coverLetter || '', language || 'en', template || 'modern');
+    const outFormat = normalizeFormat(format);
+    const lang = language || 'en';
+    const buffer = outFormat === 'pdf'
+      ? await generatePdf(enrichedCV, coverLetter || '', lang, template || 'modern')
+      : await generateDocx(enrichedCV, coverLetter || '', lang, template || 'modern');
 
-    const filename = language === 'fr' ? 'CV_Adapte.docx' : 'Tailored_CV.docx';
-
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Type', contentTypeFor(outFormat));
+    res.setHeader('Content-Disposition', `attachment; filename="${filenameFor(outFormat, lang)}"`);
     res.send(Buffer.from(buffer));
   } catch (err) {
     if (err.statusCode) return res.status(err.statusCode).json({ error: err.message });
@@ -121,10 +141,13 @@ exports.downloadDocument = async (req, res, next) => {
       phone: doc.tailoredContent?.phone || '',
       location: doc.tailoredContent?.location || ''
     };
-    const buffer = await generateDocx(enrichedCV, doc.coverLetter, doc.language, doc.template || 'modern');
-    const filename = doc.language === 'fr' ? 'CV_Adapte.docx' : 'Tailored_CV.docx';
+    const outFormat = normalizeFormat(req.query.format);
+    const buffer = outFormat === 'pdf'
+      ? await generatePdf(enrichedCV, doc.coverLetter, doc.language, doc.template || 'modern')
+      : await generateDocx(enrichedCV, doc.coverLetter, doc.language, doc.template || 'modern');
+    const filename = filenameFor(outFormat, doc.language);
 
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    res.setHeader('Content-Type', contentTypeFor(outFormat));
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.send(Buffer.from(buffer));
   } catch (err) {
