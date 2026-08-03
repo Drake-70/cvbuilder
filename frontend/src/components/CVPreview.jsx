@@ -1,10 +1,12 @@
 import { useTranslation } from 'react-i18next';
+import { highlightText } from '../utils/gapKeywords';
 
-export default function CVPreview({ cv, language = 'en' }) {
+export default function CVPreview({ cv, language = 'en', highlightTerms = [] }) {
   const { t } = useTranslation('tailor');
   if (!cv) return null;
 
   const isFr = language === 'fr';
+  const hl = (text) => highlightText(text, highlightTerms, 'cv-hl-new');
 
   return (
     <div className="cv-preview-wrapper">
@@ -25,7 +27,7 @@ export default function CVPreview({ cv, language = 'en' }) {
         {cv.summary && (
           <div className="cv-section">
             <h2 className="cv-section-title">{isFr ? 'RESUME' : 'SUMMARY'}</h2>
-            <p className="cv-text">{cv.summary}</p>
+            <p className="cv-text">{hl(cv.summary)}</p>
           </div>
         )}
 
@@ -45,7 +47,7 @@ export default function CVPreview({ cv, language = 'en' }) {
                 {exp.bullets && exp.bullets.length > 0 && (
                   <ul className="cv-bullets">
                     {exp.bullets.map((b, j) => (
-                      <li key={j}>{b}</li>
+                      <li key={j}>{hl(b)}</li>
                     ))}
                   </ul>
                 )}
@@ -67,7 +69,7 @@ export default function CVPreview({ cv, language = 'en' }) {
                   </div>
                   {edu.dates && <span className="cv-entry-dates">{edu.dates}</span>}
                 </div>
-                {edu.details && <p className="cv-text-sm">{edu.details}</p>}
+                {edu.details && <p className="cv-text-sm">{hl(edu.details)}</p>}
               </div>
             ))}
           </div>
@@ -79,7 +81,7 @@ export default function CVPreview({ cv, language = 'en' }) {
             <h2 className="cv-section-title">{isFr ? 'COMPETENCES' : 'SKILLS'}</h2>
             <div className="cv-skills">
               {cv.skills.map((skill, i) => (
-                <span key={i} className="cv-skill-tag">{skill}</span>
+                <span key={i} className="cv-skill-tag">{hl(skill)}</span>
               ))}
             </div>
           </div>
@@ -90,7 +92,7 @@ export default function CVPreview({ cv, language = 'en' }) {
           cv.additionalSections.map((sec, i) => (
             <div key={i} className="cv-section">
               <h2 className="cv-section-title">{sec.title?.toUpperCase()}</h2>
-              <p className="cv-text">{sec.content}</p>
+              <p className="cv-text">{hl(sec.content)}</p>
             </div>
           ))
         )}

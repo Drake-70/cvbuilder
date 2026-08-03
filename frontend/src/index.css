@@ -312,6 +312,34 @@
   line-height: 1.5;
 }
 
+/* Tailoring diff highlights (Before/After gap view) */
+.cv-hl-new {
+  background-color: rgba(16, 185, 129, 0.18);
+  color: var(--color-surface-900);
+  border-bottom: 2px solid #10b981;
+  border-radius: 2px;
+  padding: 0 1px;
+  transition: background-color 0.2s ease;
+}
+
+.dark .cv-hl-new {
+  background-color: rgba(16, 185, 129, 0.25);
+  color: #ecfdf5;
+}
+
+.cv-hl-before {
+  background-color: rgba(245, 158, 11, 0.18);
+  color: var(--color-surface-900);
+  border-bottom: 2px solid #f59e0b;
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
+.dark .cv-hl-before {
+  background-color: rgba(245, 158, 11, 0.22);
+  color: #fffbeb;
+}
+
 .cv-header {
   text-align: center;
   padding-bottom: 1rem;

@@ -6,6 +6,7 @@ import InterviewPrep from './InterviewPrep';
 import ATSScoreCard from './ATSScoreCard';
 import LinkedInGenerator from './LinkedInGenerator';
 import CVPreview from './CVPreview';
+import BeforeAfterGaps from './BeforeAfterGaps';
 import api from '../services/api';
 
 export default function ResultStep({ result, onDownload, onReset, loading, documentId }) {
@@ -241,22 +242,13 @@ export default function ResultStep({ result, onDownload, onReset, loading, docum
           <div className="whitespace-pre-wrap text-sm text-surface-600 leading-relaxed animate-fade-in">{coverLetter}</div>
         )}
         {tab === 'gaps' && (
-          <div className="animate-fade-in">
-            <p className="text-sm text-surface-500 mb-4">{t('gap_analysis_desc')}</p>
-            <div className="space-y-2.5">
-              {gaps.map((gap, i) => (
-                <div key={i} className="flex items-start gap-3 p-3 rounded-xl bg-amber-50/80 border border-amber-100">
-                  <div className="w-5 h-5 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-amber-600">
-                      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                      <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
-                    </svg>
-                  </div>
-                  <span className="text-sm text-surface-700">{gap}</span>
-                </div>
-              ))}
-            </div>
-          </div>
+          <BeforeAfterGaps
+            originalText={result.cvText || ''}
+            tailoredCV={cv}
+            coverLetter={coverLetter}
+            gaps={gaps}
+            language={result.language}
+          />
         )}
       </div>
 
