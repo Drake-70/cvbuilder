@@ -6,7 +6,7 @@
   "path_build_desc": "Répondez à quelques questions et nous vous aiderons à créer un CV à zéro.",
   "upload_cv": "Téléversez votre CV",
   "upload_drag": "Glissez-déposez votre fichier ici, ou cliquez pour parcourir",
-  "upload_formats": "Accepte PDF, DOCX ou texte (max 5 Mo)",
+  "upload_formats": "Accepte PDF, DOCX, TXT, ou une photo de votre CV (JPG, PNG)",
   "paste_cv": "Ou collez le texte de votre CV ici",
   "paste_placeholder": "Collez le contenu de votre CV ici...",
   "or_paste_text": "Ou collez le texte à la place",

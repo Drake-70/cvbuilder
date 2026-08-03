@@ -1,5 +1,6 @@
 const multer = require('multer');
 const { extractTextFromImage } = require('../services/ocrService');
+const { parseCVText } = require('../services/cvParser');
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -22,13 +23,18 @@ exports.extractFromImage = async (req, res, next) => {
       return res.status(400).json({ error: 'No image uploaded' });
     }
 
-    const result = await extractTextFromImage(req.file.buffer, req.file.mimetype);
+    const purpose = req.body.purpose === 'cv' ? 'cv' : 'job';
+    const result = await extractTextFromImage(req.file.buffer, req.file.mimetype, purpose);
 
     if (!result.success) {
       return res.status(422).json({ error: result.error });
     }
 
-    res.json({ text: result.text });
+    const payload = { text: result.text };
+    if (purpose === 'cv') {
+      payload.parsedSections = parseCVText(result.text);
+    }
+    res.json(payload);
   } catch (err) {
     if (err.message && err.message.includes('upload')) {
       return res.status(400).json({ error: err.message });

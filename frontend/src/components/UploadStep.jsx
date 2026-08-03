@@ -13,6 +13,8 @@ export default function UploadStep({ onComplete, onBack }) {
   const [fileName, setFileName] = useState('');
   const fileInputRef = useRef(null);
 
+  const isImage = (file) => /^image\//.test(file.type) || /\.(jpe?g|png|webp)$/i.test(file.name);
+
   const handleFile = async (file) => {
     if (!file) return;
     setLoading(true);
@@ -20,12 +22,22 @@ export default function UploadStep({ onComplete, onBack }) {
     setFileName(file.name);
 
     try {
-      const formData = new FormData();
-      formData.append('cv', file);
-      const res = await api.post('/cv/upload', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-      onComplete(res.data.cvText, 'upload', res.data.parsedSections || null);
+      if (isImage(file)) {
+        const formData = new FormData();
+        formData.append('image', file);
+        formData.append('purpose', 'cv');
+        const res = await api.post('/ocr/extract', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        onComplete(res.data.text, 'upload', res.data.parsedSections || null);
+      } else {
+        const formData = new FormData();
+        formData.append('cv', file);
+        const res = await api.post('/cv/upload', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        onComplete(res.data.cvText, 'upload', res.data.parsedSections || null);
+      }
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to extract text. Try pasting instead.');
       setFileName('');
@@ -96,7 +108,7 @@ export default function UploadStep({ onComplete, onBack }) {
           onClick={() => !loading && fileInputRef.current?.click()}
           className={`upload-zone relative border-2 border-dashed rounded-2xl p-10 sm:p-12 text-center cursor-pointer transition-all duration-200 ${dragging ? 'border-brand-400 bg-brand-50/50 scale-[1.01]' : 'border-surface-200 hover:border-brand-300 hover:bg-surface-50'} ${loading ? 'pointer-events-none' : ''}`}
         >
-          <input ref={fileInputRef} type="file" accept=".pdf,.docx,.txt" onChange={(e) => handleFile(e.target.files[0])} className="hidden" aria-label={t('upload_file')} />
+          <input ref={fileInputRef} type="file" accept=".pdf,.docx,.txt,.jpg,.jpeg,.png,.webp" onChange={(e) => handleFile(e.target.files[0])} className="hidden" aria-label={t('upload_file')} />
           {loading ? (
             <div className="animate-fade-in">
               <div className="w-14 h-14 rounded-2xl bg-brand-100 flex items-center justify-center mx-auto mb-4">

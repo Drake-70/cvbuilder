@@ -6,7 +6,7 @@
   "path_build_desc": "Answer a few questions and we'll help you build a CV from scratch.",
   "upload_cv": "Upload your CV",
   "upload_drag": "Drag and drop your file here, or click to browse",
-  "upload_formats": "Accepts PDF, DOCX, or plain text (max 5MB)",
+  "upload_formats": "Accepts PDF, DOCX, TXT, or a photo of your CV (JPG, PNG)",
   "paste_cv": "Or paste your CV text here",
   "paste_placeholder": "Paste your CV content here...",
   "or_paste_text": "Or paste text instead",

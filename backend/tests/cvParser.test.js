@@ -97,5 +97,77 @@ test('isHeader detects EN and FR section names', () => {
   assert.strictEqual(isHeader('Compétences'), 'skills');
   assert.strictEqual(isHeader('Languages'), 'languages');
   assert.strictEqual(isHeader('Langues'), 'languages');
+  assert.strictEqual(isHeader('Certifications'), 'additional');
+  assert.strictEqual(isHeader('Projets'), 'additional');
+  assert.strictEqual(isHeader('Bénévolat'), 'additional');
+  assert.strictEqual(isHeader('Références'), 'additional');
   assert.strictEqual(isHeader('Not a section'), null);
+  assert.strictEqual(isHeader('Experience:'), 'experience');
+});
+
+test('parses month-year dates and multi-line entries', () => {
+  const text = [
+    'Paul Etoga',
+    'paul.etoga@email.com',
+    '',
+    'SUMMARY',
+    'Sales professional focused on customer satisfaction.',
+    '',
+    'EXPERIENCE',
+    'Sales Agent at Socapalm',
+    'March 2020 - Present',
+    '- Managed retail sales and client follow-up',
+    '',
+    'Account Manager',
+    'Orange Cameroon (Jan 2018 - Feb 2020)',
+    '- Built customer accounts and grew revenue',
+    '',
+    'EDUCATION',
+    'Licence en Gestion',
+    'Université de Douala',
+    'Sept 2014 - Jun 2018',
+    '',
+    'CERTIFICATIONS',
+    'First Aid Certificate, 2021',
+    '',
+    'VOLUNTEER',
+    'Red Cross volunteer (2019 - 2021)'
+  ].join('\n');
+
+  const cv = parseCVText(text);
+  assert.strictEqual(cv.name, 'Paul Etoga');
+  assert.strictEqual(cv.experience.length, 2);
+  assert.strictEqual(cv.experience[0].title, 'Sales Agent');
+  assert.strictEqual(cv.experience[0].company, 'Socapalm');
+  assert.strictEqual(cv.experience[0].dates, 'March 2020 - Present');
+  assert.strictEqual(cv.experience[1].title, 'Account Manager');
+  assert.strictEqual(cv.experience[1].company, 'Orange Cameroon');
+  assert.strictEqual(cv.experience[1].dates, 'Jan 2018 - Feb 2020');
+  assert.strictEqual(cv.education.length, 1);
+  assert.match(cv.education[0].degree, /Licence en Gestion/);
+  assert.strictEqual(cv.education[0].dates, 'Sept 2014 - Jun 2018');
+  assert.ok(cv.additionalSections.some((s) => /certifications/i.test(s.title)));
+  assert.ok(cv.additionalSections.some((s) => /volunteer/i.test(s.title)));
+});
+
+test('keeps hyphenated skills intact', () => {
+  const cv = parseCVText('Name\nname@email.com\n\nSKILLS\nMicrosoft Office, Customer-Service, Bilingual (English/French)');
+  assert.ok(cv.skills.includes('Customer-Service'));
+  assert.ok(cv.skills.includes('Microsoft Office'));
+});
+
+test('does not split description lines into fake entries', () => {
+  const text = [
+    'DIDIER FOUDA',
+    'didier@email.com',
+    '',
+    'EXPERIENCE',
+    'Delivery Driver - Express Logistics (2018 - 2021)',
+    '- Delivered packages on time - maintained the van'
+  ].join('\n');
+  const cv = parseCVText(text);
+  assert.strictEqual(cv.experience.length, 1);
+  assert.strictEqual(cv.experience[0].title, 'Delivery Driver');
+  assert.strictEqual(cv.experience[0].company, 'Express Logistics');
+  assert.strictEqual(cv.experience[0].bullets.length, 1);
 });

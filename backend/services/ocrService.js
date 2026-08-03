@@ -7,20 +7,22 @@ function getGroq() {
   return groq;
 }
 
-// Extract job description text from an image using Groq's vision capabilities
-// Note: Groq currently supports text-based models. For vision/OCR, we use the
-// image-to-text approach: send the base64 image and ask the model to describe/extract text.
-// If Groq adds vision support, update the model name here.
+const PURPOSE_PROMPTS = {
+  job: {
+    label: 'job posting',
+    extraction: 'Extract all the text from this job posting image. Return ONLY the extracted text, nothing else. If this is not a job posting, return: "NOT_A_JOB_POSTING".'
+  },
+  cv: {
+    label: 'resume/CV',
+    extraction: 'Extract ALL the text from this resume/CV image. Preserve the layout order: keep each line and section in the order it appears (contact info, summary, experience, education, skills, languages, etc.). Do not add, summarize or reformat — return ONLY the raw extracted text, line by line, nothing else. If this is not a resume/CV, return: "NOT_A_RESUME".'
+  }
+};
 
-exports.extractTextFromImage = async (imageBuffer, mimeType) => {
-  // Since Groq doesn't have native vision support yet, we'll use a simple approach:
-  // Convert the image to base64 and use the multimodal model if available,
-  // otherwise fall back to instructing the user to paste text.
-
+exports.extractTextFromImage = async (imageBuffer, mimeType, purpose = 'job') => {
+  const config = PURPOSE_PROMPTS[purpose] || PURPOSE_PROMPTS.job;
   const base64Image = imageBuffer.toString('base64');
 
   try {
-    // Try using Groq's multimodal capabilities
     const response = await getGroq().chat.completions.create({
       model: 'llama-3.2-90b-vision-preview',
       messages: [
@@ -29,7 +31,7 @@ exports.extractTextFromImage = async (imageBuffer, mimeType) => {
           content: [
             {
               type: 'text',
-              text: 'Extract all the text from this job posting image. Return ONLY the extracted text, nothing else. If this is not a job posting, return: "NOT_A_JOB_POSTING".'
+              text: config.extraction
             },
             {
               type: 'image_url',
@@ -45,10 +47,11 @@ exports.extractTextFromImage = async (imageBuffer, mimeType) => {
 
     const extractedText = response.choices[0].message.content.trim();
 
-    if (extractedText === 'NOT_A_JOB_POSTING' || extractedText.length < 20) {
+    const notFoundMarker = purpose === 'cv' ? 'NOT_A_RESUME' : 'NOT_A_JOB_POSTING';
+    if (extractedText === notFoundMarker || extractedText.length < 20) {
       return {
         success: false,
-        error: 'Could not detect a job posting in this image. Try taking a clearer screenshot or pasting the text instead.'
+        error: `Could not detect a ${config.label} in this image. Try taking a clearer photo or pasting the text instead.`
       };
     }
 
@@ -57,7 +60,7 @@ exports.extractTextFromImage = async (imageBuffer, mimeType) => {
     logger.error('OCR extraction failed:', err.message);
     return {
       success: false,
-      error: 'Image text extraction failed. Please paste the job description text instead.'
+      error: 'Image text extraction failed. Please paste the text instead.'
     };
   }
 };
