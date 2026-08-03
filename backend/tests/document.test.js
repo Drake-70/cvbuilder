@@ -1,6 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { generateDocx } = require('../services/documentService');
+const JSZip = require('jszip');
+const { generateDocx, TEMPLATES } = require('../services/documentService');
 
 const sampleCV = {
   name: 'John Doe',
@@ -64,4 +65,45 @@ test('generateDocx handles a CV with no experience', async () => {
   };
   const buffer = await generateDocx(cv, '', 'en');
   assert.ok(buffer && buffer.length > 0);
+});
+
+async function documentXml(buffer) {
+  const zip = await JSZip.loadAsync(buffer);
+  return zip.file('word/document.xml').async('string');
+}
+
+test('generateDocx outputs an A4 page size (11906x16838 twips)', async () => {
+  const buffer = await generateDocx(sampleCV, sampleCoverLetter, 'en');
+  const xml = await documentXml(buffer);
+  assert.match(xml, /<w:pgSz w:w="11906" w:h="16838"/);
+});
+
+test('generateDocx supports all templates and they produce distinct output', async () => {
+  assert.deepEqual(TEMPLATES.sort(), ['classic', 'creative', 'modern']);
+  const buffers = {};
+  for (const tpl of TEMPLATES) {
+    buffers[tpl] = await generateDocx(sampleCV, sampleCoverLetter, 'en', tpl);
+    assert.ok(buffers[tpl].length > 0, `${tpl} template should produce output`);
+  }
+  const xml = {};
+  for (const tpl of TEMPLATES) xml[tpl] = await documentXml(buffers[tpl]);
+  // Heading colors differ per template
+  assert.notEqual(xml.modern, xml.classic);
+  assert.notEqual(xml.modern, xml.creative);
+  assert.notEqual(xml.classic, xml.creative);
+});
+
+test('generateDocx falls back to modern for an unknown template', async () => {
+  const buffer = await generateDocx(sampleCV, sampleCoverLetter, 'en', 'bogus');
+  const xml = await documentXml(buffer);
+  assert.match(xml, /2563EB/);
+});
+
+test('generateDocx uses French section headings for French output', async () => {
+  const buffer = await generateDocx(sampleCV, sampleCoverLetter, 'fr');
+  const xml = await documentXml(buffer);
+  assert.match(xml, /EXPÉRIENCE/);
+  assert.match(xml, /FORMATION/);
+  assert.match(xml, /COMPÉTENCES/);
+  assert.match(xml, /PROFIL/);
 });

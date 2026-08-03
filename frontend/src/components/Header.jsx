@@ -94,9 +94,9 @@ export default function Header() {
 
             {user ? (
               <>
-                <Link to="/pricing" className="btn-ghost text-sm no-underline">{t('nav.pricing')}</Link>
-                <Link to="/about" className="btn-ghost text-sm no-underline">{t('nav.about')}</Link>
-                <Link to="/contact" className="btn-ghost text-sm no-underline">{t('nav.contact')}</Link>
+                <Link to="/dashboard" className="btn-ghost text-sm no-underline">{t('nav.dashboard')}</Link>
+                <Link to="/cvs" className="btn-ghost text-sm no-underline">{t('nav.my_cvs')}</Link>
+                <Link to="/settings" className="btn-ghost text-sm no-underline">{t('nav.settings')}</Link>
                 {user.role === 'admin' && (
                   <Link to="/admin" className="btn-ghost text-sm no-underline text-rose-500 hover:text-rose-600">Admin</Link>
                 )}
@@ -234,6 +234,12 @@ export default function Header() {
                 </Link>
                 <Link to="/pricing" onClick={() => setMenuOpen(false)} className="block px-3 py-2 rounded-lg text-sm text-surface-600 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-800 no-underline">
                   {t('nav.pricing')}
+                </Link>
+                <Link to="/about" onClick={() => setMenuOpen(false)} className="block px-3 py-2 rounded-lg text-sm text-surface-600 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-800 no-underline">
+                  {t('nav.about')}
+                </Link>
+                <Link to="/contact" onClick={() => setMenuOpen(false)} className="block px-3 py-2 rounded-lg text-sm text-surface-600 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-800 no-underline">
+                  {t('nav.contact')}
                 </Link>
                 <Link to="/settings" onClick={() => setMenuOpen(false)} className="block px-3 py-2 rounded-lg text-sm text-surface-600 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-800 no-underline">
                   {t('nav.settings')}

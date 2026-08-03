@@ -31,7 +31,8 @@ const adminRoutes = require('./routes/admin');
 const app = express();
 
 // Security
-app.use(helmet());
+// Security — CSP is declared in frontend/index.html meta tag (single source of truth)
+app.use(helmet({ contentSecurityPolicy: false }));
 
 // CORS — supports comma-separated list of origins
 const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:5173')
