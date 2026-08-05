@@ -75,7 +75,9 @@
     "about": "À propos",
     "contact": "Contact",
     "settings": "Paramètres",
-    "my_cvs": "Mes CV"
+    "my_cvs": "Mes CV",
+    "jobs": "Emplois",
+    "notifications": "Notifications"
   },
   "referral": {
     "title": "Parrainez un Ami",

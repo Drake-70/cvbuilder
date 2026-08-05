@@ -10,6 +10,9 @@ function csrfProtection(req, res, next) {
   // Skip for webhook (external call without cookies)
   if (req.path === '/api/payments/webhook') return next();
 
+  // Skip for scheduled scraper trigger (external cron without cookies; protected by X-Scrape-Key)
+  if (req.path === '/api/jobs/scrape') return next();
+
   // Skip for auth routes that don't use cookies yet
   if (req.path.startsWith('/api/auth/')) {
     if (req.method === 'GET') setCsrfCookie(req, res);

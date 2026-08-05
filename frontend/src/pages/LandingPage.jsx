@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import logoImg from '../assets/cvboost-logo.png';
 import FlyingCVs from '../components/FlyingCVs';
 import FreeAtsPreview from '../components/FreeAtsPreview';
+import { useCache } from '../hooks/useCache';
 
 const FeatureIcons = {
   bilingual: (
@@ -41,6 +42,10 @@ const FeatureIcons = {
 export default function LandingPage() {
   const { t } = useTranslation('common');
   const { t: tTailor } = useTranslation('tailor');
+
+  const { data: jobsData } = useCache('/jobs', { params: { limit: 3 } });
+  const jobsCount = jobsData?.total;
+  const sampleJobs = jobsData?.jobs || [];
 
   return (
     <div className="overflow-hidden">
@@ -240,6 +245,91 @@ export default function LandingPage() {
                 <p className="text-sm text-surface-500 dark:text-surface-400 leading-relaxed max-w-xs mx-auto">{step.desc}</p>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Jobs board teaser */}
+      <section className="py-16 sm:py-20 px-4 bg-surface-0 dark:bg-surface-800 border-y border-surface-100 dark:border-surface-700" aria-labelledby="jobs-teaser-heading">
+        <div className="max-w-5xl mx-auto">
+          <div className="grid lg:grid-cols-2 gap-10 lg:gap-14 items-center">
+            <div>
+              <p className="text-sm font-semibold text-brand-600 uppercase tracking-wider mb-2">Job board</p>
+              <h2 id="jobs-teaser-heading" className="text-2xl sm:text-3xl font-bold text-surface-900 dark:text-white mb-3">
+                Find your next job in Cameroon
+              </h2>
+              <p className="text-surface-500 dark:text-surface-400 leading-relaxed mb-6 max-w-md">
+                Browse live listings scraped from Cameroon job boards, apply with an AI-tailored CV in one click, and never miss a match with alerts.
+              </p>
+              <ul className="space-y-3 mb-8">
+                {[
+                  'Live listings from Cameroon job boards',
+                  'Apply in one click with a CV tailored to the role',
+                  'Email + in-app alerts for new matching jobs'
+                ].map((item, i) => (
+                  <li key={i} className="flex items-start gap-3 text-sm text-surface-600 dark:text-surface-300">
+                    <span className="w-5 h-5 rounded-full bg-emerald-50 dark:bg-emerald-900/30 text-emerald-500 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="20,6 9,17 4,12"/>
+                      </svg>
+                    </span>
+                    {item}
+                  </li>
+                ))}
+              </ul>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <Link to="/jobs" className="btn-primary no-underline text-center">
+                  Browse jobs{jobsCount ? ` (${jobsCount})` : ''}
+                </Link>
+                <Link to="/register" className="btn-secondary no-underline text-center">
+                  Get job alerts
+                </Link>
+              </div>
+            </div>
+
+            {/* Live listings preview */}
+            <div className="rounded-2xl border border-surface-200/80 dark:border-surface-700/80 bg-surface-0 dark:bg-surface-800 overflow-hidden shadow-xl">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-surface-100 dark:border-surface-700">
+                <span className="text-sm font-semibold text-surface-900 dark:text-white">Latest openings</span>
+                <span className="inline-flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  Live
+                </span>
+              </div>
+              <div className="divide-y divide-surface-100 dark:divide-surface-700">
+                {sampleJobs.length === 0 ? (
+                  <div className="p-6 space-y-3">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="animate-shimmer h-4 w-full rounded" />
+                    ))}
+                  </div>
+                ) : (
+                  sampleJobs.map((job) => (
+                    <Link key={job._id} to={`/jobs/${job._id}`} className="block px-4 py-3.5 hover:bg-surface-50 dark:hover:bg-surface-700/40 transition-colors no-underline group">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-brand-50 dark:bg-brand-900/30 flex items-center justify-center flex-shrink-0">
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-brand-600 dark:text-brand-400">
+                            <rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+                          </svg>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-surface-900 dark:text-white truncate group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">{job.title}</p>
+                          <p className="text-xs text-surface-400 mt-0.5 truncate">
+                            {job.company}{job.company && job.location ? ' · ' : ''}{job.location}
+                          </p>
+                        </div>
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-surface-300 dark:text-surface-600 group-hover:text-brand-500 group-hover:translate-x-0.5 transition-all flex-shrink-0">
+                          <polyline points="9,18 15,12 9,6"/>
+                        </svg>
+                      </div>
+                    </Link>
+                  ))
+                )}
+                <Link to="/jobs" className="block px-4 py-3 text-center text-sm font-medium text-brand-600 dark:text-brand-400 hover:bg-brand-50/50 dark:hover:bg-brand-900/20 no-underline transition-colors">
+                  View all jobs &rarr;
+                </Link>
+              </div>
+            </div>
           </div>
         </div>
       </section>

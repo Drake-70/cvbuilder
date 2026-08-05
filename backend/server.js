@@ -29,6 +29,8 @@ const contactRoutes = require('./routes/contact');
 const adminRoutes = require('./routes/admin');
 const aiRoutes = require('./routes/ai');
 const draftRoutes = require('./routes/draft');
+const jobRoutes = require('./routes/jobs');
+const { runScrapeCycle } = require('./services/jobService');
 
 const app = express();
 
@@ -152,6 +154,7 @@ app.use('/api/contact', contactLimiter, contactRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/ai', aiLimiter, aiRoutes);
 app.use('/api/drafts', draftRoutes);
+app.use('/api/jobs', jobRoutes);
 
 // Error handler
 if (Sentry) Sentry.setupExpressErrorHandler(app);
@@ -184,11 +187,37 @@ if (process.env.NODE_ENV === 'production') {
 
 const PORT = process.env.PORT || 5000;
 
+function startJobScheduler() {
+  if (process.env.JOB_SCRAPING_ENABLED === 'false') {
+    logger.info('[jobs] scraping disabled via JOB_SCRAPING_ENABLED');
+    return;
+  }
+  const minutes = Math.max(parseInt(process.env.JOB_SCRAPE_INTERVAL_MINUTES || '360', 10), 15);
+  logger.info(`[jobs] scheduler enabled — scraping every ${minutes} minutes`);
+  setTimeout(async () => {
+    try {
+      const summary = await runScrapeCycle();
+      logger.info(`[jobs] scheduled scrape done: ${JSON.stringify(summary.results || [])}`);
+    } catch (err) {
+      logger.error(`[jobs] scheduled scrape failed: ${err.message}`);
+    }
+  }, 60000);
+  setInterval(async () => {
+    try {
+      const summary = await runScrapeCycle();
+      logger.info(`[jobs] scheduled scrape done: ${JSON.stringify(summary.results || [])}`);
+    } catch (err) {
+      logger.error(`[jobs] scheduled scrape failed: ${err.message}`);
+    }
+  }, minutes * 60 * 1000);
+}
+
 const start = async () => {
   await connectDB();
   app.listen(PORT, () => {
     logger.info(`CVBoost server running on port ${PORT} [${process.env.NODE_ENV || 'development'}]`);
   });
+  startJobScheduler();
 };
 
 start();

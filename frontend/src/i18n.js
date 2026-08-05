@@ -4,9 +4,11 @@ import LanguageDetector from 'i18next-browser-languagedetector';
 import enCommon from './locales/en/common.json';
 import enAuth from './locales/en/auth.json';
 import enTailor from './locales/en/tailor.json';
+import enJobs from './locales/en/jobs.json';
 import frCommon from './locales/fr/common.json';
 import frAuth from './locales/fr/auth.json';
 import frTailor from './locales/fr/tailor.json';
+import frJobs from './locales/fr/jobs.json';
 
 const STORAGE_KEY = 'cvboost-lang';
 
@@ -18,16 +20,18 @@ i18n
       en: {
         common: enCommon,
         auth: enAuth,
-        tailor: enTailor
+        tailor: enTailor,
+        jobs: enJobs
       },
       fr: {
         common: frCommon,
         auth: frAuth,
-        tailor: frTailor
+        tailor: frTailor,
+        jobs: frJobs
       }
     },
     fallbackLng: 'en',
-    ns: ['common', 'auth', 'tailor'],
+    ns: ['common', 'auth', 'tailor', 'jobs'],
     defaultNS: 'common',
     interpolation: { escapeValue: false },
     detection: {

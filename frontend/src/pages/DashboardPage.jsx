@@ -12,6 +12,7 @@ import { useToast } from '../contexts/ToastContext';
 export default function DashboardPage() {
   const { t } = useTranslation('common');
   const { t: tTailor } = useTranslation('tailor');
+  const { t: tJobs } = useTranslation('jobs');
   const { user, fetchUser } = useAuth();
   const { toast } = useToast();
 
@@ -113,6 +114,17 @@ export default function DashboardPage() {
           <line x1="16" y1="17" x2="8" y2="17"/>
         </svg>
       )
+    },
+    {
+      to: '/jobs',
+      title: tJobs('title'),
+      desc: 'Browse & apply to jobs.',
+      icon: (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="2" y="7" width="20" height="14" rx="2"/>
+          <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+        </svg>
+      )
     }
   ];
 
@@ -170,7 +182,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Quick actions */}
-      <div className="grid sm:grid-cols-3 gap-4 mb-8">
+      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {quickActions.map((action, i) => (
           <Link key={action.to} to={action.to} className="group no-underline">
             <div className="card p-5 h-full group-hover:border-brand-300 dark:group-hover:border-brand-600 group-hover:shadow-md transition-all animate-slide-up" style={{ animationDelay: `${0.1 + i * 0.05}s` }}>

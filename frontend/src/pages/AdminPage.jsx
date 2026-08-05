@@ -12,8 +12,29 @@ export default function AdminPage() {
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [jobStats, setJobStats] = useState(null);
+  const [jobScrape, setJobScrape] = useState(null);
+  const [scraping, setScraping] = useState(false);
 
   const isAdmin = user?.role === 'admin';
+
+  const loadJobStats = useCallback(async () => {
+    const sources = ['goafrica', 'myjobmag', 'emploi'];
+    try {
+      const entries = await Promise.all(
+        sources.map(async (source) => {
+          try {
+            const res = await api.get('/jobs', { params: { source, limit: 1 } });
+            return { source, count: res.data.total };
+          } catch {
+            return { source, count: 0 };
+          }
+        })
+      );
+      const all = await api.get('/jobs', { params: { limit: 1 } });
+      setJobStats({ total: all.data.total, bySource: entries });
+    } catch { /* silent */ }
+  }, []);
 
   const loadDashboard = useCallback(async () => {
     setLoading(true);
@@ -66,6 +87,23 @@ export default function AdminPage() {
     setTab(newTab);
     if (newTab === 'payments' && payments.length === 0) loadPayments();
     if (newTab === 'users' && users.length <= 10) loadUsers(search);
+    if (newTab === 'jobs' && !jobStats) loadJobStats();
+  };
+
+  const runScrape = async () => {
+    if (scraping) return;
+    setScraping(true);
+    setJobScrape(null);
+    try {
+      const res = await api.post('/jobs/scrape');
+      setJobScrape(res.data);
+      toast.success('Scrape Complete', 'Job listings have been refreshed.');
+      loadJobStats();
+    } catch (err) {
+      toast.error('Scrape Failed', err.response?.data?.error || 'Could not run the scrape.');
+    } finally {
+      setScraping(false);
+    }
   };
 
   if (!isAdmin) {
@@ -100,7 +138,7 @@ export default function AdminPage() {
 
       {/* Tabs */}
       <div className="flex gap-1 p-1 bg-surface-100 dark:bg-surface-800 rounded-xl mb-6">
-        {['overview', 'users', 'payments'].map(t => (
+        {['overview', 'users', 'payments', 'jobs'].map(t => (
           <button key={t} onClick={() => handleTabChange(t)} className={`flex-1 py-2.5 rounded-lg text-sm font-medium cursor-pointer transition-all ${tab === t ? 'bg-surface-0 dark:bg-surface-700 text-surface-900 dark:text-white shadow-sm' : 'text-surface-500 hover:text-surface-700 dark:hover:text-surface-300'}`}>
             {t.charAt(0).toUpperCase() + t.slice(1)}
           </button>
@@ -215,6 +253,81 @@ export default function AdminPage() {
                 ))}
                 {payments.length === 0 && <p className="text-center text-surface-400 py-8">No payments yet.</p>}
               </div>
+            </div>
+          )}
+
+          {/* Jobs */}
+          {tab === 'jobs' && (
+            <div className="space-y-6 animate-fade-in">
+              <div className="card p-5">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+                  <div>
+                    <h3 className="text-sm font-bold text-surface-900 dark:text-white">Job Listings</h3>
+                    <p className="text-xs text-surface-500 dark:text-surface-400 mt-0.5">
+                      {jobStats ? `${jobStats.total} active listings in the database.` : 'Loading job stats...'}
+                    </p>
+                  </div>
+                  <button
+                    onClick={runScrape}
+                    disabled={scraping}
+                    className="btn-primary text-sm justify-center cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed flex-shrink-0"
+                  >
+                    {scraping ? (
+                      <span className="inline-flex items-center gap-2">
+                        <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                        </svg>
+                        Scraping...
+                      </span>
+                    ) : (
+                      'Run Scrape Now'
+                    )}
+                  </button>
+                </div>
+                <p className="text-xs text-surface-400">
+                  Scheduler runs automatically every 6 hours. This button triggers a manual refresh of all sources.
+                </p>
+              </div>
+
+              {jobStats && (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="card p-4 text-center">
+                    <p className="text-2xl font-bold text-brand-600 dark:text-brand-400">{jobStats.total}</p>
+                    <p className="text-xs text-surface-500 dark:text-surface-400 mt-0.5">Total Jobs</p>
+                  </div>
+                  {jobStats.bySource.map(s => (
+                    <div key={s.source} className="card p-4 text-center">
+                      <p className="text-2xl font-bold text-surface-600 dark:text-surface-300">{s.count}</p>
+                      <p className="text-xs text-surface-500 dark:text-surface-400 mt-0.5 capitalize">{s.source}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {jobScrape && (
+                <div className="card p-5">
+                  <h3 className="text-sm font-bold text-surface-900 dark:text-white mb-3">Last Scrape Result</h3>
+                  <div className="space-y-2">
+                    {(jobScrape.results || []).map((r) => (
+                      <div key={r.source} className="flex items-center gap-3 text-sm">
+                        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${r.status === 'ok' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                        <span className="capitalize w-24 text-surface-600 dark:text-surface-300">{r.source}</span>
+                        <span className="text-xs text-surface-400">
+                          {r.status === 'ok'
+                            ? `${r.added} new · ${r.updated} updated`
+                            : `failed: ${r.error}`}
+                        </span>
+                      </div>
+                    ))}
+                    {jobScrape.matched && (
+                      <p className="text-xs text-surface-400 pt-2 border-t border-surface-100 dark:border-surface-700">
+                        Alerts matched: {jobScrape.matched.notifications} notification(s) · {jobScrape.matched.emails} email(s)
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </>

@@ -24,6 +24,9 @@ const AboutPage = lazy(() => import('./pages/AboutPage'));
 const ContactPage = lazy(() => import('./pages/ContactPage'));
 const AdminPage = lazy(() => import('./pages/AdminPage'));
 const SharedCVPage = lazy(() => import('./pages/SharedCVPage'));
+const JobsPage = lazy(() => import('./pages/JobsPage'));
+const JobDetailPage = lazy(() => import('./pages/JobDetailPage'));
+const NotificationsPage = lazy(() => import('./pages/NotificationsPage'));
 
 function PageLoader() {
   return (
@@ -62,6 +65,9 @@ function App() {
               <Route path="/documents/:id" element={<ProtectedRoute><DocumentDetailPage /></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
               <Route path="/admin" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
+              <Route path="/jobs" element={<JobsPage />} />
+              <Route path="/jobs/:id" element={<JobDetailPage />} />
+              <Route path="/notifications" element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>} />
               <Route path="/terms" element={<TermsPage />} />
               <Route path="/privacy" element={<PrivacyPage />} />
               <Route path="/shared/:token" element={<SharedCVPage />} />

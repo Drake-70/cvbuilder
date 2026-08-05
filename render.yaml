@@ -71,3 +71,11 @@ services:
         sync: false
       - key: SMTP_FROM
         sync: false
+      - key: JOB_SCRAPING_ENABLED
+        value: "true"
+      - key: JOB_SCRAPE_INTERVAL_MINUTES
+        value: "360"
+      - key: JOB_ENRICH_DETAILS
+        value: "true"
+      - key: JOB_SCRAPE_KEY
+        sync: false

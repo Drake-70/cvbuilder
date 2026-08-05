@@ -75,7 +75,9 @@
     "about": "About",
     "contact": "Contact",
     "settings": "Settings",
-    "my_cvs": "My CVs"
+    "my_cvs": "My CVs",
+    "jobs": "Jobs",
+    "notifications": "Notifications"
   },
   "referral": {
     "title": "Refer a Friend",
