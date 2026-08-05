@@ -47,8 +47,14 @@ api.interceptors.response.use(
       try {
         await refreshPromise;
         return api(originalRequest);
-      } catch {
-        window.location.href = '/login';
+      } catch (refreshError) {
+        // Only treat definitive auth rejections as "log in again". Transient
+        // errors (5xx, rate-limit 429, network) must NOT kick the user out —
+        // the next request can simply try refreshing again.
+        const status = refreshError.response?.status;
+        if ((status === 401 || status === 403) && window.location.pathname !== '/login') {
+          window.location.href = '/login';
+        }
         return Promise.reject(error);
       }
     }

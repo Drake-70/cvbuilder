@@ -18,8 +18,10 @@ export function AuthProvider({ children }) {
       const res = await api.get('/auth/me');
       setUser(res.data.user);
       if (res.data.user?._id) analytics.identify(res.data.user);
-    } catch {
-      setUser(null);
+    } catch (err) {
+      // Only a definitive 401 means "logged out". Transient/network errors
+      // shouldn't wipe an otherwise valid session.
+      if (err.response?.status === 401) setUser(null);
     } finally {
       setLoading(false);
     }

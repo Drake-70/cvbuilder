@@ -170,11 +170,15 @@ export default function DashboardPage() {
         </div>
         <Link
           to="/settings"
-          className="w-11 h-11 rounded-full bg-surface-0 dark:bg-surface-800 border border-surface-200 dark:border-surface-700 flex items-center justify-center text-surface-900 dark:text-white font-bold text-base no-underline hover:border-brand-400 transition-colors flex-shrink-0"
+          className="w-11 h-11 rounded-full bg-surface-0 dark:bg-surface-800 border border-surface-200 dark:border-surface-700 flex items-center justify-center text-surface-900 dark:text-white font-bold text-base no-underline hover:border-brand-400 transition-colors flex-shrink-0 overflow-hidden"
           title={t('settings')}
           aria-label={t('settings')}
         >
-          {user?.name?.charAt(0)?.toUpperCase()}
+          {user?.avatar ? (
+            <img src={user.avatar} alt={user?.name} className="w-full h-full object-cover" />
+          ) : (
+            user?.name?.charAt(0)?.toUpperCase()
+          )}
         </Link>
       </div>
 

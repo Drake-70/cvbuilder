@@ -5,6 +5,12 @@ const requireAuth = async (req, res, next) => {
   try {
     const token = req.cookies.accessToken;
     if (!token) {
+      // The access cookie is short-lived (15 min), so after the browser closes
+      // for a while it's gone even though a persistent refresh cookie remains.
+      // Signal the client to refresh instead of forcing a fresh login.
+      if (req.cookies.refreshToken) {
+        return res.status(401).json({ error: 'Token expired', code: 'TOKEN_EXPIRED' });
+      }
       return res.status(401).json({ error: 'Authentication required' });
     }
 

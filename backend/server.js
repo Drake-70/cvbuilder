@@ -2,6 +2,7 @@ require('dotenv').config();
 const path = require('path');
 const express = require('express');
 const cors = require('cors');
+const compression = require('compression');
 const helmet = require('helmet');
 const cookieParser = require('cookie-parser');
 const morgan = require('morgan');
@@ -54,6 +55,9 @@ app.use(helmet({
   contentSecurityPolicy: false,
   referrerPolicy: { policy: 'strict-origin-when-cross-origin' }
 }));
+
+// Compress JSON/static responses (gzip/br) — biggest transfer-size win
+app.use(compression());
 
 // CORS — supports comma-separated list of origins
 const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:5173')
