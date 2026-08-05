@@ -28,7 +28,6 @@ function getGoogleClient() {
 const SALT_ROUNDS = 12;
 const ACCESS_TOKEN_EXPIRY = '15m';
 const REFRESH_TOKEN_EXPIRY = '7d';
-const REMEMBER_ME_REFRESH_DAYS = 30;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const VERIFICATION_TOKEN_EXPIRY_HOURS = 24;
 
@@ -36,18 +35,10 @@ function hashToken(token) {
   return crypto.createHash('sha256').update(token).digest('hex');
 }
 
-function generateTokens(userId, tokenVersion = 0, rememberMe = false) {
+function generateTokens(userId, tokenVersion = 0) {
   const accessToken = jwt.sign({ userId, tokenVersion }, process.env.JWT_SECRET, { expiresIn: ACCESS_TOKEN_EXPIRY });
-  const refreshToken = jwt.sign({ userId, tokenVersion }, process.env.JWT_REFRESH_SECRET, {
-    expiresIn: rememberMe ? `${REMEMBER_ME_REFRESH_DAYS}d` : REFRESH_TOKEN_EXPIRY
-  });
+  const refreshToken = jwt.sign({ userId, tokenVersion }, process.env.JWT_REFRESH_SECRET, { expiresIn: REFRESH_TOKEN_EXPIRY });
   return { accessToken, refreshToken };
-}
-
-// A "Remember me" refresh token carries a ~30-day lifetime; anything comfortably
-// beyond the 7-day default is treated as long-lived so refresh keeps the choice.
-function isLongLivedRefresh(decoded) {
-  return (decoded.exp * 1000 - Date.now()) > 10 * 24 * 60 * 60 * 1000;
 }
 
 function userResponse(user) {
@@ -79,7 +70,7 @@ function issueVerificationToken(user) {
   return token;
 }
 
-function setTokenCookies(res, accessToken, refreshToken, rememberMe = false) {
+function setTokenCookies(res, accessToken, refreshToken) {
   const isProduction = process.env.NODE_ENV === 'production';
 
   res.cookie('accessToken', accessToken, {
@@ -93,15 +84,13 @@ function setTokenCookies(res, accessToken, refreshToken, rememberMe = false) {
     httpOnly: true,
     secure: isProduction,
     sameSite: isProduction ? 'strict' : 'lax',
-    // Without maxAge the refresh cookie is a browser-session cookie, so
-    // unchecking "Remember me" logs the user out when the browser closes.
-    ...(rememberMe ? { maxAge: REMEMBER_ME_REFRESH_DAYS * 24 * 60 * 60 * 1000 } : {})
+    maxAge: 7 * 24 * 60 * 60 * 1000
   });
 }
 
 exports.register = async (req, res, next) => {
   try {
-    const { email, password, name, preferredLanguage, referralCode, rememberMe } = req.body;
+    const { email, password, name, preferredLanguage, referralCode } = req.body;
 
     if (!email || !password || !name) {
       return res.status(400).json({ error: 'Email, password, and name are required' });
@@ -143,8 +132,8 @@ exports.register = async (req, res, next) => {
       });
     }
 
-    const { accessToken, refreshToken } = generateTokens(user._id, undefined, !!rememberMe);
-    setTokenCookies(res, accessToken, refreshToken, !!rememberMe);
+    const { accessToken, refreshToken } = generateTokens(user._id);
+    setTokenCookies(res, accessToken, refreshToken);
 
     // Send verification email (non-blocking)
     const token = issueVerificationToken(user);
@@ -170,7 +159,7 @@ exports.register = async (req, res, next) => {
 
 exports.login = async (req, res, next) => {
   try {
-    const { email, password, rememberMe } = req.body;
+    const { email, password } = req.body;
 
     if (!email || !password) {
       return res.status(400).json({ error: 'Email and password are required' });
@@ -210,8 +199,8 @@ exports.login = async (req, res, next) => {
       user.lockoutUntil = null;
     }
 
-    const tokens = generateTokens(user._id, user.tokenVersion, !!rememberMe);
-    setTokenCookies(res, tokens.accessToken, tokens.refreshToken, !!rememberMe);
+    const tokens = generateTokens(user._id, user.tokenVersion);
+    setTokenCookies(res, tokens.accessToken, tokens.refreshToken);
     await user.save();
 
     res.json({ user: userResponse(user) });
@@ -240,16 +229,19 @@ exports.refresh = async (req, res, next) => {
       return res.status(401).json({ error: 'User not found' });
     }
 
-    // Reject tokens issued before the last revocation, but do NOT rotate on
-    // every refresh: bumping the version per refresh would revoke sessions in
-    // other open tabs and force spurious re-logins.
+    // Token rotation: reject if tokenVersion doesn't match
     if (decoded.tokenVersion !== undefined && decoded.tokenVersion !== user.tokenVersion) {
+      user.tokenVersion = (user.tokenVersion || 0) + 1;
+      await user.save();
       return res.status(401).json({ error: 'Token has been revoked. Please log in again.' });
     }
 
-    const rememberMe = isLongLivedRefresh(decoded);
-    const tokens = generateTokens(user._id, user.tokenVersion, rememberMe);
-    setTokenCookies(res, tokens.accessToken, tokens.refreshToken, rememberMe);
+    // Increment version to invalidate old refresh tokens
+    user.tokenVersion = (user.tokenVersion || 0) + 1;
+    await user.save();
+
+    const tokens = generateTokens(user._id, user.tokenVersion);
+    setTokenCookies(res, tokens.accessToken, tokens.refreshToken);
 
     res.json({ user: userResponse(user) });
   } catch (err) {
@@ -260,21 +252,7 @@ exports.refresh = async (req, res, next) => {
   }
 };
 
-exports.logout = async (req, res) => {
-  // Revoke all outstanding sessions server-side so a leaked token can't be reused
-  try {
-    const token = req.cookies.refreshToken || req.cookies.accessToken;
-    if (token) {
-      const secret = req.cookies.refreshToken ? process.env.JWT_REFRESH_SECRET : process.env.JWT_SECRET;
-      const decoded = jwt.verify(token, secret);
-      if (decoded?.userId) {
-        await User.findByIdAndUpdate(decoded.userId, { $inc: { tokenVersion: 1 } });
-      }
-    }
-  } catch (err) {
-    logger.warn(`Logout token revocation skipped: ${err.message}`);
-  }
-
+exports.logout = async (_req, res) => {
   res.clearCookie('accessToken');
   res.clearCookie('refreshToken');
   res.json({ message: 'Logged out successfully' });
@@ -312,23 +290,9 @@ exports.updateMe = async (req, res, next) => {
         return res.status(401).json({ error: 'Current password is incorrect' });
       }
       user.passwordHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
-      // Revoke every other session, then re-issue this one below
-      user.tokenVersion = (user.tokenVersion || 0) + 1;
     }
 
     await user.save();
-
-    if (currentPassword && newPassword) {
-      // Keep the current session alive after the password change
-      let rememberMe = false;
-      try {
-        const decoded = jwt.verify(req.cookies.refreshToken, process.env.JWT_REFRESH_SECRET);
-        rememberMe = isLongLivedRefresh(decoded);
-      } catch { /* cookie missing/expired — issue a default session */ }
-      const tokens = generateTokens(user._id, user.tokenVersion, rememberMe);
-      setTokenCookies(res, tokens.accessToken, tokens.refreshToken, rememberMe);
-    }
-
     res.json({ user: userResponse(user) });
   } catch (err) {
     next(err);
@@ -375,8 +339,6 @@ exports.resetPassword = async (req, res, next) => {
     if (!user) return res.status(400).json({ error: 'Invalid or expired reset token' });
 
     user.passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
-    // Revoke all sessions after a password reset
-    user.tokenVersion = (user.tokenVersion || 0) + 1;
     user.resetPasswordToken = undefined;
     user.resetPasswordExpires = undefined;
     await user.save();
@@ -433,7 +395,7 @@ exports.resendVerification = async (req, res, next) => {
 
 exports.googleLogin = async (req, res, next) => {
   try {
-    const { credential, rememberMe } = req.body;
+    const { credential } = req.body;
     if (!credential) return res.status(400).json({ error: 'Google credential is required' });
 
     let client;
@@ -472,8 +434,8 @@ exports.googleLogin = async (req, res, next) => {
       });
     }
 
-    const tokens = generateTokens(user._id, undefined, !!rememberMe);
-    setTokenCookies(res, tokens.accessToken, tokens.refreshToken, !!rememberMe);
+    const tokens = generateTokens(user._id);
+    setTokenCookies(res, tokens.accessToken, tokens.refreshToken);
 
     res.json({ user: userResponse(user) });
 

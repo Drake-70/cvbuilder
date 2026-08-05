@@ -28,13 +28,6 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    // A revoked session (logout elsewhere, password change/reset) can't be
-    // refreshed — go to the login page directly.
-    if (error.response?.status === 401 && error.response?.data?.code === 'SESSION_REVOKED') {
-      if (window.location.pathname !== '/login') window.location.href = '/login';
-      return Promise.reject(error);
-    }
-
     if (error.response?.status === 401 && error.response?.data?.code === 'TOKEN_EXPIRED' && !originalRequest._retry) {
       originalRequest._retry = true;
 
@@ -47,14 +40,8 @@ api.interceptors.response.use(
       try {
         await refreshPromise;
         return api(originalRequest);
-      } catch (refreshError) {
-        // Only treat definitive auth rejections as "log in again". Transient
-        // errors (5xx, rate-limit 429, network) must NOT kick the user out —
-        // the next request can simply try refreshing again.
-        const status = refreshError.response?.status;
-        if ((status === 401 || status === 403) && window.location.pathname !== '/login') {
-          window.location.href = '/login';
-        }
+      } catch {
+        window.location.href = '/login';
         return Promise.reject(error);
       }
     }

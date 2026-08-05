@@ -19,7 +19,6 @@ export default function RegisterPage() {
   });
   const [error, setError] = useState('');
   const [agreed, setAgreed] = useState(false);
-  const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
   const googleBtnRef = useRef(null);
 
@@ -53,7 +52,7 @@ export default function RegisterPage() {
 
     setLoading(true);
     try {
-      const data = await register(form.email, form.password, form.name, undefined, form.referralCode || undefined, rememberMe);
+      const data = await register(form.email, form.password, form.name, undefined, form.referralCode || undefined);
       if (data.exists) {
         toast.success(t('create_account'), 'Check your email if an account exists.');
         navigate('/login');
@@ -78,7 +77,7 @@ export default function RegisterPage() {
       return;
     }
     try {
-      await googleLogin(credential, rememberMe);
+      await googleLogin(credential);
       toast.success(t('create_account'), 'Signed in with Google');
       navigate('/dashboard');
     } catch (err) {
@@ -269,16 +268,6 @@ export default function RegisterPage() {
                   placeholder="Enter code"
                 />
               </div>
-
-              <label className="flex items-center gap-2.5 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                  className="h-4 w-4 rounded border-surface-300 text-brand-600 focus:ring-brand-500 cursor-pointer"
-                />
-                <span className="text-sm text-surface-500 dark:text-surface-400">{t('remember_me')}</span>
-              </label>
 
               <label className="flex items-start gap-2.5 cursor-pointer select-none">
                 <input

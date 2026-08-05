@@ -18,10 +18,8 @@ export function AuthProvider({ children }) {
       const res = await api.get('/auth/me');
       setUser(res.data.user);
       if (res.data.user?._id) analytics.identify(res.data.user);
-    } catch (err) {
-      // Only a definitive 401 means "logged out". Transient/network errors
-      // shouldn't wipe an otherwise valid session.
-      if (err.response?.status === 401) setUser(null);
+    } catch {
+      setUser(null);
     } finally {
       setLoading(false);
     }
@@ -31,15 +29,15 @@ export function AuthProvider({ children }) {
     fetchUser();
   }, [fetchUser]);
 
-  const login = async (email, password, rememberMe = false) => {
-    const res = await api.post('/auth/login', { email, password, rememberMe });
+  const login = async (email, password) => {
+    const res = await api.post('/auth/login', { email, password });
     setUser(res.data.user);
     trackUser(res.data.user, 'login');
     return res.data;
   };
 
-  const register = async (email, password, name, preferredLanguage, referralCode, rememberMe = false) => {
-    const res = await api.post('/auth/register', { email, password, name, preferredLanguage, referralCode, rememberMe });
+  const register = async (email, password, name, preferredLanguage, referralCode) => {
+    const res = await api.post('/auth/register', { email, password, name, preferredLanguage, referralCode });
     if (res.data.user) {
       setUser(res.data.user);
     }
@@ -47,8 +45,8 @@ export function AuthProvider({ children }) {
     return res.data;
   };
 
-  const googleLogin = async (credential, rememberMe = false) => {
-    const res = await api.post('/auth/google-login', { credential, rememberMe });
+  const googleLogin = async (credential) => {
+    const res = await api.post('/auth/google-login', { credential });
     setUser(res.data.user);
     trackUser(res.data.user, 'login');
     return res.data;
