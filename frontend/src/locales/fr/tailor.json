@@ -142,5 +142,21 @@
   "pay_and_download": "Payer et télécharger",
   "download_payment_hint": "L'aperçu est gratuit. Le paiement est requis pour télécharger le fichier .docx.",
   "free_credit_hint_one": "Vous disposez de {{count}} crédit de téléchargement gratuit. Ce téléchargement est gratuit.",
-  "free_credit_hint_other": "Vous disposez de {{count}} crédits de téléchargement gratuits. Ce téléchargement est gratuit."
+  "free_credit_hint_other": "Vous disposez de {{count}} crédits de téléchargement gratuits. Ce téléchargement est gratuit.",
+  "search_cvs": "Rechercher dans vos CV...",
+  "clear_search": "Effacer la recherche",
+  "no_match_title": "Aucun CV ne correspond à votre recherche",
+  "no_match_desc": "Essayez un autre terme de recherche.",
+  "delete_cv_confirm_title": "Supprimer ce CV ?",
+  "delete_cv_confirm_msg": "Ce CV sera définitivement supprimé.",
+  "cv_deleted": "CV supprimé.",
+  "delete_failed": "Échec de la suppression du CV.",
+  "live_match": "Correspondance de mots-clés",
+  "live_match_desc": "Vérification en direct : quels mots-clés de cette offre apparaissent déjà dans votre CV.",
+  "keywords_covered": "{{covered}} sur {{total}} mots-clés trouvés dans votre CV",
+  "missing_keywords": "Pas encore dans votre CV :",
+  "strong_match": "Très bonne correspondance",
+  "decent_match": "Correspondance correcte",
+  "add_these_keywords": "Ajoutez ces mots-clés à votre CV",
+  "match_hint": "Collez une plus grande partie de l'offre pour obtenir un retour sur mots-clés en direct."
 }

@@ -6,6 +6,8 @@ import api from '../services/api';
 import PaymentModal from '../components/PaymentModal';
 import ReferralWidget from '../components/ReferralWidget';
 import ApplicationTracker from '../components/ApplicationTracker';
+import ConfirmDialog from '../components/ConfirmDialog';
+import ErrorState from '../components/ErrorState';
 import { useCache, invalidateCacheKey } from '../hooks/useCache';
 import { useToast } from '../contexts/ToastContext';
 
@@ -19,9 +21,14 @@ export default function DashboardPage() {
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [paymentDocId, setPaymentDocId] = useState(null);
   const [downloadingId, setDownloadingId] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
 
-  const { data: documentsData, mutate: setDocuments, refetch: refetchDocs, isLoading: loadingDocs } = useCache('/document/list', { staleTime: 10_000 });
+  const { data: documentsData, mutate: setDocuments, refetch: refetchDocs, isLoading: loadingDocs, error: docsError } = useCache('/document/list', { staleTime: 10_000 });
   const documents = documentsData || [];
+
+  const { data: appsData } = useCache('/jobs/applications', { enabled: !!user });
+  const applications = appsData?.applications || [];
 
   const isSubscribed = user?.subscriptionStatus === 'active';
 
@@ -43,6 +50,8 @@ export default function DashboardPage() {
       if (err.response?.status === 402) {
         setPaymentDocId(docId);
         setPaymentOpen(true);
+      } else {
+        toast.error(t('download_failed'), t('download_failed_msg'));
       }
     } finally {
       setDownloadingId(null);
@@ -50,13 +59,18 @@ export default function DashboardPage() {
   };
 
   const handleDelete = async (docId) => {
-    if (!confirm('Delete this document?')) return;
+    setDeletingId(docId);
     try {
       await api.delete(`/document/${docId}`);
       setDocuments(prev => prev.filter(d => d._id !== docId));
       invalidateCacheKey('/document/list');
-      toast.info('Deleted', 'Document has been removed.');
-    } catch { /* silent */ }
+      toast.success(t('deleted'), t('deleted_msg'));
+    } catch {
+      toast.error(t('error'), t('server_error'));
+    } finally {
+      setDeletingId(null);
+      setDeleteTarget(null);
+    }
   };
 
   const handlePaymentSuccess = () => {
@@ -73,16 +87,16 @@ export default function DashboardPage() {
 
   const getTimeGreeting = () => {
     const h = new Date().getHours();
-    if (h < 12) return 'Good morning';
-    if (h < 18) return 'Good afternoon';
-    return 'Good evening';
+    if (h < 12) return t('dashboard.greeting_morning');
+    if (h < 18) return t('dashboard.greeting_afternoon');
+    return t('dashboard.greeting_evening');
   };
 
   const quickActions = [
     {
       to: '/tailor',
       title: tTailor('upload_cv'),
-      desc: 'Upload an existing CV.',
+      desc: t('dashboard.upload_cv_desc'),
       icon: (
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
@@ -94,7 +108,7 @@ export default function DashboardPage() {
     {
       to: '/tailor?path=build',
       title: tTailor('build_cv'),
-      desc: 'Build from scratch.',
+      desc: t('dashboard.build_cv_desc'),
       icon: (
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
@@ -105,7 +119,7 @@ export default function DashboardPage() {
     {
       to: '/cvs',
       title: t('nav.my_cvs'),
-      desc: 'Manage saved CVs.',
+      desc: t('dashboard.manage_saved_cvs'),
       icon: (
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
@@ -118,7 +132,7 @@ export default function DashboardPage() {
     {
       to: '/jobs',
       title: tJobs('title'),
-      desc: 'Browse & apply to jobs.',
+      desc: t('dashboard.browse_jobs_desc'),
       icon: (
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <rect x="2" y="7" width="20" height="14" rx="2"/>
@@ -129,10 +143,17 @@ export default function DashboardPage() {
   ];
 
   const stats = [
-    { value: user?.documentsGeneratedCount || 0, label: 'Generated' },
-    { value: documents.length, label: 'Saved' },
-    { value: isSubscribed ? 'Pro' : (user?.freeDocumentCredits || 0), label: isSubscribed ? 'Plan' : 'Free Credits' }
+    { value: user?.documentsGeneratedCount || 0, label: t('dashboard.generated') },
+    { value: documents.length, label: t('dashboard.saved') },
+    { value: isSubscribed ? 'Pro' : (user?.freeDocumentCredits || 0), label: t(isSubscribed ? 'dashboard.plan' : 'dashboard.free_credits') }
   ];
+
+  const onboardingSteps = [
+    { label: t('dashboard.onboarding_step1'), desc: t('dashboard.onboarding_step1_desc'), to: '/tailor', done: documents.length > 0 },
+    { label: t('dashboard.onboarding_step2'), desc: t('dashboard.onboarding_step2_desc'), to: '/jobs', done: applications.length > 0 },
+    { label: t('dashboard.onboarding_step3'), desc: t('dashboard.onboarding_step3_desc'), to: '/cvs', done: documents.some((d) => d.applicationStatus && d.applicationStatus !== 'draft') }
+  ];
+  const onboardingDone = onboardingSteps.every((s) => s.done);
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-10 sm:py-14 animate-slide-up" role="main">
@@ -141,10 +162,10 @@ export default function DashboardPage() {
         <div>
           <p className="kicker mb-2">{getTimeGreeting()}</p>
           <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-surface-900 dark:text-white">
-            {user?.name?.split(' ')[0]}&apos;s job search
+            {t('dashboard.job_search_title', { name: user?.name?.split(' ')[0] })}
           </h1>
           <p className="text-sm text-surface-500 dark:text-surface-400 mt-2">
-            {documents.length} tailored document{documents.length !== 1 ? 's' : ''} in your workspace.
+            {t(documents.length === 1 ? 'dashboard.docs_in_workspace' : 'dashboard.docs_in_workspace_plural', { count: documents.length })}
           </p>
         </div>
         <Link
@@ -165,8 +186,34 @@ export default function DashboardPage() {
             <polyline points="22,4 12,14.01 9,11.01"/>
           </svg>
           <div className="text-white">
-            <p className="font-semibold text-sm">Active Subscription</p>
-            <p className="text-emerald-100 text-xs">Unlimited downloads included</p>
+            <p className="font-semibold text-sm">{t('dashboard.active_subscription')}</p>
+            <p className="text-emerald-100 text-xs">{t('dashboard.unlimited_downloads')}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Onboarding strip */}
+      {!onboardingDone && (
+        <div className="card p-5 mb-6 animate-slide-up" style={{ animationDelay: '0.05s' }}>
+          <p className="text-sm font-semibold uppercase tracking-widest text-surface-400 mb-4">{t('dashboard.onboarding_title')}</p>
+          <div className="grid sm:grid-cols-3 gap-3">
+            {onboardingSteps.map((s, i) => (
+              <Link key={s.label} to={s.to} className="no-underline group">
+                <div className={`rounded-xl border p-4 h-full flex items-start gap-3 transition-all ${s.done ? 'border-emerald-200 dark:border-emerald-800/40 bg-emerald-50/40 dark:bg-emerald-900/10' : 'border-surface-200 dark:border-surface-700 group-hover:border-brand-300 dark:group-hover:border-brand-600'}`}>
+                  <span className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold ${s.done ? 'bg-emerald-500 text-white' : 'bg-surface-100 dark:bg-surface-700 text-surface-500 group-hover:text-brand-500'}`}>
+                    {s.done ? (
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="20,6 9,17 4,12"/>
+                      </svg>
+                    ) : i + 1}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-surface-900 dark:text-white">{s.label}</p>
+                    <p className="text-xs text-surface-500 dark:text-surface-400 mt-0.5">{s.desc}</p>
+                  </div>
+                </div>
+              </Link>
+            ))}
           </div>
         </div>
       )}
@@ -212,8 +259,8 @@ export default function DashboardPage() {
               </svg>
             </div>
             <div className="flex-1">
-              <p className="text-sm font-semibold text-brand-800 dark:text-brand-200">Upgrade to Pro</p>
-              <p className="text-xs text-brand-600 dark:text-brand-400">Unlimited downloads for 3,000 XAF/month</p>
+              <p className="text-sm font-semibold text-brand-800 dark:text-brand-200">{t('dashboard.upgrade_to_pro')}</p>
+              <p className="text-xs text-brand-600 dark:text-brand-400">{t('dashboard.upgrade_desc', { count: 3000 })}</p>
             </div>
             <span className="text-brand-400 group-hover:translate-x-1 transition-transform" aria-hidden="true">&rarr;</span>
           </div>
@@ -223,9 +270,9 @@ export default function DashboardPage() {
       {/* Document History */}
       <div className="animate-slide-up" style={{ animationDelay: '0.35s' }}>
         <div className="flex items-center justify-between mb-4 px-1">
-          <h2 className="text-sm font-semibold uppercase tracking-widest text-surface-400">Recent Documents</h2>
+          <h2 className="text-sm font-semibold uppercase tracking-widest text-surface-400">{t('dashboard.recent_documents')}</h2>
           {documents.length > 0 && (
-            <span className="text-xs text-surface-400 dark:text-surface-500">{documents.length} total</span>
+            <span className="text-xs text-surface-400 dark:text-surface-500">{documents.length} {t('dashboard.total')}</span>
           )}
         </div>
 
@@ -235,6 +282,8 @@ export default function DashboardPage() {
               <div key={i} className="p-4"><div className="animate-shimmer h-4 w-48 rounded mb-2" /><div className="animate-shimmer h-3 w-32 rounded" /></div>
             ))}
           </div>
+        ) : docsError ? (
+          <ErrorState onRetry={refetchDocs} />
         ) : documents.length === 0 ? (
           <div className="card p-12 text-center">
             <div className="w-14 h-14 rounded-full bg-surface-100 dark:bg-surface-700 flex items-center justify-center mx-auto mb-4">
@@ -242,13 +291,13 @@ export default function DashboardPage() {
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/>
               </svg>
             </div>
-            <h3 className="text-lg font-bold text-surface-900 dark:text-white mb-2">No documents yet</h3>
+            <h3 className="text-lg font-bold text-surface-900 dark:text-white mb-2">{t('dashboard.no_documents')}</h3>
             <p className="text-sm text-surface-500 dark:text-surface-400 mb-6 max-w-sm mx-auto">
-              Start by uploading your CV or building one from scratch. Your tailored documents will appear here.
+              {t('dashboard.no_documents_desc')}
             </p>
             <div className="flex justify-center gap-3">
-              <Link to="/tailor" className="btn-primary text-sm no-underline">Create your first CV</Link>
-              <Link to="/tailor?path=build" className="btn-secondary text-sm no-underline">Build from scratch</Link>
+              <Link to="/tailor" className="btn-primary text-sm no-underline">{t('dashboard.create_first_cv')}</Link>
+              <Link to="/tailor?path=build" className="btn-secondary text-sm no-underline">{t('dashboard.build_from_scratch')}</Link>
             </div>
           </div>
         ) : (
@@ -257,7 +306,7 @@ export default function DashboardPage() {
               <div key={doc._id} className="px-5 py-4 hover:bg-surface-50 dark:hover:bg-surface-700/40 transition-colors group">
                 <div className="flex items-center gap-4">
                   <Link to={`/documents/${doc._id}`} className="flex-1 min-w-0 no-underline">
-                    <p className="text-sm font-semibold text-surface-900 dark:text-white truncate group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">{doc.jobTitle || 'Tailored CV'}</p>
+                    <p className="text-sm font-semibold text-surface-900 dark:text-white truncate group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">{doc.jobTitle || t('dashboard.tailored_cv')}</p>
                     <p className="text-xs text-surface-400 dark:text-surface-500 mt-0.5">{formatDate(doc.createdAt)} &middot; {doc.language === 'fr' ? 'Fran\u00e7ais' : 'English'}</p>
                   </Link>
                   <div className="flex items-center gap-1">
@@ -265,7 +314,7 @@ export default function DashboardPage() {
                       onClick={() => handleDownload(doc._id)}
                       disabled={downloadingId === doc._id}
                       className="p-2 rounded-lg hover:bg-surface-100 dark:hover:bg-surface-800 text-surface-400 hover:text-brand-600 transition-colors cursor-pointer"
-                      title="Download"
+                      title={t('download')}
                     >
                       {downloadingId === doc._id ? (
                         <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
@@ -275,7 +324,7 @@ export default function DashboardPage() {
                         </svg>
                       )}
                     </button>
-                    <button onClick={() => handleDelete(doc._id)} className="p-2 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-900/20 text-surface-400 hover:text-rose-500 transition-colors cursor-pointer" title="Delete">
+                    <button onClick={() => setDeleteTarget(doc._id)} className="p-2 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-900/20 text-surface-400 hover:text-rose-500 transition-colors cursor-pointer" title={t('delete')}>
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <polyline points="3,6 5,6 21,6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
                       </svg>
@@ -298,6 +347,16 @@ export default function DashboardPage() {
       </div>
 
       <PaymentModal open={paymentOpen} onClose={() => setPaymentOpen(false)} onSuccess={handlePaymentSuccess} documentId={paymentDocId} type="one-time" />
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title={t('delete_confirm_title')}
+        message={t('delete_confirm_msg')}
+        confirmLabel={t('delete')}
+        loading={!!deletingId}
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={() => deleteTarget && handleDelete(deleteTarget)}
+      />
     </div>
   );
 }

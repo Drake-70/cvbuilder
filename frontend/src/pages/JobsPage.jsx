@@ -6,6 +6,8 @@ import { useToast } from '../contexts/ToastContext';
 import { useCache, invalidateCacheKey } from '../hooks/useCache';
 import api from '../services/api';
 import JobCard from '../components/JobCard';
+import ConfirmDialog from '../components/ConfirmDialog';
+import ErrorState from '../components/ErrorState';
 import { relativeTime } from '../utils/relativeTime';
 
 const TABS = ['browse', 'applications', 'alerts'];
@@ -47,8 +49,9 @@ export default function JobsPage() {
   const applications = appsData?.applications || [];
   const appliedJobIds = new Set(applications.filter((a) => a.jobId).map((a) => a.jobId._id || a.jobId));
 
-  const { data: alertsData, mutate: setAlerts, isLoading: alertsLoading } = useCache('/jobs/alerts', { enabled: !!user });
+  const { data: alertsData, mutate: setAlerts, isLoading: alertsLoading, error: alertsError, refetch: refetchAlerts } = useCache('/jobs/alerts', { enabled: !!user });
   const alerts = alertsData?.alerts || [];
+  const [deleteAlertId, setDeleteAlertId] = useState(null);
 
   // alert form state
   const [alertForm, setAlertForm] = useState({ name: '', keywords: '', locations: '', categories: [], emailEnabled: true });
@@ -103,13 +106,14 @@ export default function JobsPage() {
   };
 
   const deleteAlert = async (id) => {
-    if (!window.confirm(t('confirm_delete_alert'))) return;
     try {
       await api.delete(`/jobs/alerts/${id}`);
       setAlerts((prev) => prev.filter((a) => a._id !== id));
       invalidateCacheKey('/jobs/alerts');
+      setDeleteAlertId(null);
       toast.success(t('alert_deleted'));
     } catch (err) {
+      setDeleteAlertId(null);
       toast.error(tc('error'), err.response?.data?.error || tc('server_error'));
     }
   };
@@ -421,6 +425,8 @@ export default function JobsPage() {
                   <div className="card p-5 space-y-3">
                     {[1, 2].map((i) => <div key={i} className="animate-shimmer h-4 w-full rounded" />)}
                   </div>
+                ) : alertsError ? (
+                  <ErrorState onRetry={refetchAlerts} />
                 ) : alerts.length === 0 ? (
                   <div className="card p-12 text-center">
                     <div className="w-14 h-14 rounded-full bg-surface-100 dark:bg-surface-700 flex items-center justify-center mx-auto mb-4">
@@ -457,7 +463,7 @@ export default function JobsPage() {
                             <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${alert.active ? 'translate-x-4' : ''}`} />
                           </button>
                           <button
-                            onClick={() => deleteAlert(alert._id)}
+                            onClick={() => setDeleteAlertId(alert._id)}
                             className="p-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-900/20 text-surface-400 hover:text-rose-500 transition-colors cursor-pointer"
                             aria-label={t('alert_deleted')}
                           >
@@ -475,6 +481,15 @@ export default function JobsPage() {
           )}
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!deleteAlertId}
+        title={t('confirm_delete_alert')}
+        message={t('confirm_delete_alert')}
+        confirmLabel={tc('delete')}
+        onCancel={() => setDeleteAlertId(null)}
+        onConfirm={() => deleteAlertId && deleteAlert(deleteAlertId)}
+      />
     </div>
   );
 }

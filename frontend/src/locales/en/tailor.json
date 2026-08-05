@@ -142,5 +142,21 @@
   "pay_and_download": "Pay & Download",
   "download_payment_hint": "Preview is free. Payment required to download the .docx file.",
   "free_credit_hint_one": "You have {{count}} free download credit. This download is free.",
-  "free_credit_hint_other": "You have {{count}} free download credits. This download is free."
+  "free_credit_hint_other": "You have {{count}} free download credits. This download is free.",
+  "search_cvs": "Search your CVs...",
+  "clear_search": "Clear search",
+  "no_match_title": "No CVs match your search",
+  "no_match_desc": "Try a different search term.",
+  "delete_cv_confirm_title": "Delete this saved CV?",
+  "delete_cv_confirm_msg": "This will permanently remove this CV.",
+  "cv_deleted": "CV has been removed.",
+  "delete_failed": "Failed to delete CV.",
+  "live_match": "Keyword match",
+  "live_match_desc": "Live check: which keywords from this job description already appear in your CV.",
+  "keywords_covered": "{{covered}} of {{total}} keywords found in your CV",
+  "missing_keywords": "Not in your CV yet:",
+  "strong_match": "Strong match",
+  "decent_match": "Decent match",
+  "add_these_keywords": "Add these keywords to your CV",
+  "match_hint": "Paste more of the job description to get live keyword feedback."
 }

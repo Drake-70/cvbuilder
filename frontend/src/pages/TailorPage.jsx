@@ -245,6 +245,7 @@ export default function TailorPage() {
             setJobDescription={setJobDescription}
             language={language}
             setLanguage={setLanguage}
+            cvText={cvText}
             onSubmit={() => handleTailor(false)}
             onSkip={() => handleTailor(true)}
             onBack={() => setStep(sourcePath === 'upload' ? 'upload' : 'build')}

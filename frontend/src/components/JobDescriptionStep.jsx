@@ -1,14 +1,82 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import ImageUploader from './ImageUploader';
 
+const STOPWORDS = new Set([
+  'the', 'and', 'for', 'with', 'you', 'will', 'your', 'our', 'are', 'this', 'that', 'have',
+  'from', 'into', 'they', 'them', 'their', 'what', 'when', 'where', 'which', 'while', 'about',
+  'being', 'been', 'were', 'was', 'not', 'but', 'who', 'whom', 'than', 'then', 'there', 'these',
+  'those', 'because', 'could', 'would', 'should', 'might', 'must', 'shall', 'may', 'can', 'has',
+  'had', 'having', 'does', 'did', 'doing', 'its', 'it', 'at', 'by', 'on', 'off', 'in', 'out',
+  'up', 'down', 'to', 'too', 'also', 'a', 'an', 'as', 'or', 'of', 'if', 'is', 'be', 'do', 'so',
+  'we', 'us', 'etc', 'via', 'per', 'job', 'role', 'position', 'candidate', 'candidates',
+  'responsibilities', 'qualifications', 'requirements', 'able', 'including', 'such', 'relevant',
+  'experience', 'years', 'work', 'team', 'skills', 'knowledge', 'understanding', 'strong', 'good',
+  'excellent', 'ability', 'working', 'required', 'must', 'will', 'applying', 'application',
+  'duties', 'tasks', 'join', 'company', 'looking', 'need', 'seek', 'seeking', 'day', 'days',
+  'year', 'month', 'plus', 'etc', 'et', 'le', 'la', 'les', 'des', 'une', 'un', 'du', 'de', 'et',
+  'vous', 'nous', 'sera', 'serez', 'êtes', 'est', 'sont', 'avec', 'pour', 'dans', 'sur', 'cette',
+  'ce', 'ces', 'qui', 'que', 'quoi', 'dont', 'aussi', 'peut', 'doit', 'tous', 'toute', 'toutes',
+  'plus', 'moins', 'entre', 'ainsi', 'poste', 'candidat', 'candidats', 'entreprise', 'équipe',
+  'compétences', 'connaissances', 'expérience', 'années', 'travail', 'missions', 'responsabilités',
+  'exigences', 'qualifications', 'recherchons', 'recherche', 'votre', 'vos', 'notre', 'nos',
+  'profil', 'fonction', 'selon'
+]);
+
+function extractKeywords(text) {
+  const words = text.toLowerCase().match(/[\wà-ÿ]+/gi) || [];
+  const freq = {};
+  words.forEach((w) => {
+    if (w.length >= 4 && !STOPWORDS.has(w)) freq[w] = (freq[w] || 0) + 1;
+  });
+  return Object.entries(freq)
+    .filter(([w, c]) => c >= 2 || w.length >= 6)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
+    .map(([w]) => w);
+}
+
 export default function JobDescriptionStep({
-  jobDescription, setJobDescription, language, setLanguage,
+  jobDescription, setJobDescription, language, setLanguage, cvText,
   onSubmit, onSkip, onBack, loading
 }) {
   const { t } = useTranslation('tailor');
   const { t: tCommon } = useTranslation('common');
   const [inputMode, setInputMode] = useState('text');
+  const [match, setMatch] = useState(null);
+  const [checking, setChecking] = useState(false);
+
+  const cvLower = (cvText || '').toLowerCase();
+
+  useEffect(() => {
+    const jd = jobDescription.trim();
+    if (jd.length < 20 || (cvText || '').trim().length < 20) {
+      setMatch(null);
+      setChecking(false);
+      return;
+    }
+    setChecking(true);
+    const timer = setTimeout(() => {
+      const keywords = extractKeywords(jd);
+      if (!keywords.length) {
+        setMatch(null);
+        setChecking(false);
+        return;
+      }
+      const matched = keywords.filter((k) => cvLower.includes(k));
+      setMatch({
+        keywords,
+        matched,
+        missing: keywords.filter((k) => !matched.includes(k)),
+        pct: Math.round((matched.length / keywords.length) * 100)
+      });
+      setChecking(false);
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [jobDescription, cvText, cvLower]);
+
+  const matchTone = !match ? '' : match.pct >= 70 ? 'emerald' : match.pct >= 40 ? 'amber' : 'rose';
+  const matchLabel = !match ? '' : match.pct >= 70 ? t('strong_match') : match.pct >= 40 ? t('decent_match') : t('add_these_keywords');
 
   return (
     <div>
@@ -82,6 +150,45 @@ export default function JobDescriptionStep({
             <div className="text-xs text-surface-400 mt-1.5">
               {jobDescription.length > 0 && t('word_count', { count: jobDescription.split(/\s+/).filter(Boolean).length })}
             </div>
+
+            {!match && !checking && jobDescription.trim().length >= 15 && (
+              <p className="text-xs text-surface-400 mt-1.5">{t('match_hint')}</p>
+            )}
+
+            {match && (
+              <div className="rounded-xl border border-surface-200 dark:border-surface-700 bg-surface-50/60 dark:bg-surface-800/60 p-4 animate-fade-in">
+                <div className="flex items-center justify-between mb-1.5">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-surface-500">{t('live_match')}</p>
+                  <span className={`text-xs font-bold ${
+                    matchTone === 'emerald' ? 'text-emerald-600 dark:text-emerald-400'
+                    : matchTone === 'amber' ? 'text-amber-600 dark:text-amber-400'
+                    : 'text-rose-600 dark:text-rose-400'
+                  }`}>
+                    {matchLabel}
+                  </span>
+                </div>
+                <div className="h-1.5 bg-surface-200 dark:bg-surface-700 rounded-full overflow-hidden mb-2">
+                  <div className={`h-full rounded-full transition-all duration-700 ${
+                    matchTone === 'emerald' ? 'bg-emerald-500'
+                    : matchTone === 'amber' ? 'bg-amber-500'
+                    : 'bg-rose-500'
+                  }`} style={{ width: `${match.pct}%` }} />
+                </div>
+                <p className="text-xs text-surface-500 mb-2">
+                  {t('keywords_covered', { covered: match.matched.length, total: match.keywords.length })}
+                </p>
+                {match.missing.length > 0 && (
+                  <div>
+                    <p className="text-xs font-medium text-surface-500 mb-1">{t('missing_keywords')}</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {match.missing.map((k) => (
+                        <span key={k} className="text-[11px] bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/40 rounded-full px-2 py-0.5">{k}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         ) : (
           <div>

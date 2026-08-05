@@ -1,5 +1,6 @@
 const TailoredDocument = require('../models/TailoredDocument');
 const User = require('../models/User');
+const Notification = require('../models/Notification');
 const ShareView = require('../models/ShareView');
 const { generateDocx } = require('../services/documentService');
 const { generatePdf } = require('../services/pdfService');
@@ -91,6 +92,18 @@ exports.saveDocument = async (req, res, next) => {
     });
 
     await User.findByIdAndUpdate(req.user._id, { $inc: { documentsGeneratedCount: 1 } });
+
+    try {
+      await Notification.create({
+        userId: req.user._id,
+        type: 'system',
+        title: jobTitle ? `Your tailored CV for "${jobTitle}" is ready` : 'Your tailored CV is ready',
+        body: 'Your CV and cover letter have been generated.',
+        link: `/documents/${doc._id}`
+      });
+    } catch {
+      // Notification must never break the save flow
+    }
 
     res.status(201).json(doc);
 

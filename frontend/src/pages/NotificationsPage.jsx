@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useToast } from '../contexts/ToastContext';
 import { useCache, invalidateCacheKey } from '../hooks/useCache';
 import api from '../services/api';
+import ErrorState from '../components/ErrorState';
 import { relativeTime } from '../utils/relativeTime';
 
 export default function NotificationsPage() {
@@ -10,7 +11,7 @@ export default function NotificationsPage() {
   const { t: tc } = useTranslation('common');
   const { toast } = useToast();
 
-  const { data, isLoading, mutate: setNotifications } = useCache('/jobs/notifications', { params: { limit: 50 }, staleTime: 15_000 });
+  const { data, isLoading, error, refetch, mutate: setNotifications } = useCache('/jobs/notifications', { params: { limit: 50 }, staleTime: 15_000 });
   const notifications = data?.notifications || [];
   const unreadCount = notifications.filter((n) => !n.read).length;
 
@@ -59,6 +60,8 @@ export default function NotificationsPage() {
             <div key={i} className="p-5"><div className="animate-shimmer h-4 w-48 rounded mb-2" /><div className="animate-shimmer h-3 w-32 rounded" /></div>
           ))}
         </div>
+      ) : error ? (
+        <ErrorState onRetry={refetch} />
       ) : notifications.length === 0 ? (
         <div className="card p-12 text-center">
           <div className="w-14 h-14 rounded-full bg-surface-100 dark:bg-surface-700 flex items-center justify-center mx-auto mb-4">

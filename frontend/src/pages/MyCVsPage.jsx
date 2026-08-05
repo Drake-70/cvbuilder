@@ -2,6 +2,8 @@ import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import api from '../services/api';
+import ConfirmDialog from '../components/ConfirmDialog';
+import ErrorState from '../components/ErrorState';
 import { useCache, invalidateCacheKey } from '../hooks/useCache';
 import { useToast } from '../contexts/ToastContext';
 
@@ -11,10 +13,19 @@ export default function MyCVsPage() {
   const prevFocusRef = useRef(null);
   const modalRef = useRef(null);
 
-  const { data: cvsData, mutate: setCvs, isLoading } = useCache('/cv/list', { staleTime: 15_000 });
+  const { data: cvsData, mutate: setCvs, isLoading, error: cvsError, refetch: refetchCvs } = useCache('/cv/list', { staleTime: 15_000 });
   const cvs = cvsData || [];
   const [deletingId, setDeletingId] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
   const [viewingCV, setViewingCV] = useState(null);
+  const [query, setQuery] = useState('');
+
+  const filteredCvs = query.trim()
+    ? cvs.filter((c) =>
+        (c.label || '').toLowerCase().includes(query.trim().toLowerCase()) ||
+        (c.originalText || '').toLowerCase().includes(query.trim().toLowerCase())
+      )
+    : cvs;
 
   useEffect(() => {
     if (viewingCV) {
@@ -40,17 +51,17 @@ export default function MyCVsPage() {
   }, [viewingCV]);
 
   const handleDelete = async (cvId) => {
-    if (!confirm('Delete this saved CV?')) return;
     setDeletingId(cvId);
     try {
       await api.delete(`/cv/${cvId}`);
       setCvs(prev => prev.filter(c => c._id !== cvId));
       invalidateCacheKey('/cv/list');
-      toast.info('Deleted', 'CV has been removed.');
+      toast.success(tTailor('cv_deleted'), tTailor('cv_deleted'));
     } catch {
-      toast.error('Error', 'Failed to delete CV.');
+      toast.error(tTailor('delete_failed'), tTailor('delete_failed'));
     } finally {
       setDeletingId(null);
+      setDeleteTarget(null);
     }
   };
 
@@ -89,12 +100,30 @@ export default function MyCVsPage() {
         </Link>
       </div>
 
+      {cvs.length > 0 && (
+        <div className="relative mb-6">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="absolute left-3.5 top-1/2 -translate-y-1/2 text-surface-400">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={tTailor('search_cvs')}
+            aria-label={tTailor('search_cvs')}
+            className="w-full rounded-xl border border-surface-200 dark:border-surface-700 bg-surface-0 dark:bg-surface-800 pl-10 pr-3.5 py-2.5 text-sm text-surface-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+          />
+        </div>
+      )}
+
       {isLoading ? (
         <div className="card divide-y divide-surface-100 dark:divide-surface-700 overflow-hidden">
           {[1, 2, 3].map(i => (
             <div key={i} className="p-5"><div className="animate-shimmer h-4 w-48 rounded mb-2" /><div className="animate-shimmer h-3 w-32 rounded" /></div>
           ))}
         </div>
+      ) : cvsError ? (
+        <ErrorState onRetry={refetchCvs} />
       ) : cvs.length === 0 ? (
         <div className="card p-12 text-center animate-fade-in">
           <div className="w-14 h-14 rounded-full bg-surface-100 dark:bg-surface-700 flex items-center justify-center mx-auto mb-4">
@@ -111,9 +140,22 @@ export default function MyCVsPage() {
             <Link to="/tailor?path=build" className="btn-secondary no-underline text-sm">{tTailor('build_cv')}</Link>
           </div>
         </div>
+      ) : filteredCvs.length === 0 ? (
+        <div className="card p-12 text-center animate-fade-in">
+          <div className="w-14 h-14 rounded-full bg-surface-100 dark:bg-surface-700 flex items-center justify-center mx-auto mb-4">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-surface-400">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+          </div>
+          <h3 className="text-lg font-bold text-surface-900 dark:text-white mb-2">{tTailor('no_match_title')}</h3>
+          <p className="text-sm text-surface-500 dark:text-surface-400 mb-6">
+            {tTailor('no_match_desc')}
+          </p>
+          <button onClick={() => setQuery('')} className="btn-secondary text-sm cursor-pointer">{tTailor('clear_search')}</button>
+        </div>
       ) : (
         <div className="card divide-y divide-surface-100 dark:divide-surface-700 overflow-hidden">
-          {cvs.map((cv, i) => (
+          {filteredCvs.map((cv, i) => (
             <div
               key={cv._id}
               role="button"
@@ -151,10 +193,10 @@ export default function MyCVsPage() {
                     </svg>
                   </button>
                   <button
-                    onClick={(e) => { e.stopPropagation(); handleDelete(cv._id); }}
+                    onClick={(e) => { e.stopPropagation(); setDeleteTarget(cv._id); }}
                     disabled={deletingId === cv._id}
                     className="p-2 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-900/20 text-surface-400 hover:text-rose-500 transition-colors cursor-pointer"
-                    title="Delete"
+                    title={tTailor('delete_cv_confirm_title')}
                   >
                     {deletingId === cv._id ? (
                       <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
@@ -189,6 +231,16 @@ export default function MyCVsPage() {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title={tTailor('delete_cv_confirm_title')}
+        message={tTailor('delete_cv_confirm_msg')}
+        confirmLabel={tTailor('delete_cv_confirm_title')}
+        loading={!!deletingId}
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={() => deleteTarget && handleDelete(deleteTarget)}
+      />
     </div>
   );
 }
