@@ -21,7 +21,11 @@ analytics.init()
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(err => console.warn('SW registration failed:', err.message));
+    if (import.meta.env.PROD) {
+      navigator.serviceWorker.register('/sw.js').catch(err => console.warn('SW registration failed:', err.message));
+    } else {
+      navigator.serviceWorker.getRegistrations().then(regs => regs.forEach(r => r.unregister())).catch(() => {});
+    }
   });
 }
 
