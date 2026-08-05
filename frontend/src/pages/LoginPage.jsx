@@ -13,6 +13,7 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [form, setForm] = useState({ email: '', password: '' });
+  const [agreed, setAgreed] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const googleBtnRef = useRef(null);
@@ -22,6 +23,12 @@ export default function LoginPage() {
     setError('');
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
       setError(t('invalid_email', 'Please enter a valid email address'));
+      return;
+    }
+    if (!agreed) {
+      const msg = t('agree_required');
+      setError(msg);
+      toast.error('Agreement Required', msg);
       return;
     }
     setLoading(true);
@@ -39,6 +46,12 @@ export default function LoginPage() {
   };
 
   const handleGoogleCredential = async (credential) => {
+    if (!agreed) {
+      const msg = t('agree_required');
+      setError(msg);
+      toast.error('Agreement Required', msg);
+      return;
+    }
     try {
       await googleLogin(credential);
       toast.success(t('welcome_back'), 'Signed in with Google');
@@ -188,6 +201,21 @@ export default function LoginPage() {
                   placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;"
                 />
               </div>
+
+              <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={agreed}
+                  onChange={(e) => setAgreed(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-surface-300 text-brand-600 focus:ring-brand-500 cursor-pointer"
+                />
+                <span className="text-sm text-surface-500 dark:text-surface-400">
+                  {t('agree_terms_prefix')}{' '}
+                  <Link to="/terms" className="font-medium text-brand-600 hover:text-brand-700 no-underline">{t('agree_terms_link')}</Link>{' '}
+                  {t('agree_terms_connector')}{' '}
+                  <Link to="/privacy" className="font-medium text-brand-600 hover:text-brand-700 no-underline">{t('agree_privacy_link')}</Link>
+                </span>
+              </label>
 
               <button type="submit" disabled={loading} className="btn-primary w-full flex items-center justify-center gap-2">
                 {loading && (

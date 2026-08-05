@@ -46,9 +46,7 @@ export default function SettingsPage() {
     const formData = new FormData();
     formData.append('avatar', file);
     try {
-      const res = await api.post('/auth/avatar', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
+      const res = await api.post('/auth/avatar', formData);
       setAvatarPreview(res.data.avatar);
       await fetchUser();
       toast.success('Updated', 'Profile photo updated.');

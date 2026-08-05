@@ -30,9 +30,7 @@ export default function ImageUploader({ onTextExtracted }) {
     formData.append('image', file);
 
     try {
-      const res = await api.post('/ocr/extract', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
+      const res = await api.post('/ocr/extract', formData);
       onTextExtracted(res.data.text);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to extract text from image');

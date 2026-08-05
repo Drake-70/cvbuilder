@@ -6,7 +6,7 @@ import { useCache, invalidateCacheKey } from '../hooks/useCache';
 import { useToast } from '../contexts/ToastContext';
 
 export default function MyCVsPage() {
-  const { t: tTailor } = useTranslation('tailor');
+  const { t: tTailor, i18n } = useTranslation('tailor');
   const { toast } = useToast();
   const prevFocusRef = useRef(null);
   const modalRef = useRef(null);
@@ -116,7 +116,16 @@ export default function MyCVsPage() {
           {cvs.map((cv, i) => (
             <div
               key={cv._id}
-              className="px-5 py-4 hover:bg-surface-50 dark:hover:bg-surface-700/40 transition-colors animate-slide-up group"
+              role="button"
+              tabIndex={0}
+              onClick={() => handleView(cv._id)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  handleView(cv._id);
+                }
+              }}
+              className="px-5 py-4 hover:bg-surface-50 dark:hover:bg-surface-700/40 transition-colors animate-slide-up group cursor-pointer"
               style={{ animationDelay: `${i * 0.05}s` }}
             >
               <div className="flex items-center gap-4">
@@ -131,9 +140,9 @@ export default function MyCVsPage() {
                     {formatDate(cv.createdAt)} &middot; {sourceLabels[cv.source]?.[i18n.language?.startsWith('fr') ? 'fr' : 'en'] || cv.source}
                   </p>
                 </div>
-                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="flex items-center gap-1 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                   <button
-                    onClick={() => handleView(cv._id)}
+                    onClick={(e) => { e.stopPropagation(); handleView(cv._id); }}
                     className="p-2 rounded-lg hover:bg-surface-100 dark:hover:bg-surface-800 text-surface-400 hover:text-brand-600 transition-colors cursor-pointer"
                     title="View"
                   >
@@ -142,7 +151,7 @@ export default function MyCVsPage() {
                     </svg>
                   </button>
                   <button
-                    onClick={() => handleDelete(cv._id)}
+                    onClick={(e) => { e.stopPropagation(); handleDelete(cv._id); }}
                     disabled={deletingId === cv._id}
                     className="p-2 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-900/20 text-surface-400 hover:text-rose-500 transition-colors cursor-pointer"
                     title="Delete"

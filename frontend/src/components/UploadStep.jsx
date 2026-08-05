@@ -26,16 +26,12 @@ export default function UploadStep({ onComplete, onBack }) {
         const formData = new FormData();
         formData.append('image', file);
         formData.append('purpose', 'cv');
-        const res = await api.post('/ocr/extract', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        });
+        const res = await api.post('/ocr/extract', formData);
         onComplete(res.data.text, 'upload', res.data.parsedSections || null);
       } else {
         const formData = new FormData();
         formData.append('cv', file);
-        const res = await api.post('/cv/upload', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        });
+        const res = await api.post('/cv/upload', formData);
         onComplete(res.data.cvText, 'upload', res.data.parsedSections || null);
       }
     } catch (err) {
