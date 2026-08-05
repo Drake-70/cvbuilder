@@ -29,15 +29,15 @@ export function AuthProvider({ children }) {
     fetchUser();
   }, [fetchUser]);
 
-  const login = async (email, password) => {
-    const res = await api.post('/auth/login', { email, password });
+  const login = async (email, password, rememberMe = false) => {
+    const res = await api.post('/auth/login', { email, password, rememberMe });
     setUser(res.data.user);
     trackUser(res.data.user, 'login');
     return res.data;
   };
 
-  const register = async (email, password, name, preferredLanguage, referralCode) => {
-    const res = await api.post('/auth/register', { email, password, name, preferredLanguage, referralCode });
+  const register = async (email, password, name, preferredLanguage, referralCode, rememberMe = false) => {
+    const res = await api.post('/auth/register', { email, password, name, preferredLanguage, referralCode, rememberMe });
     if (res.data.user) {
       setUser(res.data.user);
     }
@@ -45,8 +45,8 @@ export function AuthProvider({ children }) {
     return res.data;
   };
 
-  const googleLogin = async (credential) => {
-    const res = await api.post('/auth/google-login', { credential });
+  const googleLogin = async (credential, rememberMe = false) => {
+    const res = await api.post('/auth/google-login', { credential, rememberMe });
     setUser(res.data.user);
     trackUser(res.data.user, 'login');
     return res.data;

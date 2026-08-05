@@ -28,6 +28,13 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
+    // A revoked session (logout elsewhere, password change/reset) can't be
+    // refreshed — go to the login page directly.
+    if (error.response?.status === 401 && error.response?.data?.code === 'SESSION_REVOKED') {
+      if (window.location.pathname !== '/login') window.location.href = '/login';
+      return Promise.reject(error);
+    }
+
     if (error.response?.status === 401 && error.response?.data?.code === 'TOKEN_EXPIRED' && !originalRequest._retry) {
       originalRequest._retry = true;
 

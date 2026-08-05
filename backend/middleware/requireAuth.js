@@ -14,6 +14,12 @@ const requireAuth = async (req, res, next) => {
       return res.status(401).json({ error: 'User not found' });
     }
 
+    // Revoked sessions (logout, password change/reset) must fail even while
+    // the short-lived access token is still within its expiry window.
+    if (decoded.tokenVersion !== undefined && decoded.tokenVersion !== user.tokenVersion) {
+      return res.status(401).json({ error: 'Session has been revoked', code: 'SESSION_REVOKED' });
+    }
+
     req.user = user;
     next();
   } catch (err) {

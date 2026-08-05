@@ -14,6 +14,7 @@ export default function LoginPage() {
   const { toast } = useToast();
   const [form, setForm] = useState({ email: '', password: '' });
   const [agreed, setAgreed] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const googleBtnRef = useRef(null);
@@ -33,7 +34,7 @@ export default function LoginPage() {
     }
     setLoading(true);
     try {
-      await login(form.email, form.password);
+      await login(form.email, form.password, rememberMe);
       toast.success(t('welcome_back'), t('login_subtitle'));
       navigate('/dashboard');
     } catch (err) {
@@ -53,7 +54,7 @@ export default function LoginPage() {
       return;
     }
     try {
-      await googleLogin(credential);
+      await googleLogin(credential, rememberMe);
       toast.success(t('welcome_back'), 'Signed in with Google');
       navigate('/dashboard');
     } catch (err) {
@@ -201,6 +202,16 @@ export default function LoginPage() {
                   placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;"
                 />
               </div>
+
+              <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="h-4 w-4 rounded border-surface-300 text-brand-600 focus:ring-brand-500 cursor-pointer"
+                />
+                <span className="text-sm text-surface-500 dark:text-surface-400">{t('remember_me')}</span>
+              </label>
 
               <label className="flex items-start gap-2.5 cursor-pointer select-none">
                 <input
