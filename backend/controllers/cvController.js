@@ -1,5 +1,5 @@
 const multer = require('multer');
-const pdfParse = require('pdf-parse');
+const { PDFParse } = require('pdf-parse');
 const mammoth = require('mammoth');
 const CV = require('../models/CV');
 const { expandQuestionnaireInput } = require('../services/aiService');
@@ -35,8 +35,13 @@ exports.uploadCV = async (req, res, next) => {
     const mimetype = req.file.mimetype;
 
     if (mimetype === 'application/pdf') {
-      const data = await pdfParse(req.file.buffer);
-      text = data.text;
+      const parser = new PDFParse({ data: req.file.buffer });
+      try {
+        const data = await parser.getText({ pageJoiner: '' });
+        text = data.text;
+      } finally {
+        parser.destroy().catch(() => {});
+      }
     } else if (mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
       const result = await mammoth.extractRawText({ buffer: req.file.buffer });
       text = result.value;
