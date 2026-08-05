@@ -1,0 +1,21 @@
+name: Scrape jobs
+
+on:
+  schedule:
+    # Every 6 hours, offset a few minutes past the hour to avoid cold-start bursts.
+    # 8 runs/day, ~90s each — well within the free GitHub Actions allowance.
+    - cron: '17 */6 * * *'
+  workflow_dispatch:
+
+jobs:
+  scrape:
+    name: Trigger /api/jobs/scrape
+    runs-on: ubuntu-latest
+    steps:
+      - name: POST scrape trigger
+        run: |
+          curl -fsS \
+            --max-time 420 \
+            -X POST \
+            -H "x-scrape-key: ${{ secrets.JOB_SCRAPE_KEY }}" \
+            "${{ vars.APP_URL }}/api/jobs/scrape"
