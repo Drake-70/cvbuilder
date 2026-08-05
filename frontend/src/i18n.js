@@ -48,4 +48,27 @@ i18n.on('languageChanged', (lng) => {
   try { localStorage.setItem(STORAGE_KEY, lng); } catch {}
 });
 
+// When a locale JSON changes under Vite HMR, re-inject the fresh bundles so
+// the running i18next store never serves stale (or missing) keys.
+if (import.meta.hot) {
+  import.meta.hot.accept(
+    [
+      './locales/en/common.json', './locales/fr/common.json',
+      './locales/en/auth.json', './locales/fr/auth.json',
+      './locales/en/tailor.json', './locales/fr/tailor.json',
+      './locales/en/jobs.json', './locales/fr/jobs.json'
+    ],
+    (modules) => {
+      const langs = ['en', 'fr'];
+      const nss = ['common', 'auth', 'tailor', 'jobs'];
+      modules.forEach((mod, i) => {
+        if (mod && mod.default) {
+          i18n.addResourceBundle(langs[i % 2], nss[Math.floor(i / 2)], mod.default, true, true);
+        }
+      });
+      i18n.changeLanguage(i18n.language);
+    }
+  );
+}
+
 export default i18n;
