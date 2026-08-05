@@ -30,25 +30,23 @@ const SOURCES = [
     parse: ($, pageUrl) => parseGoAfrica($, pageUrl)
   },
   {
-    key: 'myjobmag',
-    name: 'MyJobMag',
-    searchUrl: () => 'https://www.myjobmag.com/jobs-cameroon',
-    parse: ($, pageUrl) => parseMyJobMag($, pageUrl)
-  },
-  {
-    key: 'emploi',
-    name: 'Emploi.cm',
-    searchUrl: () => 'https://www.emploi.cm/',
-    parse: ($, pageUrl) => parseEmploi($, pageUrl)
+    key: 'louma',
+    name: 'Louma Jobs',
+    searchUrl: () => 'https://louma-jobs.com/cameroun/recrutements-emplois-stages/',
+    parse: ($, pageUrl) => parseLouma($, pageUrl)
   }
 ];
 
 function clean(text) {
-  return (text || '')
+  return String(text || '')
     .replace(/&nbsp;/g, ' ')
     .replace(/<[^>]*>/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+function scalar(v) {
+  return Array.isArray(v) ? v[0] : v;
 }
 
 function absoluteUrl(href, base) {
@@ -72,11 +70,24 @@ function detectRemote(title, description, location) {
 
 function guessCategory(title, description) {
   const blob = `${title} ${description}`.toLowerCase();
-  for (const [category, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
-    if (keywords.some((k) => blob.includes(k))) return category;
+  for (const [category, pattern] of Object.entries(CATEGORY_PATTERNS)) {
+    if (pattern.test(blob)) return category;
   }
   return 'Other';
 }
+
+const CATEGORY_PATTERNS = Object.fromEntries(
+  Object.entries(CATEGORY_KEYWORDS).map(([category, keywords]) => [
+    category,
+    new RegExp(
+      keywords.map((k) => {
+        const esc = k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        return k.length <= 3 ? `\\b${esc}\\b` : esc;
+      }).join('|'),
+      'i'
+    )
+  ])
+);
 
 function parseDate(text) {
   const blob = (text || '').toLowerCase();
@@ -84,6 +95,10 @@ function parseDate(text) {
   if (relDays) return new Date(Date.now() - parseInt(relDays[1], 10) * 86400000);
   const relHours = blob.match(/(\d+)\s*hours?\s*ago/);
   if (relHours) return new Date(Date.now() - parseInt(relHours[1], 10) * 3600000);
+  const frHours = blob.match(/il y a (\d+)\s*heures?\b/);
+  if (frHours) return new Date(Date.now() - parseInt(frHours[1], 10) * 3600000);
+  const frDays = blob.match(/il y a (\d+)\s*jours?\b/);
+  if (frDays) return new Date(Date.now() - parseInt(frDays[1], 10) * 86400000);
   const months = { jan: 0, janv: 0, feb: 1, févr: 1, fevr: 1, mar: 2, mars: 2, apr: 3, avr: 3, may: 4, mai: 4, jun: 5, juin: 5, jul: 6, juil: 6, juill: 6, aug: 7, août: 7, aout: 7, sep: 8, sept: 8, oct: 9, nov: 10, déc: 11, dec: 11 };
   const dm = blob.match(/(\d{1,2})\s+(janv?|févr?|fevr?|mars|avr|mai|juin|juil?l?|aoû?t|aout|sept?|oct|nov|déc|dec)[a-z]*\.?\s*,?\s*(\d{4})?/);
   if (dm) {
@@ -93,35 +108,59 @@ function parseDate(text) {
   return null;
 }
 
+function safeJsonParse(text) {
+  try {
+    return JSON.parse(text);
+  } catch {
+    let out = '';
+    let inStr = false;
+    let esc = false;
+    for (const ch of text) {
+      if (inStr) {
+        if (esc) { esc = false; out += ch; continue; }
+        if (ch === '\\') { esc = true; out += ch; continue; }
+        if (ch === '"') { inStr = false; out += ch; continue; }
+        if (ch === '\n') { out += '\\n'; continue; }
+        if (ch === '\r') { out += '\\r'; continue; }
+        if (ch === '\t') { out += '\\t'; continue; }
+        out += ch;
+        continue;
+      }
+      if (ch === '"') { inStr = true; }
+      out += ch;
+    }
+    try {
+      return JSON.parse(out);
+    } catch {
+      return null;
+    }
+  }
+}
+
 function extractJsonLdJobs($, baseUrl) {
   const jobs = [];
   $('script[type="application/ld+json"]').each((_i, el) => {
-    let parsed;
-    try {
-      parsed = JSON.parse($(el).contents().text());
-    } catch {
-      return;
-    }
+    const parsed = safeJsonParse($(el).contents().text());
+    if (!parsed) return;
     const items = Array.isArray(parsed) ? parsed : (parsed['@graph'] ? parsed['@graph'] : [parsed]);
     for (const item of items) {
       if (!item || item['@type'] !== 'JobPosting' && !(Array.isArray(item['@type']) && item['@type'].includes('JobPosting'))) continue;
       if (!item.title || !item.title.trim()) continue;
-      const loc = typeof item.jobLocation === 'object' && item.jobLocation
-        ? item.jobLocation.address?.addressLocality || item.jobLocation.name || ''
-        : '';
+      const addr = item.jobLocation?.address || item.jobLocation || {};
+      const loc = typeof addr === 'object' ? scalar(addr.addressLocality) || scalar(addr.name) || '' : '';
       const company = typeof item.hiringOrganization === 'object' && item.hiringOrganization
-        ? item.hiringOrganization.name || ''
+        ? scalar(item.hiringOrganization.name) || ''
         : '';
       jobs.push({
-        title: clean(item.title),
+        title: clean(scalar(item.title)),
         company: clean(company),
         location: clean(loc),
-        description: clean(item.description),
-        salary: clean(item.baseSalary?.value?.value || item.salary || ''),
-        sourceUrl: absoluteUrl(item.url, baseUrl),
-        applyUrl: absoluteUrl(item.url || item.directApply, baseUrl),
+        description: clean(scalar(item.description)),
+        salary: clean(scalar(item.baseSalary?.value?.value || item.salary)),
+        sourceUrl: absoluteUrl(scalar(item.url), baseUrl),
+        applyUrl: absoluteUrl(scalar(item.url || item.directApply), baseUrl),
         postedAt: item.datePosted ? new Date(item.datePosted) : null,
-        jobType: clean(item.employmentType || '')
+        jobType: clean(scalar(item.employmentType))
       });
     }
   });
@@ -162,52 +201,47 @@ function parseGoAfrica($, baseUrl) {
   return extractJsonLdJobs($, baseUrl);
 }
 
-function parseMyJobMag($, baseUrl) {
+function collectLouma($, baseUrl) {
   const jobs = [];
-  $('.job-list li, ul.job-list li').each((_i, el) => {
-    const li = $(el);
-    const link = li.find('.job-title a, h3 a').first();
-    const href = link.attr('href');
-    if (!href) return;
-    const title = clean(link.text());
-    if (!title) return;
+  $('.louma-job-card').each((_i, el) => {
+    const card = $(el);
+    const href = card.find('.card_default__title a, .louma-job-card__overlay-link').first().attr('href');
+    const title = clean(card.find('.card_default__title').first().text());
+    if (!href || !title) return;
+    let jobType = '';
+    card.find('.card_default__type_emploi').each((_t, elt) => {
+      const t = clean($(elt).text());
+      if (/^type\s*:/i.test(t)) {
+        jobType = t.replace(/^type\s*:\s*/i, '');
+      }
+    });
     jobs.push({
       title,
-      company: clean(li.find('.job-company, .company').first().text()),
-      location: clean(li.find('.job-location, .location').first().text()),
-      salary: clean(li.find('.job-salary, .salary').first().text()),
-      description: clean(li.find('.job-desc, .desc').first().text()),
+      company: '',
+      location: clean(card.find('.card_default__tags .no-decoration').first().text()),
+      salary: '',
+      description: '',
       sourceUrl: absoluteUrl(href, baseUrl),
       applyUrl: absoluteUrl(href, baseUrl),
-      postedAt: parseDate(li.find('.job-date, .date').first().text()),
-      jobType: clean(li.find('.job-type').first().text())
+      postedAt: null,
+      jobType
     });
   });
-  if (jobs.length) return jobs;
-  return extractJsonLdJobs($, baseUrl);
+  return jobs;
 }
 
-function parseEmploi($, baseUrl) {
-  const jobs = [];
-  $('article, .job, .offre, li.job-list-item').each((_i, el) => {
-    const card = $(el);
-    const link = card.find('a[href*="offre"], a[href*="job"], a[href*="emploi"], h2 a, h3 a').first();
-    const href = link.attr('href');
-    if (!href) return;
-    const title = clean(link.text());
-    if (!title) return;
-    jobs.push({
-      title,
-      company: clean(card.find('.company, .employer, .entreprise').first().text()),
-      location: clean(card.find('.location, .localisation, .ville').first().text()),
-      salary: clean(card.find('.salary, .salaire').first().text()),
-      description: clean(card.find('.desc, .description, p').first().text()),
-      sourceUrl: absoluteUrl(href, baseUrl),
-      applyUrl: absoluteUrl(href, baseUrl),
-      postedAt: parseDate(card.find('.date, .posted').first().text()),
-      jobType: clean(card.find('.type, .contract').first().text())
-    });
-  });
+async function parseLouma($, baseUrl) {
+  const jobs = collectLouma($, baseUrl);
+  for (let page = 2; jobs.length < MAX_PER_SOURCE && page <= 3; page++) {
+    try {
+      const html = await fetchPage(`${baseUrl}page/${page}/`);
+      const more = collectLouma(cheerio.load(html), baseUrl);
+      if (!more.length) break;
+      jobs.push(...more);
+    } catch {
+      break;
+    }
+  }
   if (jobs.length) return jobs;
   return extractJsonLdJobs($, baseUrl);
 }
@@ -262,19 +296,31 @@ async function enrichJob(job) {
     const html = await fetchPage(job.sourceUrl);
     const $ = cheerio.load(html);
 
-    let description = clean($('meta[name="description"]').attr('content') || $('meta[property="og:description"]').attr('content') || '');
-    if (!description) {
-      const container = $('article, [class*="description"], .job-description, [class*="job-detail"], [class*="offre"]').first();
-      description = clean(container.text());
+    const jsonLd = extractJsonLdJobs($, job.sourceUrl)[0];
+    if (jsonLd) {
+      if (!job.company && jsonLd.company) job.company = jsonLd.company.slice(0, 120);
+      if (!job.location && jsonLd.location) job.location = jsonLd.location.slice(0, 160);
+      if (!job.salary && jsonLd.salary) job.salary = jsonLd.salary.slice(0, 120);
+      if (!job.jobType && jsonLd.jobType) job.jobType = jsonLd.jobType.slice(0, 80);
+      if (job.postedAt === null && jsonLd.postedAt) job.postedAt = jsonLd.postedAt;
+      if (!job.description && jsonLd.description) job.description = jsonLd.description.slice(0, 4000);
     }
-    if (!description) {
-      $('script, style, noscript, header, footer, nav, form').remove();
-      description = clean($('body').text()).slice(0, 2500);
+
+    if (!job.description) {
+      let description = clean($('meta[name="description"]').attr('content') || $('meta[property="og:description"]').attr('content') || '');
+      if (!description) {
+        const container = $('article, [class*="description"], .job-description, [class*="job-detail"], [class*="offre"]').first();
+        description = clean(container.text());
+      }
+      if (!description) {
+        $('script, style, noscript, header, footer, nav, form').remove();
+        description = clean($('body').text()).slice(0, 2500);
+      }
+      if (description) job.description = description.slice(0, 4000);
     }
-    if (description) job.description = description.slice(0, 4000);
 
     const salary = clean($('[class*="salary"], [class*="salaire"], [class*="wage"]').first().text());
-    if (salary) job.salary = salary.slice(0, 120);
+    if (salary && !job.salary) job.salary = salary.slice(0, 120);
 
     const email = extractEmails(`${$.html()} ${job.description}`);
     if (email) job.contactEmail = email;
@@ -283,6 +329,9 @@ async function enrichJob(job) {
       const dateText = clean($('[class*="date"], time').first().text().replace(/posté le/i, ''));
       job.postedAt = parseDate(dateText);
     }
+
+    job.category = guessCategory(job.title, job.description || '');
+    job.isRemote = detectRemote(job.title, job.description || '', job.location || '');
   } catch {
     // detail enrichment is best-effort
   }
@@ -293,7 +342,7 @@ async function scrapeSource(source) {
   const url = source.searchUrl();
   const html = await fetchPage(url);
   const $ = cheerio.load(html);
-  const rawJobs = source.parse($, url);
+  const rawJobs = await source.parse($, url);
   const jobs = rawJobs
     .map((raw) => normalizeJob(raw, source.key, source.name))
     .filter(Boolean)
