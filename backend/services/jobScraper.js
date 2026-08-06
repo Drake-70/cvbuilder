@@ -62,6 +62,14 @@ function cleanCompany(name) {
   return c;
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function jitter(base) {
+  return Math.round(base * (0.8 + Math.random() * 0.4));
+}
+
 function scalar(v) {
   return Array.isArray(v) ? v[0] : v;
 }
@@ -250,6 +258,7 @@ function collectLouma($, baseUrl) {
 async function parseLouma($, baseUrl) {
   const jobs = collectLouma($, baseUrl);
   for (let page = 2; jobs.length < MAX_PER_SOURCE && page <= 3; page++) {
+    await sleep(jitter(POLITE_DELAY_MS));
     try {
       const html = await fetchPage(`${baseUrl}page/${page}/`);
       const more = collectLouma(cheerio.load(html), baseUrl);
@@ -294,17 +303,33 @@ function normalizeJob(raw, sourceKey, sourceName) {
 }
 
 async function fetchPage(url) {
-  const res = await axios.get(url, {
-    headers: {
-      'User-Agent': UA,
-      'Accept': 'text/html,application/xhtml+xml',
-      'Accept-Language': 'en-US,en;q=0.9,fr;q=0.8'
-    },
-    timeout: REQUEST_TIMEOUT,
-    responseType: 'text',
-    maxRedirects: 5
-  });
-  return res.data;
+  const lastErr = { error: null };
+  for (let attempt = 0; attempt <= 2; attempt++) {
+    if (attempt > 0) await sleep(jitter(3000) * Math.pow(2, attempt - 1));
+    try {
+      const res = await axios.get(url, {
+        headers: {
+          'User-Agent': UA,
+          'Accept': 'text/html,application/xhtml+xml',
+          'Accept-Language': 'en-US,en;q=0.9,fr;q=0.8'
+        },
+        timeout: REQUEST_TIMEOUT,
+        responseType: 'text',
+        maxRedirects: 5
+      });
+      return res.data;
+    } catch (err) {
+      lastErr.error = err;
+      if (attempt < 2) {
+        const retryAfter = err.response && err.response.status === 429
+          ? parseInt(err.response.headers['retry-after'] || '', 10)
+          : NaN;
+        const wait = Number.isFinite(retryAfter) ? retryAfter * 1000 : jitter(2500) * Math.pow(2, attempt);
+        await sleep(Math.max(wait, 1500));
+      }
+    }
+  }
+  throw lastErr.error;
 }
 
 async function enrichJob(job) {
@@ -370,7 +395,7 @@ async function scrapeSource(source) {
     const targets = [...needs, ...jobs.filter((job) => !needs.includes(job))].slice(0, MAX_DETAIL_ENRICHMENT);
     for (const job of targets) {
       await enrichJob(job);
-      await new Promise((resolve) => setTimeout(resolve, 600));
+      await sleep(jitter(600));
     }
   }
   return jobs;
@@ -406,7 +431,7 @@ async function scrapeAll() {
       results.push({ source: source.key, status: 'error', error: err.message, ms: Date.now() - started });
       logger.warn(`[jobs] ${source.name} scrape failed: ${err.message}`);
     }
-    await new Promise((resolve) => setTimeout(resolve, POLITE_DELAY_MS));
+    await sleep(jitter(POLITE_DELAY_MS));
   }
   return results;
 }
