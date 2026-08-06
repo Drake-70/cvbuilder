@@ -6,8 +6,8 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
-    "test": "node --test tests/paymentService.test.js tests/document.test.js tests/pdf.test.js tests/sanitize.test.js tests/cvParser.test.js",
-    "test:coverage": "node --test --experimental-test-coverage tests/paymentService.test.js tests/document.test.js tests/pdf.test.js tests/sanitize.test.js tests/cvParser.test.js"
+    "test": "node --test tests/paymentService.test.js tests/document.test.js tests/pdf.test.js tests/sanitize.test.js tests/cvParser.test.js tests/jobScraper.test.js",
+    "test:coverage": "node --test --experimental-test-coverage tests/paymentService.test.js tests/document.test.js tests/pdf.test.js tests/sanitize.test.js tests/cvParser.test.js tests/jobScraper.test.js"
   },
   "keywords": [],
   "author": "",

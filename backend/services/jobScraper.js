@@ -6,7 +6,7 @@ const logger = require('../utils/logger');
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36';
 const REQUEST_TIMEOUT = 20000;
 const MAX_PER_SOURCE = 30;
-const MAX_DETAIL_ENRICHMENT = 8;
+const MAX_DETAIL_ENRICHMENT = parseInt(process.env.JOB_ENRICH_MAX || '12', 10);
 const POLITE_DELAY_MS = 1500;
 
 const CATEGORY_KEYWORDS = {
@@ -43,6 +43,23 @@ function clean(text) {
     .replace(/<[^>]*>/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+const BOGUS_COMPANY_PATTERNS = [
+  /offre\s+d['’]?[\s-]*emploi/i,
+  /jobinfo/i,
+  /camerjobs/i,
+  /louma\s*jobs/i
+];
+
+function cleanCompany(name) {
+  const c = clean(name).replace(/\s*[-–—]\s*$/, '');
+  if (!c) return '';
+  if (c.replace(/[^a-zA-Zà-ÿÀ-Ý]/g, '').length < 2) return '';
+  for (const pattern of BOGUS_COMPANY_PATTERNS) {
+    if (pattern.test(c)) return '';
+  }
+  return c;
 }
 
 function scalar(v) {
@@ -256,7 +273,7 @@ function normalizeJob(raw, sourceKey, sourceName) {
   }
   const title = clean(raw.title).slice(0, 200);
   const description = clean(raw.description).slice(0, 4000);
-  const company = clean(raw.company).slice(0, 120);
+  const company = cleanCompany(raw.company).slice(0, 120);
   const location = clean(raw.location).slice(0, 160);
   return {
     title,
@@ -298,7 +315,7 @@ async function enrichJob(job) {
 
     const jsonLd = extractJsonLdJobs($, job.sourceUrl)[0];
     if (jsonLd) {
-      if (!job.company && jsonLd.company) job.company = jsonLd.company.slice(0, 120);
+      if (!job.company && jsonLd.company) job.company = cleanCompany(jsonLd.company).slice(0, 120);
       if (!job.location && jsonLd.location) job.location = jsonLd.location.slice(0, 160);
       if (!job.salary && jsonLd.salary) job.salary = jsonLd.salary.slice(0, 120);
       if (!job.jobType && jsonLd.jobType) job.jobType = jsonLd.jobType.slice(0, 80);
@@ -349,7 +366,9 @@ async function scrapeSource(source) {
     .slice(0, MAX_PER_SOURCE);
 
   if (process.env.JOB_ENRICH_DETAILS !== 'false') {
-    for (const job of jobs.slice(0, MAX_DETAIL_ENRICHMENT)) {
+    const needs = jobs.filter((job) => !job.company || !job.description || job.postedAt === null);
+    const targets = [...needs, ...jobs.filter((job) => !needs.includes(job))].slice(0, MAX_DETAIL_ENRICHMENT);
+    for (const job of targets) {
       await enrichJob(job);
       await new Promise((resolve) => setTimeout(resolve, 600));
     }
