@@ -35,6 +35,8 @@ const { runScrapeCycle } = require('./services/jobService');
 
 const app = express();
 
+app.set('trust proxy', 1);
+
 // Observability — Sentry is enabled only when SENTRY_DSN is set
 let Sentry = null;
 if (process.env.SENTRY_DSN) {
