@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cvboost-v1';
+const CACHE_NAME = 'cvboost-v2';
 const PRECACHE = ['/', '/index.html'];
 
 self.addEventListener('install', (event) => {
@@ -21,6 +21,25 @@ self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   if (event.request.url.includes('/api/')) return;
 
+  const url = new URL(event.request.url);
+  if (url.origin !== self.location.origin) return;
+
+  if (event.request.mode === 'navigate') {
+    event.respondWith((async () => {
+      try {
+        const response = await fetch(event.request);
+        if (response && response.status === 200) {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put('/', clone));
+        }
+        return response;
+      } catch (err) {
+        return (await caches.match('/index.html')) || new Response('', { status: 504 });
+      }
+    })());
+    return;
+  }
+
   event.respondWith((async () => {
     try {
       const cached = await caches.match(event.request);
@@ -33,7 +52,7 @@ self.addEventListener('fetch', (event) => {
       }
       return response;
     } catch (err) {
-      return (await caches.match('/index.html')) || new Response('', { status: 504 });
+      return new Response('', { status: 504 });
     }
   })());
 });
