@@ -16,9 +16,9 @@ export function ToastProvider({ children }) {
     setToasts(prev => prev.filter(t => t.id !== id));
   }, []);
 
-  const addToast = useCallback(({ type = 'info', title, message, duration = 4000 }) => {
+  const addToast = useCallback(({ type = 'info', title, message, duration = 4000, action }) => {
     const id = ++toastId;
-    setToasts(prev => [...prev, { id, type, title, message }]);
+    setToasts(prev => [...prev, { id, type, title, message, action }]);
 
     if (duration > 0) {
       timers.current[id] = setTimeout(() => removeToast(id), duration);
@@ -28,10 +28,10 @@ export function ToastProvider({ children }) {
   }, [removeToast]);
 
   const toast = {
-    success: (title, message) => addToast({ type: 'success', title, message }),
-    error: (title, message) => addToast({ type: 'error', title, message, duration: 6000 }),
-    info: (title, message) => addToast({ type: 'info', title, message }),
-    warning: (title, message) => addToast({ type: 'warning', title, message, duration: 5000 })
+    success: (title, message, action) => addToast({ type: 'success', title, message, action }),
+    error: (title, message, action) => addToast({ type: 'error', title, message, duration: 6000, action }),
+    info: (title, message, action) => addToast({ type: 'info', title, message, action }),
+    warning: (title, message, action) => addToast({ type: 'warning', title, message, duration: 5000, action })
   };
 
   // Cleanup timers on unmount
@@ -111,15 +111,25 @@ function ToastContainer({ toasts, onRemove }) {
             {t.title && <p className="font-semibold text-sm">{t.title}</p>}
             {t.message && <p className="text-sm opacity-80 mt-0.5">{t.message}</p>}
           </div>
-          <button
-            onClick={() => onRemove(t.id)}
-            className="flex-shrink-0 p-0.5 rounded hover:bg-black/5 cursor-pointer transition-colors opacity-50 hover:opacity-100"
-            aria-label="Dismiss"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
+          <div className="flex flex-col items-end gap-1 flex-shrink-0">
+            {t.action && (
+              <button
+                onClick={() => { t.action.onClick(); onRemove(t.id); }}
+                className="px-3 py-1 text-xs font-semibold rounded-lg bg-black/10 hover:bg-black/20 dark:bg-white/10 dark:hover:bg-white/20 transition-colors cursor-pointer"
+              >
+                {t.action.label}
+              </button>
+            )}
+            <button
+              onClick={() => onRemove(t.id)}
+              className="flex-shrink-0 p-0.5 rounded hover:bg-black/5 cursor-pointer transition-colors opacity-50 hover:opacity-100"
+              aria-label="Dismiss"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          </div>
         </div>
       ))}
     </div>

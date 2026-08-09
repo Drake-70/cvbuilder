@@ -172,7 +172,10 @@ export default function TailorPage() {
       fetchUser();
       analytics.track('document_download', { template, format });
       if (res.headers?.['x-watermarked'] === 'true') {
-        toast.info(tCommon('watermark_toast_title'), tCommon('watermark_toast_msg'));
+        toast.info(tCommon('watermark_toast_title'), tCommon('watermark_toast_msg'), {
+          label: tCommon('upgrade_to_pro'),
+          onClick: () => navigate('/pricing')
+        });
       } else {
         toast.success('Downloaded', 'Your tailored CV has been saved.');
       }

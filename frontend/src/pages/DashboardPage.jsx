@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
@@ -16,6 +16,7 @@ export default function DashboardPage() {
   const { t: tJobs } = useTranslation('jobs');
   const { user } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const [downloadingId, setDownloadingId] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -44,9 +45,12 @@ export default function DashboardPage() {
       link.remove();
       window.URL.revokeObjectURL(url);
       if (res.headers?.['x-watermarked'] === 'true') {
-        toast.info(t('watermark_toast_title'), t('watermark_toast_msg'));
+        toast.info(t('watermark_toast_title'), t('watermark_toast_msg'), {
+          label: t('upgrade_to_pro'),
+          onClick: () => navigate('/pricing')
+        });
       }
-    } catch (err) {
+    } catch {
       toast.error(t('download_failed'), t('download_failed_msg'));
     } finally {
       setDownloadingId(null);

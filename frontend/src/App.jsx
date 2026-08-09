@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect } from 'react';
-import { Routes, Route, useLocation } from 'react-router-dom';
-import { AuthProvider } from './contexts/AuthContext';
+import { Routes, Route, useLocation, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import analytics from './utils/analytics';
 import Header from './components/Header';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -36,6 +36,15 @@ function PageLoader() {
   );
 }
 
+function HomeRoute() {
+  const { user, loading } = useAuth();
+  const isMobile = typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches;
+
+  if (!isMobile) return <LandingPage />;
+  if (loading) return <PageLoader />;
+  return <Navigate to={user ? '/dashboard' : '/login'} replace />;
+}
+
 function App() {
   const location = useLocation();
 
@@ -50,7 +59,7 @@ function App() {
         <main id="main-content">
           <Suspense fallback={<PageLoader />}>
             <Routes>
-              <Route path="/" element={<LandingPage />} />
+              <Route path="/" element={<HomeRoute />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />

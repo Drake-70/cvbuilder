@@ -36,7 +36,7 @@ async function resolveAccess(userId, documentId) {
   }
 
   if (documentId) {
-    const doc = await require('../models/TailoredDocument').findById(documentId);
+    const doc = await TailoredDocument.findOne({ _id: documentId, userId });
     if (doc && doc.paid) return { watermarked: false };
   }
 
@@ -46,6 +46,9 @@ async function resolveAccess(userId, documentId) {
 function watermarkTextFor(lang) {
   return lang === 'fr' ? 'APERÇU GRATUIT' : 'FREE PREVIEW';
 }
+
+exports.resolveAccess = resolveAccess;
+exports.watermarkTextFor = watermarkTextFor;
 
 exports.generateDocument = async (req, res, next) => {
   try {

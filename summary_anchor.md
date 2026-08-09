@@ -3,7 +3,7 @@
 ## Objective
 Keep the CVBoost app working end-to-end on the local backend (production mode, port **5001**) + a user-tunneled ngrok URL, and fix the recurring blank-screen / Google-sign-in failures. Long-term goal remains a Render deploy.
 
-## Current State (last verified 2026-08-08 ~12:30 local)
+## Current State (last verified 2026-08-09)
 - Backend running in production mode on **5001** (pid 26036; serves `frontend/dist` + `/api`). NODE_ENV=production. `app.set('trust proxy', 1)` set.
 - ngrok started BY ME as a detached background process (pid 55388) because the user's session had died; **public URL re-used the SAME subdomain: `https://unpenetratingly-pansophical-lucila.ngrok-free.dev`**. It is stable until stopped. If the user prefers manual, they may stop this one and start `ngrok http 5001` — if the URL changes, Google Cloud origins + redirect URI must be updated.
 - Tunnel verified: `/` 200 (new bundle `assets/index-0hxjWU42.js`), `/sw.js` = `cvboost-v3`, `/api/health` 200.
@@ -13,6 +13,8 @@ Keep the CVBoost app working end-to-end on the local backend (production mode, p
 - **DONE:** User registered the exact redirect URI in Google Cloud (`.../api/auth/google-redirect` on the Web client `1017265719941-qaemc7bcv5hb6svp7i37ck3i427dnemu`). **Google sign-in is CONFIRMED WORKING end-to-end** (2026-08-08): redirect to Google → form POST → server verify → 303 to /dashboard. The earlier `redirect_uri_mismatch` was a registration/location issue in the console; checklist for such errors lives in the session history.
 - Backend restarted 2026-08-08 ~13:02 in NODE_ENV=production (pid 58936; owns port 5001). NOTE: restarts MUST set `NODE_ENV=production` or the static frontend block (server.js:170) is skipped → `Cannot GET /`.
 - SW hardened: `frontend/public/sw.js` cache name `cvboost-v3`; install precache wrapped in `.catch(()=>{})` so flaky-network install can't crash (was crashing at `cache.addAll`, leaving stale SW controlling pages → blank screens).
+- Unpaid downloads are now watermarked instead of a hard 402: PDF rotated overlay / DOCX header text ("FREE PREVIEW" / "APERÇU GRATUIT"), `X-Watermarked` header drives toasts + upgrade CTA; subscribers/credit/paid-doc users get clean files.
+- Mobile (<768px): visiting `/` redirects to `/login` (or `/dashboard` when logged in) instead of the landing page.
 - Frontend rebuilt (2026-08-08): `npm run build` in `frontend/`; dist updated.
 
 ## Root Causes Found This Session
@@ -52,4 +54,4 @@ Keep the CVBoost app working end-to-end on the local backend (production mode, p
 - Backend: `cd backend; $env:NODE_ENV='production'; node server.js` (logs to backend-fix2.log / backend-fix2-err.log in Temp\opencode).
 - Frontend build: `cd frontend; npm run build`.
 - ngrok: `ngrok http 5001`; local API `http://127.0.0.1:4040/api/tunnels`.
-- Tests: backend `npm test` (41/41 pass as of last run).
+- Tests: backend `npm test` (63/63 pass as of 2026-08-09; adds watermark PDF/DOCX + `resolveAccess`/`X-Watermarked` controller tests incl. a frontend-label drift guard).
