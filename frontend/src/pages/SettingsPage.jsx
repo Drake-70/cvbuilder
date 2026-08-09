@@ -13,10 +13,13 @@ export default function SettingsPage() {
 
   const [name, setName] = useState(user?.name || '');
   const [bio, setBio] = useState(user?.bio || '');
+  const [summary, setSummary] = useState(user?.summary || '');
   const [phone, setPhone] = useState(user?.phone || '');
   const [location, setLocation] = useState(user?.location || '');
   const [jobTitle, setJobTitle] = useState(user?.jobTitle || '');
   const [company, setCompany] = useState(user?.company || '');
+  const [linkedin, setLinkedin] = useState(user?.linkedin || '');
+  const [website, setWebsite] = useState(user?.website || '');
   const [savingProfile, setSavingProfile] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState(user?.avatar || '');
@@ -33,13 +36,15 @@ export default function SettingsPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const hasProfileChanges = name !== (user?.name || '') || bio !== (user?.bio || '') ||
-    phone !== (user?.phone || '') || location !== (user?.location || '') ||
-    jobTitle !== (user?.jobTitle || '') || company !== (user?.company || '');
+    summary !== (user?.summary || '') || phone !== (user?.phone || '') ||
+    location !== (user?.location || '') || jobTitle !== (user?.jobTitle || '') ||
+    company !== (user?.company || '') || linkedin !== (user?.linkedin || '') ||
+    website !== (user?.website || '');
 
   const handleAvatarUpload = async (file) => {
     if (!file) return;
     if (file.size > 2 * 1024 * 1024) {
-      toast.error('Too Large', 'Image must be under 2MB.');
+      toast.error(t('too_large'), t('image_too_large'));
       return;
     }
     setUploadingAvatar(true);
@@ -49,9 +54,9 @@ export default function SettingsPage() {
       const res = await api.post('/auth/avatar', formData);
       setAvatarPreview(res.data.avatar);
       await fetchUser();
-      toast.success('Updated', 'Profile photo updated.');
+      toast.success(t('updated'), t('profile_photo_updated'));
     } catch (err) {
-      toast.error('Upload Failed', err.response?.data?.error || 'Could not upload image.');
+      toast.error(t('upload_failed'), err.response?.data?.error || t('upload_failed_msg'));
     } finally {
       setUploadingAvatar(false);
     }
@@ -62,11 +67,11 @@ export default function SettingsPage() {
     if (!name.trim()) return;
     setSavingProfile(true);
     try {
-      await api.patch('/auth/me', { name: name.trim(), bio, phone, location, jobTitle, company });
+      await api.patch('/auth/me', { name: name.trim(), bio, summary, phone, location, jobTitle, company, linkedin, website });
       await fetchUser();
-      toast.success('Saved', 'Profile updated.');
+      toast.success(t('saved'), t('profile_updated'));
     } catch (err) {
-      toast.error('Error', err.response?.data?.error || 'Failed to update profile.');
+      toast.error(t('error'), err.response?.data?.error || t('update_profile_failed'));
     } finally {
       setSavingProfile(false);
     }
@@ -75,11 +80,11 @@ export default function SettingsPage() {
   const handleChangePassword = async (e) => {
     e.preventDefault();
     if (newPassword !== confirmNew) {
-      toast.error('Mismatch', tAuth('passwords_mismatch'));
+      toast.error(t('mismatch'), tAuth('passwords_mismatch'));
       return;
     }
     if (newPassword.length < 6) {
-      toast.error('Too Short', tAuth('password_too_short'));
+      toast.error(t('too_short'), tAuth('password_too_short'));
       return;
     }
     setSavingPassword(true);
@@ -88,9 +93,9 @@ export default function SettingsPage() {
       setCurrentPassword('');
       setNewPassword('');
       setConfirmNew('');
-      toast.success('Updated', 'Password changed.');
+      toast.success(t('updated'), t('password_changed'));
     } catch (err) {
-      toast.error('Error', err.response?.data?.error || 'Failed to change password.');
+      toast.error(t('error'), err.response?.data?.error || t('change_password_failed'));
     } finally {
       setSavingPassword(false);
     }
@@ -102,7 +107,7 @@ export default function SettingsPage() {
     try {
       await api.patch('/auth/me', { preferredLanguage: val });
       await fetchUser();
-      toast.success('Saved', 'Language updated.');
+      toast.success(t('saved'), t('language_updated'));
     } catch { /* silent */ } finally {
       setSavingLang(false);
     }
@@ -112,10 +117,10 @@ export default function SettingsPage() {
     setDeleting(true);
     try {
       await api.delete('/auth/account', { data: { password: deletePassword } });
-      toast.success('Deleted', 'Your account has been permanently deleted.');
+      toast.success(t('deleted'), t('account_deleted'));
       window.location.href = '/';
     } catch (err) {
-      toast.error('Error', err.response?.data?.error || 'Failed to delete account.');
+      toast.error(t('error'), err.response?.data?.error || t('delete_account_failed'));
     } finally {
       setDeleting(false);
     }
@@ -124,7 +129,7 @@ export default function SettingsPage() {
   return (
     <div className="max-w-2xl mx-auto px-4 py-8 sm:py-12 animate-slide-up" role="main">
       <p className="kicker mb-2">{t('settings')}</p>
-      <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-surface-900 dark:text-white mb-2">Settings</h1>
+      <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-surface-900 dark:text-white mb-2">{t('settings')}</h1>
       <p className="text-sm text-surface-500 dark:text-surface-400 mb-8">{t('settings_desc')}</p>
 
       {/* Profile Photo + Info */}
@@ -133,7 +138,7 @@ export default function SettingsPage() {
           <button
             onClick={() => fileRef.current?.click()}
             className="relative w-20 h-20 rounded-2xl bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center text-white font-bold text-2xl shadow-md overflow-hidden cursor-pointer group flex-shrink-0"
-            title="Click to upload photo"
+            title={t('click_to_upload_photo')}
           >
             <input
               ref={fileRef}
@@ -161,7 +166,7 @@ export default function SettingsPage() {
           <div className="min-w-0">
             <p className="font-semibold text-surface-900 dark:text-white truncate">{user?.name}</p>
             <p className="text-sm text-surface-500 dark:text-surface-400 truncate">{user?.email}</p>
-            <p className="text-xs text-surface-400 mt-1">JPEG, PNG, or WebP. Max 2MB.</p>
+            <p className="text-xs text-surface-400 mt-1">{t('avatar_format_hint')}</p>
           </div>
         </div>
 
@@ -169,15 +174,15 @@ export default function SettingsPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label htmlFor="settings-name" className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">{tAuth('name')}</label>
-              <input id="settings-name" type="text" value={name} onChange={(e) => setName(e.target.value)} className="input-field" placeholder="Full name" />
+              <input id="settings-name" type="text" value={name} onChange={(e) => setName(e.target.value)} className="input-field" placeholder={t('full_name_placeholder')} />
             </div>
             <div>
               <label htmlFor="settings-jobTitle" className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">{t('job_title')}</label>
-              <input id="settings-jobTitle" type="text" value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} className="input-field" placeholder="e.g. Software Engineer" />
+              <input id="settings-jobTitle" type="text" value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} className="input-field" placeholder={t('job_title_placeholder')} />
             </div>
             <div>
               <label htmlFor="settings-company" className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">{t('company')}</label>
-              <input id="settings-company" type="text" value={company} onChange={(e) => setCompany(e.target.value)} className="input-field" placeholder="e.g. MTN Cameroon" />
+              <input id="settings-company" type="text" value={company} onChange={(e) => setCompany(e.target.value)} className="input-field" placeholder={t('company_placeholder')} />
             </div>
             <div>
               <label htmlFor="settings-phone" className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">{t('phone')}</label>
@@ -185,12 +190,25 @@ export default function SettingsPage() {
             </div>
             <div>
               <label htmlFor="settings-location" className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">{t('location')}</label>
-              <input id="settings-location" type="text" value={location} onChange={(e) => setLocation(e.target.value)} className="input-field" placeholder="e.g. Douala, Cameroon" />
+              <input id="settings-location" type="text" value={location} onChange={(e) => setLocation(e.target.value)} className="input-field" placeholder={t('location_placeholder')} />
+            </div>
+            <div>
+              <label htmlFor="settings-linkedin" className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">{t('linkedin')}</label>
+              <input id="settings-linkedin" type="url" value={linkedin} onChange={(e) => setLinkedin(e.target.value)} className="input-field" placeholder="https://linkedin.com/in/yourname" />
+            </div>
+            <div>
+              <label htmlFor="settings-website" className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">{t('website_portfolio')}</label>
+              <input id="settings-website" type="url" value={website} onChange={(e) => setWebsite(e.target.value)} className="input-field" placeholder="https://yourportfolio.com" />
             </div>
           </div>
           <div>
+            <label htmlFor="settings-summary" className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">{t('professional_profile')}</label>
+            <textarea id="settings-summary" value={summary} onChange={(e) => setSummary(e.target.value)} className="input-field resize-none" rows={3} placeholder={t('professional_profile_placeholder')} maxLength={1000} />
+            <p className="text-xs text-surface-400 mt-1 text-right">{summary.length}/1000</p>
+          </div>
+          <div>
             <label htmlFor="settings-bio" className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">{t('bio')}</label>
-            <textarea id="settings-bio" value={bio} onChange={(e) => setBio(e.target.value)} className="input-field resize-none" rows={3} placeholder="A short bio about yourself..." maxLength={500} />
+            <textarea id="settings-bio" value={bio} onChange={(e) => setBio(e.target.value)} className="input-field resize-none" rows={3} placeholder={t('bio_placeholder')} maxLength={500} />
             <p className="text-xs text-surface-400 mt-1 text-right">{bio.length}/500</p>
           </div>
           <button type="submit" disabled={savingProfile || !name.trim() || !hasProfileChanges} className="btn-primary text-sm">
@@ -235,7 +253,7 @@ export default function SettingsPage() {
                   : 'bg-surface-50 dark:bg-surface-800 border-surface-200 dark:border-surface-700 text-surface-600 dark:text-surface-400 hover:border-surface-300'
               }`}
             >
-              {lang === 'en' ? 'English' : 'Fran\u00e7ais'}
+              {lang === 'en' ? t('switch_to_en') : t('switch_to_fr')}
             </button>
           ))}
         </div>
@@ -276,11 +294,11 @@ export default function SettingsPage() {
                 value={deletePassword}
                 onChange={(e) => setDeletePassword(e.target.value)}
                 className="input-field border-rose-200 dark:border-rose-800"
-                placeholder="Enter your password to confirm"
+                placeholder={t('enter_password_confirm')}
                 autoComplete="current-password"
               />
             ) : (
-              <p className="text-sm text-amber-600 dark:text-amber-400">Type your email to confirm: <strong>{user?.email}</strong></p>
+              <p className="text-sm text-amber-600 dark:text-amber-400">{t('type_email_confirm')} <strong>{user?.email}</strong></p>
             )}
             <div className="flex gap-3">
               <button

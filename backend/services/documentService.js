@@ -1,5 +1,6 @@
-const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, BorderStyle, ShadingType } = require('docx');
+const { Document, Packer, Paragraph, TextRun, ExternalHyperlink, HeadingLevel, AlignmentType, BorderStyle, ShadingType, Header } = require('docx');
 const logger = require('../utils/logger');
+const { shouldSkillsFirst } = require('./cvLayout');
 
 const A4 = { width: 11906, height: 16838 };
 const MARGIN = 1134;
@@ -12,6 +13,7 @@ const LABELS = {
     experience: 'Experience',
     education: 'Education',
     skills: 'Skills',
+    certifications: 'Certifications',
     coverLetter: 'Cover Letter'
   },
   fr: {
@@ -19,6 +21,7 @@ const LABELS = {
     experience: 'Expérience',
     education: 'Formation',
     skills: 'Compétences',
+    certifications: 'Certifications',
     coverLetter: 'Lettre de Motivation'
   }
 };
@@ -34,7 +37,8 @@ const TEMPLATES = {
     band: null,
     bandRule: '2563EB',
     companyStyle: 'plain',
-    contactColor: '444444'
+    contactColor: '444444',
+    nameAlign: AlignmentType.LEFT
   },
   classic: {
     font: 'Times New Roman',
@@ -105,9 +109,10 @@ function textRun(text, { size = FONT_SIZE, font = 'Calibri', bold = false, itali
   return new TextRun({ text, size, font, bold, italics, ...(color ? { color } : {}) });
 }
 
-function sectionHeading(text, tpl) {
+function sectionHeading(text, tpl, pageBreakBefore = false) {
   return new Paragraph({
     heading: HeadingLevel.HEADING_2,
+    pageBreakBefore,
     spacing: { before: 240, after: 80 },
     border: { bottom: { color: tpl.headingRule, space: 2, style: BorderStyle.SINGLE, size: 4 } },
     children: [
@@ -190,9 +195,24 @@ function skillsSection(skills, labels, tpl) {
     sectionHeading(labels.skills, tpl),
     new Paragraph({
       spacing: { before: 80, after: 80 },
-      children: [textRun(skills.join(' • '), { size: FONT_SIZE, font: tpl.font })]
+      children: [textRun(skills.join(', '), { size: FONT_SIZE, font: tpl.font })]
     })
   ];
+}
+
+function certificationsSection(certifications, labels, tpl) {
+  if (!certifications || certifications.length === 0) return [];
+  const paragraphs = [sectionHeading(labels.certifications, tpl)];
+  certifications.forEach(cert => {
+    const head = [cert.title, cert.issuer && ` — ${cert.issuer}`].filter(Boolean).join(' ');
+    const line = cert.year ? `${head}   (${cert.year})` : head;
+    if (!line.trim()) return;
+    paragraphs.push(new Paragraph({
+      spacing: { before: 80, after: 80 },
+      children: [textRun(line, { size: FONT_SIZE, font: tpl.font })]
+    }));
+  });
+  return paragraphs;
 }
 
 function additionalSections(sections, labels, tpl) {
@@ -210,7 +230,7 @@ function additionalSections(sections, labels, tpl) {
 
 function coverLetterParagraphs(coverLetter, labels, tpl) {
   if (!coverLetter) return [];
-  const paragraphs = [sectionHeading(labels.coverLetter, tpl)];
+  const paragraphs = [sectionHeading(labels.coverLetter, tpl, true)];
   coverLetter.split('\n').filter(l => l.trim()).forEach(line => {
     paragraphs.push(new Paragraph({
       spacing: { before: 80, after: 80 },
@@ -220,13 +240,29 @@ function coverLetterParagraphs(coverLetter, labels, tpl) {
   return paragraphs;
 }
 
-function contactInfo(cv) {
+function contactInfo(cv, tpl) {
+  const children = [];
+  const run = (text) => new TextRun({ text, size: 20, font: tpl.font, color: tpl.contactColor });
+  const sep = () => children.push(run(' | '));
   const parts = [];
-  if (cv.email) parts.push(cv.email);
-  if (cv.phone) parts.push(cv.phone);
-  if (cv.location) parts.push(cv.location);
-  if (cv.nationality) parts.push(cv.nationality);
-  return parts.join(' | ');
+  if (cv.email) parts.push({ text: cv.email });
+  if (cv.phone) parts.push({ text: cv.phone });
+  if (cv.location) parts.push({ text: cv.location });
+  if (cv.nationality) parts.push({ text: cv.nationality });
+  if (cv.linkedin) parts.push({ text: cv.linkedin, url: cv.linkedin });
+  if (cv.website) parts.push({ text: cv.website, url: cv.website });
+  parts.forEach((p, i) => {
+    if (i > 0) sep();
+    if (p.url) {
+      children.push(new ExternalHyperlink({
+        link: p.url,
+        children: [new TextRun({ text: p.text, size: 20, font: tpl.font, color: tpl.headingColor })]
+      }));
+    } else {
+      children.push(run(p.text));
+    }
+  });
+  return children;
 }
 
 function nameHeader(cv, tpl, labels, lang) {
@@ -260,24 +296,58 @@ function nameHeader(cv, tpl, labels, lang) {
     }));
   }
 
-  const info = contactInfo(cv);
-  if (info) {
+  const info = contactInfo(cv, tpl);
+  const infoAlign = tpl.nameAlign || AlignmentType.CENTER;
+  if (cv.headline) {
     paragraphs.push(new Paragraph({
-      alignment: AlignmentType.CENTER,
+      alignment: infoAlign,
+      spacing: { before: 40, after: 120 },
+      children: [textRun(cv.headline, { size: 22, font: tpl.font, italics: true, color: tpl.headingColor })]
+    }));
+  }
+  if (info.length) {
+    paragraphs.push(new Paragraph({
+      alignment: infoAlign,
       spacing: { after: 160 },
-      children: [textRun(info, { size: 20, font: tpl.font, color: tpl.contactColor })]
+      children: info
     }));
   }
 
   return paragraphs;
 }
 
-function buildDocument(cv, coverLetter, lang, templateName) {
+function watermarkHeader(text, font) {
+  return new Header({
+    children: [
+      new Paragraph({
+        children: [
+          new TextRun({
+            text,
+            font: font || 'Calibri',
+            size: 420,
+            bold: true,
+            color: 'D0D4DA',
+            floating: {
+              horizontalPosition: { relative: 'margin', align: 'center' },
+              verticalPosition: { relative: 'margin', align: 'center' },
+              allowOverlap: true,
+              behindDocument: true
+            }
+          })
+        ]
+      })
+    ]
+  });
+}
+
+function buildDocument(cv, coverLetter, lang, templateName, watermarkText = null) {
   const tpl = TEMPLATES[templateName] || TEMPLATES.modern;
   const labels = LABELS[lang] || LABELS.en;
   const sections = [];
 
   sections.push(...nameHeader(cv, tpl, labels, lang));
+
+  const skillsFirst = shouldSkillsFirst(cv);
 
   if (cv.summary) {
     sections.push(sectionHeading(labels.summary, tpl));
@@ -287,14 +357,17 @@ function buildDocument(cv, coverLetter, lang, templateName) {
     }));
   }
 
+  if (skillsFirst) sections.push(...skillsSection(cv.skills, labels, tpl));
   sections.push(...experienceSection(cv.experience, labels, tpl));
   sections.push(...educationSection(cv.education, labels, tpl));
-  sections.push(...skillsSection(cv.skills, labels, tpl));
+  if (!skillsFirst) sections.push(...skillsSection(cv.skills, labels, tpl));
+  sections.push(...certificationsSection(cv.certifications, labels, tpl));
   sections.push(...additionalSections(cv.additionalSections, labels, tpl));
   sections.push(...coverLetterParagraphs(coverLetter, labels, tpl));
 
   return new Document({
     sections: [{
+      ...(watermarkText ? { headers: { default: watermarkHeader(watermarkText, tpl.font) } } : {}),
       properties: {
         page: {
           size: { width: A4.width, height: A4.height },
@@ -306,9 +379,9 @@ function buildDocument(cv, coverLetter, lang, templateName) {
   });
 }
 
-exports.generateDocx = async (cv, coverLetter, language, template = 'modern') => {
+exports.generateDocx = async (cv, coverLetter, language, template = 'modern', watermarkText = null) => {
   const tpl = TEMPLATES[template] ? template : 'modern';
-  const doc = buildDocument(cv || {}, coverLetter || '', language === 'fr' ? 'fr' : 'en', tpl);
+  const doc = buildDocument(cv || {}, coverLetter || '', language === 'fr' ? 'fr' : 'en', tpl, watermarkText);
   try {
     return await Packer.toBuffer(doc);
   } catch (err) {

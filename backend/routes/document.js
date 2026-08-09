@@ -17,6 +17,10 @@ router.patch('/:id/status', requireAuth, (req, res, next) => {
   res.on('finish', () => invalidateCache(`/api/document/list:${req.user?._id}`));
   next();
 }, documentController.updateApplicationStatus);
+router.patch('/:id', requireAuth, (req, res, next) => {
+  res.on('finish', () => invalidateCache(`/api/document/list:${req.user?._id}`));
+  next();
+}, documentController.updateDocumentContent);
 router.delete('/:id', requireAuth, (req, res, next) => {
   res.on('finish', () => invalidateCache(`/api/document/list:${req.user?._id}`));
   next();

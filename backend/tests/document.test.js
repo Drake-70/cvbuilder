@@ -107,3 +107,26 @@ test('generateDocx uses French section headings for French output', async () => 
   assert.match(xml, /COMPÉTENCES/);
   assert.match(xml, /PROFIL/);
 });
+
+test('generateDocx adds a header watermark when requested', async () => {
+  const buffer = await generateDocx(sampleCV, sampleCoverLetter, 'en', 'modern', 'FREE PREVIEW');
+  const zip = await JSZip.loadAsync(buffer);
+  const headerFiles = Object.keys(zip.files).filter((name) => name.startsWith('word/header'));
+  assert.ok(headerFiles.length > 0, 'expected a header part containing the watermark');
+  let found = false;
+  for (const name of headerFiles) {
+    const xml = await zip.files[name].async('string');
+    if (xml.includes('FREE PREVIEW')) { found = true; break; }
+  }
+  assert.equal(found, true, 'watermark text should appear in the header');
+});
+
+test('generateDocx omits the watermark when not requested', async () => {
+  const buffer = await generateDocx(sampleCV, sampleCoverLetter, 'en', 'modern');
+  const zip = await JSZip.loadAsync(buffer);
+  for (const name of Object.keys(zip.files)) {
+    if (zip.files[name].dir) continue;
+    const text = await zip.files[name].async('string');
+    assert.ok(!text.includes('FREE PREVIEW'), `${name} should not contain watermark text`);
+  }
+});

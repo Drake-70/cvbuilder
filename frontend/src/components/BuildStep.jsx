@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import api from '../services/api';
 import SectionGuidance from './SectionGuidance';
+import cvToText from '../utils/cvToText';
 
 export default function BuildStep({ onComplete, onBack, language, user }) {
   const { t } = useTranslation('tailor');
@@ -15,13 +16,17 @@ export default function BuildStep({ onComplete, onBack, language, user }) {
     email: user?.email || '',
     phone: user?.phone || '',
     location: user?.location || '',
-    targetRole: user?.jobTitle || ''
+    targetRole: user?.jobTitle || '',
+    summary: user?.summary || '',
+    linkedin: user?.linkedin || '',
+    website: user?.website || ''
   });
   const [education, setEducation] = useState([]);
   const [experience, setExperience] = useState([]);
   const [nonTraditional, setNonTraditional] = useState([]);
   const [selectedSkills, setSelectedSkills] = useState([]);
   const [customSkillInput, setCustomSkillInput] = useState('');
+  const [certifications, setCertifications] = useState([]);
   const [skillOptions, setSkillOptions] = useState([]);
   const [noEducation, setNoEducation] = useState(false);
   const [noExperience, setNoExperience] = useState(false);
@@ -97,6 +102,10 @@ export default function BuildStep({ onComplete, onBack, language, user }) {
   const updateNonTraditional = (i, val) => { const u = [...nonTraditional]; u[i] = val; setNonTraditional(u); };
   const removeNonTraditional = (i) => setNonTraditional(nonTraditional.filter((_, idx) => idx !== i));
 
+  const addCertification = () => setCertifications([...certifications, { title: '', issuer: '', year: '' }]);
+  const updateCertification = (i, field, val) => { const u = [...certifications]; u[i][field] = val; setCertifications(u); };
+  const removeCertification = (i) => setCertifications(certifications.filter((_, idx) => idx !== i));
+
   const toggleSkill = (s) => setSelectedSkills(prev => {
     const existing = prev.find(x => x.toLowerCase() === s.toLowerCase());
     if (existing) return prev.filter(x => x.toLowerCase() !== s.toLowerCase());
@@ -132,6 +141,7 @@ export default function BuildStep({ onComplete, onBack, language, user }) {
         education: noEducation ? [] : education.filter(e => e.institution || e.degree),
         experience: noExperience ? [] : experience.filter(e => e.title || e.description),
         nonTraditionalExperience: nonTraditional.filter(n => n.trim()),
+        certifications: certifications.filter(c => c.title.trim()),
         skills: selectedSkills,
         language: lang
       });
@@ -140,14 +150,18 @@ export default function BuildStep({ onComplete, onBack, language, user }) {
         name: res.data.name || personalInfo.name,
         email: res.data.email || personalInfo.email,
         phone: res.data.phone || personalInfo.phone,
-        location: res.data.location || personalInfo.location
+        location: res.data.location || personalInfo.location,
+        headline: res.data.headline || personalInfo.targetRole || '',
+        linkedin: res.data.linkedin || personalInfo.linkedin || '',
+        website: res.data.website || personalInfo.website || '',
+        summary: res.data.summary || personalInfo.summary || ''
       };
-      onComplete(JSON.stringify(expanded), 'build', expanded);
+      onComplete(cvToText(expanded), 'build', expanded);
       if (user) {
         api.patch('/auth/me', { savedSkills: selectedSkills }).catch(() => {});
       }
     } catch (err) {
-      alert(err.response?.data?.error || 'Failed to build CV.');
+      alert(err.response?.data?.error || t('build_failed'));
     } finally {
       setLoading(false);
     }
@@ -210,6 +224,35 @@ export default function BuildStep({ onComplete, onBack, language, user }) {
             <div>
               <label htmlFor="targetRole" className="block text-sm font-medium text-surface-700 mb-1.5">{t('target_role')}</label>
               <input id="targetRole" type="text" value={personalInfo.targetRole} onChange={(e) => setPersonalInfo({ ...personalInfo, targetRole: e.target.value })} className="input-field" placeholder={lang === 'fr' ? 'ex: Agent de service client' : 'e.g. Customer Service Rep'} />
+            </div>
+            <div>
+              <label htmlFor="profileSummary" className="block text-sm font-medium text-surface-700 mb-1.5">{t('profile_summary')}</label>
+              <textarea id="profileSummary" value={personalInfo.summary} onChange={(e) => setPersonalInfo({ ...personalInfo, summary: e.target.value })} rows={3} className="input-field resize-none" placeholder={t('profile_summary_placeholder')} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label htmlFor="linkedinUrl" className="block text-sm font-medium text-surface-700 mb-1.5">{t('linkedin_field')}</label>
+                <input id="linkedinUrl" type="url" value={personalInfo.linkedin} onChange={(e) => setPersonalInfo({ ...personalInfo, linkedin: e.target.value })} className="input-field" placeholder="https://linkedin.com/in/..." />
+              </div>
+              <div>
+                <label htmlFor="websiteUrl" className="block text-sm font-medium text-surface-700 mb-1.5">{t('website')}</label>
+                <input id="websiteUrl" type="url" value={personalInfo.website} onChange={(e) => setPersonalInfo({ ...personalInfo, website: e.target.value })} className="input-field" placeholder="https://..." />
+              </div>
+            </div>
+            <div className="border border-surface-200 rounded-xl p-4 space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-sm font-semibold text-surface-700">{t('certifications')}</span>
+                <button onClick={addCertification} className="text-xs font-medium text-brand-600 hover:text-brand-700 cursor-pointer transition-colors">+ {t('add')}</button>
+              </div>
+              {certifications.length === 0 && <p className="text-xs text-surface-400">{t('certifications_hint')}</p>}
+              {certifications.map((cert, i) => (
+                <div key={i} className="grid grid-cols-[1fr_1fr_auto_auto] gap-2 items-center animate-slide-up">
+                  <input type="text" placeholder={t('certification_placeholder')} value={cert.title} onChange={(e) => updateCertification(i, 'title', e.target.value)} className="input-field" />
+                  <input type="text" placeholder={t('issuer')} value={cert.issuer} onChange={(e) => updateCertification(i, 'issuer', e.target.value)} className="input-field" />
+                  <input type="text" placeholder={t('year')} value={cert.year} onChange={(e) => updateCertification(i, 'year', e.target.value)} className="input-field w-20" />
+                  <button onClick={() => removeCertification(i)} className="text-surface-400 hover:text-rose-500 cursor-pointer transition-colors">&times;</button>
+                </div>
+              ))}
             </div>
           </div>
         )}

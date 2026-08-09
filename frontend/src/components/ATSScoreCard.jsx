@@ -93,6 +93,40 @@ export default function ATSScoreCard({ cvText, jobDescription, tailoredCV, gapAn
             </div>
           </div>
 
+          {/* Matched / missing keywords */}
+          {score.keywords && (score.keywords.matched.length > 0 || score.keywords.missing.length > 0) && (
+            <div className="space-y-3 mt-4">
+              {score.keywords.matched.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-emerald-600 mb-1.5">
+                    {t('tailor.ats_matched_keywords', 'Keywords found in your CV')} ({score.keywords.matched.length})
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {score.keywords.matched.map((kw, i) => (
+                      <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs">
+                        {kw}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {score.keywords.missing.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-amber-600 mb-1.5">
+                    {t('tailor.ats_missing_keywords', 'Keywords missing from your CV')} ({score.keywords.missing.length})
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {score.keywords.missing.map((kw, i) => (
+                      <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 border border-amber-200 text-amber-700 text-xs">
+                        {kw}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Tips */}
           {score.tips.length > 0 && (
             <div className="bg-brand-50/50 rounded-xl p-3.5">

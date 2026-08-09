@@ -16,10 +16,10 @@ export default function AboutPage() {
         <div className="max-w-4xl mx-auto text-center relative">
           <img src={logoImg} alt="CVBoost" className="h-12 w-auto mx-auto mb-6" />
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold leading-tight mb-4">
-            About CVBoost
+            {t('about.title')}
           </h1>
           <p className="text-brand-100 text-lg sm:text-xl max-w-2xl mx-auto leading-relaxed">
-            Empowering job seekers across Cameroon with AI-driven tools to craft professional, tailored CVs that get results.
+            {t('about.hero')}
           </p>
         </div>
       </section>
@@ -29,24 +29,14 @@ export default function AboutPage() {
         <div className="max-w-4xl mx-auto">
           <div className="grid md:grid-cols-2 gap-12 items-center">
             <div>
-              <p className="text-sm font-semibold text-brand-600 uppercase tracking-wider mb-2">Our Story</p>
+              <p className="text-sm font-semibold text-brand-600 uppercase tracking-wider mb-2">{t('about.story_kicker')}</p>
               <h2 id="story-heading" className="text-2xl sm:text-3xl font-bold text-surface-900 dark:text-white mb-4">
-                Built for Cameroon&apos;s job market
+                {t('about.story_title')}
               </h2>
               <div className="space-y-4 text-surface-600 dark:text-surface-400 leading-relaxed">
-                <p>
-                  Job hunting in Cameroon is tough. Generic CV templates don&apos;t capture local conventions,
-                  most tools are English-only, and professional CV services cost more than many job seekers can afford.
-                </p>
-                <p>
-                  CVBoost was built to change that. We combine AI technology with an understanding of both
-                  Francophone and Anglophone CV conventions to deliver tailored, ATS-friendly documents at a fraction
-                  of the cost.
-                </p>
-                <p>
-                  Whether you&apos;re applying to a multinational in Douala, a local startup in Yaoundé, or an
-                  international organization, CVBoost helps you present your experience in the best possible light.
-                </p>
+                <p>{t('about.p1')}</p>
+                <p>{t('about.p2')}</p>
+                <p>{t('about.p3')}</p>
               </div>
             </div>
             <div className="relative">
@@ -55,8 +45,8 @@ export default function AboutPage() {
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-10 h-10 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center text-white text-sm font-bold">JD</div>
                   <div>
-                    <div className="font-bold text-surface-900 dark:text-white">Jean Dupont</div>
-                    <div className="text-xs text-surface-400">Marketing Specialist</div>
+                    <div className="font-bold text-surface-900 dark:text-white">{t('about.avatar_name')}</div>
+                    <div className="text-xs text-surface-400">{t('about.avatar_role')}</div>
                   </div>
                   <div className="ml-auto badge badge-emerald text-xs">ATS 94%</div>
                 </div>
@@ -80,8 +70,8 @@ export default function AboutPage() {
       <section className="py-16 sm:py-20 px-4 bg-surface-0 dark:bg-surface-800 border-y border-surface-100 dark:border-surface-700" aria-labelledby="values-heading">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-12">
-            <p className="text-sm font-semibold text-brand-600 uppercase tracking-wider mb-2">Our Values</p>
-            <h2 id="values-heading" className="text-2xl sm:text-3xl font-bold text-surface-900 dark:text-white">What drives us</h2>
+            <p className="text-sm font-semibold text-brand-600 uppercase tracking-wider mb-2">{t('about.values_kicker')}</p>
+            <h2 id="values-heading" className="text-2xl sm:text-3xl font-bold text-surface-900 dark:text-white">{t('about.values_title')}</h2>
           </div>
 
           <div className="grid sm:grid-cols-3 gap-6">
@@ -92,8 +82,8 @@ export default function AboutPage() {
                     <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9,12 11,14 15,10"/>
                   </svg>
                 ),
-                title: 'Honesty',
-                desc: 'AI rewrites your real experience — never fabricates achievements, numbers, or skills you don\'t have.'
+                title: t('about.value_honesty'),
+                desc: t('about.value_honesty_desc')
               },
               {
                 icon: (
@@ -102,8 +92,8 @@ export default function AboutPage() {
                     <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
                   </svg>
                 ),
-                title: 'Inclusivity',
-                desc: 'Full French and English support with CV conventions that respect local and international standards.'
+                title: t('about.value_inclusivity'),
+                desc: t('about.value_inclusivity_desc')
               },
               {
                 icon: (
@@ -111,8 +101,8 @@ export default function AboutPage() {
                     <circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>
                   </svg>
                 ),
-                title: 'Accessibility',
-                desc: 'Affordable pricing designed for the Cameroonian market. Professional CV tools shouldn\'t break the bank.'
+                title: t('about.value_accessibility'),
+                desc: t('about.value_accessibility_desc')
               }
             ].map((v, i) => (
               <div key={i} className="card p-6 text-center">
@@ -131,10 +121,10 @@ export default function AboutPage() {
       <section className="py-16 sm:py-20 px-4">
         <div className="max-w-3xl mx-auto text-center">
           <h2 className="text-2xl sm:text-3xl font-bold text-surface-900 dark:text-white mb-4">
-            Ready to build your CV?
+            {t('about.cta_title')}
           </h2>
           <p className="text-surface-500 dark:text-surface-400 mb-8 max-w-md mx-auto">
-            Join hundreds of Cameroonian job seekers using AI to land more interviews.
+            {t('about.cta_desc')}
           </p>
           <Link to="/register" className="btn-primary text-base px-8 py-3.5 no-underline inline-block">
             {t('get_started')} &rarr;

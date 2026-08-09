@@ -76,7 +76,7 @@ exports.pasteCV = async (req, res, next) => {
 
 exports.buildFromScratch = async (req, res, next) => {
   try {
-    const { personalInfo, education, experience, nonTraditionalExperience, skills, language } = req.body;
+    const { personalInfo, education, experience, nonTraditionalExperience, certifications, skills, language } = req.body;
 
     if (!personalInfo || !personalInfo.name) {
       return res.status(400).json({ error: 'Personal info with name is required' });
@@ -87,9 +87,14 @@ exports.buildFromScratch = async (req, res, next) => {
       education: education || [],
       experience: experience || [],
       nonTraditionalExperience: nonTraditionalExperience || [],
+      certifications: certifications || [],
       skills: skills || [],
       language: language || 'en'
     });
+
+    if (!expanded.headline && personalInfo?.targetRole) {
+      expanded.headline = personalInfo.targetRole;
+    }
 
     res.json(expanded);
   } catch (err) {

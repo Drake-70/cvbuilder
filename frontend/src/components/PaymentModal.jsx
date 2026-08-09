@@ -1,11 +1,15 @@
 import { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 
 export default function PaymentModal({ open, onClose, onSuccess, documentId, type = 'one-time' }) {
+  const { t } = useTranslation('payment');
   const { toast } = useToast();
   const [phoneNumber, setPhoneNumber] = useState('');
   const [provider, setProvider] = useState('mtn');
+  const [method, setMethod] = useState('campay');
+  const [email, setEmail] = useState('');
   const [step, setStep] = useState('form'); // form | waiting | success | failed
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -18,9 +22,16 @@ export default function PaymentModal({ open, onClose, onSuccess, documentId, typ
   useEffect(() => {
     if (open) {
       prevFocusRef.current = document.activeElement;
-      api.get('/payments/pricing').then(res => setPricing(res.data)).catch(() => {});
+      api.get('/payments/pricing').then(res => {
+        setPricing(res.data);
+        const providers = res.data?.providers || [];
+        if (!providers.some((p) => p.id === 'campay') && providers.length > 0) {
+          setMethod(providers[0].id);
+        }
+      }).catch(() => {});
       setStep('form');
       setPhoneNumber('');
+      setEmail('');
       setError('');
       setPaymentInfo(null);
       requestAnimationFrame(() => {
@@ -61,16 +72,25 @@ export default function PaymentModal({ open, onClose, onSuccess, documentId, typ
   };
 
   const handlePay = async () => {
-    if (!phoneNumber.trim()) return;
+    if (method === 'campay' && !phoneNumber.trim()) return;
+    if (method !== 'campay' && !email.trim()) return;
     setLoading(true);
     setError('');
 
     try {
       const res = await api.post('/payments/initiate', {
-        phoneNumber: phoneNumber.trim(),
+        phoneNumber: method === 'campay' ? phoneNumber.trim() : undefined,
+        email: method !== 'campay' ? email.trim() : undefined,
+        paymentMethod: method,
         type,
         documentId
       });
+
+      if (res.data.redirect && res.data.url) {
+        localStorage.setItem('cvboost_pending_payment', res.data.paymentId);
+        window.location.href = res.data.url;
+        return;
+      }
 
       setPaymentInfo(res.data);
       setStep('waiting');
@@ -83,7 +103,7 @@ export default function PaymentModal({ open, onClose, onSuccess, documentId, typ
           if (statusRes.data.status === 'success') {
             clearInterval(pollRef.current);
             setStep('success');
-            toast.success('Payment Successful', 'Your download will start shortly.');
+            toast.success(t('success_toast'), t('success_toast_msg'));
             setTimeout(() => {
               onSuccess?.();
               onClose?.();
@@ -91,7 +111,7 @@ export default function PaymentModal({ open, onClose, onSuccess, documentId, typ
           } else if (statusRes.data.status === 'failed') {
             clearInterval(pollRef.current);
             setStep('failed');
-            toast.error('Payment Failed', 'The payment was not completed.');
+            toast.error(t('failed_toast'), t('failed_toast_msg'));
           }
         } catch {
           // keep polling
@@ -106,7 +126,7 @@ export default function PaymentModal({ open, onClose, onSuccess, documentId, typ
         }
       }, 120000);
     } catch (err) {
-      setError(err.response?.data?.error || 'Payment initiation failed. Please try again.');
+      setError(err.response?.data?.error || t('initiation_failed'));
     } finally {
       setLoading(false);
     }
@@ -127,7 +147,7 @@ export default function PaymentModal({ open, onClose, onSuccess, documentId, typ
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
       <div className="absolute inset-0 bg-surface-900/40 backdrop-blur-sm" onClick={handleClose} />
 
-      <div ref={modalRef} className="relative bg-surface-0 rounded-2xl shadow-2xl w-full max-w-md p-6 animate-scale-in" role="dialog" aria-modal="true" aria-label="Payment">
+      <div ref={modalRef} className="relative bg-surface-0 rounded-2xl shadow-2xl w-full max-w-md p-6 animate-scale-in" role="dialog" aria-modal="true" aria-label={t('aria_label')}>
         {/* Close button */}
         <button onClick={handleClose} className="absolute top-4 right-4 p-1.5 rounded-lg hover:bg-surface-100 text-surface-400 hover:text-surface-600 cursor-pointer transition-colors">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -144,10 +164,10 @@ export default function PaymentModal({ open, onClose, onSuccess, documentId, typ
                 </svg>
               </div>
               <h3 className="text-lg font-bold text-surface-900">
-                {type === 'subscription' ? 'Subscribe to CVBoost' : 'Pay to Download'}
+                {type === 'subscription' ? t('title_subscription') : t('title_one_time')}
               </h3>
               <p className="text-sm text-surface-500 mt-1">
-                {amount ? `${amount.toLocaleString()} ${pricing?.currency || 'XAF'}` : 'Loading...'}
+                {amount ? `${amount.toLocaleString()} ${pricing?.currency || 'XAF'}` : t('loading_amount')}
               </p>
             </div>
 
@@ -160,44 +180,82 @@ export default function PaymentModal({ open, onClose, onSuccess, documentId, typ
               </div>
             )}
 
-            {/* Provider selection */}
-            <div className="flex gap-2 mb-4">
-              <button
-                onClick={() => setProvider('mtn')}
-                className={`flex-1 py-3 rounded-xl text-sm font-semibold cursor-pointer transition-all border-2 ${
-                  provider === 'mtn' ? 'border-yellow-400 bg-yellow-50 text-yellow-800' : 'border-surface-200 text-surface-500 hover:border-surface-300'
-                }`}
-              >
-                MTN MoMo
-              </button>
-              <button
-                onClick={() => setProvider('orange')}
-                className={`flex-1 py-3 rounded-xl text-sm font-semibold cursor-pointer transition-all border-2 ${
-                  provider === 'orange' ? 'border-orange-400 bg-orange-50 text-orange-800' : 'border-surface-200 text-surface-500 hover:border-surface-300'
-                }`}
-              >
-                Orange Money
-              </button>
-            </div>
-
-            {/* Phone input */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-surface-700 mb-1.5">Mobile Money Number</label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-surface-400 font-medium">+237</span>
-                <input
-                  type="tel"
-                  value={phoneNumber}
-                  onChange={handlePhoneChange}
-                  placeholder="6XX XXX XXX"
-                  className="input-field pl-14"
-                />
+            {/* Method selection */}
+            {(pricing?.providers?.length || 0) > 1 && (
+              <div className="flex gap-2 mb-4">
+                {pricing.providers.map((p) => (
+                  <button
+                    key={p.id}
+                    onClick={() => setMethod(p.id)}
+                    className={`flex-1 py-3 rounded-xl text-sm font-semibold cursor-pointer transition-all border-2 ${
+                      method === p.id ? 'border-brand-500 bg-brand-50 text-brand-800' : 'border-surface-200 text-surface-500 hover:border-surface-300'
+                    }`}
+                  >
+                    {p.id === 'campay' ? t('mobile_money') : p.id === 'paystack' ? t('paystack_card') : t('stripe_card')}
+                  </button>
+                ))}
               </div>
-            </div>
+            )}
+
+            {method === 'campay' ? (
+              <>
+                {/* Provider selection */}
+                <div className="flex gap-2 mb-4">
+                  <button
+                    onClick={() => setProvider('mtn')}
+                    className={`flex-1 py-3 rounded-xl text-sm font-semibold cursor-pointer transition-all border-2 ${
+                      provider === 'mtn' ? 'border-yellow-400 bg-yellow-50 text-yellow-800' : 'border-surface-200 text-surface-500 hover:border-surface-300'
+                    }`}
+                  >
+                    {t('mtn_momo')}
+                  </button>
+                  <button
+                    onClick={() => setProvider('orange')}
+                    className={`flex-1 py-3 rounded-xl text-sm font-semibold cursor-pointer transition-all border-2 ${
+                      provider === 'orange' ? 'border-orange-400 bg-orange-50 text-orange-800' : 'border-surface-200 text-surface-500 hover:border-surface-300'
+                    }`}
+                  >
+                    {t('orange_money')}
+                  </button>
+                </div>
+
+                {/* Phone input */}
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-surface-700 mb-1.5">{t('mm_number_label')}</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-surface-400 font-medium">+237</span>
+                    <input
+                      type="tel"
+                      value={phoneNumber}
+                      onChange={handlePhoneChange}
+                      placeholder={t('mm_number_placeholder')}
+                      className="input-field pl-14"
+                    />
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-surface-700 mb-1.5">{t('card_email_label')}</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-surface-400 font-medium">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                  </span>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder={t('card_email_placeholder')}
+                    className="input-field pl-10"
+                  />
+                </div>
+                <p className="text-xs text-surface-400 mt-1.5">{t('card_redirect_note')}</p>
+              </div>
+            )}
 
             <button
               onClick={handlePay}
-              disabled={loading || !phoneNumber.trim()}
+              disabled={loading || (method === 'campay' ? !phoneNumber.trim() : !email.trim())}
               className="btn-primary w-full py-3 flex items-center justify-center gap-2"
             >
               {loading ? (
@@ -206,16 +264,16 @@ export default function PaymentModal({ open, onClose, onSuccess, documentId, typ
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
                   </svg>
-                  Processing...
+                  {t('processing')}
                 </>
               ) : (
-                `Pay ${amount ? amount.toLocaleString() : ''} XAF`
+                t('pay', { amount: amount ? amount.toLocaleString() : '' })
               )}
             </button>
 
             {pricing?.sandbox && (
               <p className="text-center text-xs text-amber-600 mt-3 bg-amber-50 rounded-lg p-2">
-                Sandbox mode — use test amounts under 100 XAF
+                {t('sandbox_note')}
               </p>
             )}
 
@@ -223,7 +281,7 @@ export default function PaymentModal({ open, onClose, onSuccess, documentId, typ
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
                 <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
               </svg>
-              7-day money-back guarantee — full refund if it doesn&apos;t help.
+              {t('guarantee')}
             </p>
           </div>
         )}
@@ -235,20 +293,19 @@ export default function PaymentModal({ open, onClose, onSuccess, documentId, typ
                 <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
               </svg>
             </div>
-            <h3 className="text-lg font-bold text-surface-900 mb-1">Check your phone</h3>
+            <h3 className="text-lg font-bold text-surface-900 mb-1">{t('check_phone_title')}</h3>
             <p className="text-sm text-surface-500 mb-4">
-              A payment prompt has been sent to your {provider === 'mtn' ? 'MTN MoMo' : 'Orange Money'} number.
-              Approve it to continue.
+              {t('check_phone_msg', { provider: provider === 'mtn' ? t('mtn_momo') : t('orange_money') })}
             </p>
 
             {paymentInfo?.ussdShortcode && (
               <div className="bg-surface-50 border border-surface-200 rounded-xl p-4 mb-4 text-left">
-                <p className="text-xs font-semibold text-surface-500 uppercase tracking-wider mb-2">No prompt? Pay by USSD</p>
+                <p className="text-xs font-semibold text-surface-500 uppercase tracking-wider mb-2">{t('ussd_title')}</p>
                 <p className="text-sm text-surface-700 mb-1">
-                  Dial <span className="font-mono font-bold text-brand-700">{paymentInfo.ussdShortcode}</span> on your phone
-                  {paymentInfo.ussdCode ? <> and enter the code <span className="font-mono font-bold text-brand-700">{paymentInfo.ussdCode}</span></> : ''}.
+                  {t('ussd_dial', { code: paymentInfo.ussdShortcode })}
+                  {paymentInfo.ussdCode ? <> {t('ussd_and_enter', { code: paymentInfo.ussdCode })}</> : ''}.
                 </p>
-                <p className="text-xs text-surface-400">Complete the payment, then wait for confirmation here.</p>
+                <p className="text-xs text-surface-400">{t('ussd_wait')}</p>
               </div>
             )}
 
@@ -256,7 +313,7 @@ export default function PaymentModal({ open, onClose, onSuccess, documentId, typ
               <div className="flex justify-center mb-4">
                 <img
                   src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&qzone=1&data=${encodeURIComponent(paymentInfo.ussdShortcode)}`}
-                  alt="Payment QR code"
+                  alt={t('qr_alt')}
                   width="120"
                   height="120"
                   className="rounded-lg border border-surface-200"
@@ -270,7 +327,7 @@ export default function PaymentModal({ open, onClose, onSuccess, documentId, typ
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
               </svg>
-              Waiting for confirmation...
+              {t('waiting_confirmation')}
             </div>
           </div>
         )}
@@ -282,8 +339,8 @@ export default function PaymentModal({ open, onClose, onSuccess, documentId, typ
                 <polyline points="20,6 9,17 4,12"/>
               </svg>
             </div>
-            <h3 className="text-lg font-bold text-surface-900 mb-1">Payment Successful!</h3>
-            <p className="text-sm text-surface-500">Your download will start automatically.</p>
+            <h3 className="text-lg font-bold text-surface-900 mb-1">{t('success_title')}</h3>
+            <p className="text-sm text-surface-500">{t('success_msg')}</p>
           </div>
         )}
 
@@ -294,10 +351,10 @@ export default function PaymentModal({ open, onClose, onSuccess, documentId, typ
                 <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
               </svg>
             </div>
-            <h3 className="text-lg font-bold text-surface-900 mb-1">Payment Failed</h3>
-            <p className="text-sm text-surface-500 mb-4">The payment was not completed. Please try again.</p>
+            <h3 className="text-lg font-bold text-surface-900 mb-1">{t('failed_title')}</h3>
+            <p className="text-sm text-surface-500 mb-4">{t('failed_msg')}</p>
             <button onClick={() => setStep('form')} className="btn-primary">
-              Try Again
+              {t('try_again')}
             </button>
           </div>
         )}

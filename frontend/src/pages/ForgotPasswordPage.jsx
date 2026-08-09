@@ -26,7 +26,7 @@ export default function ForgotPasswordPage() {
       toast.success(t('reset_email_sent'), t('reset_email_desc'));
     } catch (err) {
       const msg = err.response?.data?.error || tCommon('server_error');
-      toast.error('Error', msg);
+      toast.error(t('error_generic'), msg);
     } finally {
       setLoading(false);
     }
@@ -47,9 +47,9 @@ export default function ForgotPasswordPage() {
               <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
             </svg>
           </div>
-          <h2 className="text-3xl font-bold text-white mb-4">Reset your password</h2>
+          <h2 className="text-3xl font-bold text-white mb-4">{t('forgot_panel_title')}</h2>
           <p className="text-brand-100 text-lg leading-relaxed">
-            Enter your email and we will send you a link to reset your password.
+            {t('forgot_panel_desc')}
           </p>
         </div>
       </div>

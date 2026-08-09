@@ -26,8 +26,22 @@ const paymentSchema = new mongoose.Schema({
   },
   provider: {
     type: String,
-    enum: ['mtn', 'orange'],
-    required: true
+    enum: ['mtn', 'orange', 'card'],
+    default: 'card'
+  },
+  paymentMethod: {
+    type: String,
+    enum: ['campay', 'paystack', 'stripe'],
+    default: 'campay'
+  },
+  providerRef: {
+    type: String,
+    default: null,
+    index: true
+  },
+  email: {
+    type: String,
+    default: null
   },
   campayReference: {
     type: String,

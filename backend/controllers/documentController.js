@@ -24,23 +24,27 @@ function contentTypeFor(format) {
     : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 }
 
-async function consumeCreditOrCheckAccess(userId, documentId) {
+async function resolveAccess(userId, documentId) {
   const user = await User.findById(userId);
   if (!user) throw Object.assign(new Error('User not found'), { statusCode: 404 });
 
-  if (user.subscriptionStatus === 'active') return;
+  if (user.subscriptionStatus === 'active') return { watermarked: false };
 
   if (user.freeDocumentCredits > 0) {
     await User.findByIdAndUpdate(userId, { $inc: { freeDocumentCredits: -1 } });
-    return;
+    return { watermarked: false };
   }
 
   if (documentId) {
     const doc = await require('../models/TailoredDocument').findById(documentId);
-    if (doc && doc.paid) return;
+    if (doc && doc.paid) return { watermarked: false };
   }
 
-  throw Object.assign(new Error('Payment required. Please subscribe or purchase a download.'), { statusCode: 402 });
+  return { watermarked: true };
+}
+
+function watermarkTextFor(lang) {
+  return lang === 'fr' ? 'APERÇU GRATUIT' : 'FREE PREVIEW';
 }
 
 exports.generateDocument = async (req, res, next) => {
@@ -51,7 +55,7 @@ exports.generateDocument = async (req, res, next) => {
       return res.status(400).json({ error: 'Tailored CV data is required' });
     }
 
-    await consumeCreditOrCheckAccess(req.user._id, documentId || null);
+    const { watermarked } = await resolveAccess(req.user._id, documentId || null);
 
     const enrichedCV = {
       ...tailoredCV,
@@ -62,12 +66,14 @@ exports.generateDocument = async (req, res, next) => {
     };
     const outFormat = normalizeFormat(format);
     const lang = language || 'en';
+    const watermark = watermarked ? watermarkTextFor(lang) : null;
     const buffer = outFormat === 'pdf'
-      ? await generatePdf(enrichedCV, coverLetter || '', lang, template || 'modern')
-      : await generateDocx(enrichedCV, coverLetter || '', lang, template || 'modern');
+      ? await generatePdf(enrichedCV, coverLetter || '', lang, template || 'modern', watermark)
+      : await generateDocx(enrichedCV, coverLetter || '', lang, template || 'modern', watermark);
 
     res.setHeader('Content-Type', contentTypeFor(outFormat));
     res.setHeader('Content-Disposition', `attachment; filename="${filenameFor(outFormat, lang)}"`);
+    res.setHeader('X-Watermarked', watermarked ? 'true' : 'false');
     res.send(Buffer.from(buffer));
   } catch (err) {
     if (err.statusCode) return res.status(err.statusCode).json({ error: err.message });
@@ -146,7 +152,7 @@ exports.downloadDocument = async (req, res, next) => {
       return res.status(404).json({ error: 'Document not found' });
     }
 
-    await consumeCreditOrCheckAccess(req.user._id, doc._id);
+    const { watermarked } = await resolveAccess(req.user._id, doc._id);
 
     doc.downloadCount = (doc.downloadCount || 0) + 1;
     await doc.save();
@@ -159,16 +165,18 @@ exports.downloadDocument = async (req, res, next) => {
       location: doc.tailoredContent?.location || ''
     };
     const outFormat = normalizeFormat(req.query.format);
+    const watermark = watermarked ? watermarkTextFor(doc.language) : null;
     const buffer = outFormat === 'pdf'
-      ? await generatePdf(enrichedCV, doc.coverLetter, doc.language, doc.template || 'modern')
-      : await generateDocx(enrichedCV, doc.coverLetter, doc.language, doc.template || 'modern');
+      ? await generatePdf(enrichedCV, doc.coverLetter, doc.language, doc.template || 'modern', watermark)
+      : await generateDocx(enrichedCV, doc.coverLetter, doc.language, doc.template || 'modern', watermark);
     const filename = filenameFor(outFormat, doc.language);
 
     res.setHeader('Content-Type', contentTypeFor(outFormat));
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('X-Watermarked', watermarked ? 'true' : 'false');
     res.send(Buffer.from(buffer));
 
-    posthog.captureFor(req, 'document_downloaded', { format: outFormat, template: doc.template || 'modern' });
+    posthog.captureFor(req, 'document_downloaded', { format: outFormat, template: doc.template || 'modern', watermarked });
   } catch (err) {
     if (err.statusCode) return res.status(err.statusCode).json({ error: err.message });
     next(err);
@@ -197,6 +205,40 @@ exports.updateApplicationStatus = async (req, res, next) => {
     res.json(doc);
 
     posthog.captureFor(req, 'application_status_updated', { applicationStatus: applicationStatus || null });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.updateDocumentContent = async (req, res, next) => {
+  try {
+    const { tailoredContent, coverLetter, gapAnalysis, jobTitle, jobDescription, template } = req.body;
+    const updates = {};
+
+    if (tailoredContent !== undefined) updates.tailoredContent = tailoredContent;
+    if (coverLetter !== undefined) updates.coverLetter = coverLetter;
+    if (gapAnalysis !== undefined) updates.gapAnalysis = Array.isArray(gapAnalysis) ? gapAnalysis : [];
+    if (jobTitle !== undefined) updates.jobTitle = jobTitle;
+    if (jobDescription !== undefined) updates.jobDescription = jobDescription;
+    if (template !== undefined) updates.template = template;
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ error: 'No content to update' });
+    }
+
+    const doc = await TailoredDocument.findOneAndUpdate(
+      { _id: req.params.id, userId: req.user._id },
+      { $set: updates },
+      { new: true }
+    );
+    if (!doc) {
+      return res.status(404).json({ error: 'Document not found' });
+    }
+    res.json(doc);
+
+    posthog.captureFor(req, 'document_content_updated', {
+      fields: Object.keys(updates)
+    });
   } catch (err) {
     next(err);
   }

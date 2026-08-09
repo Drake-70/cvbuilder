@@ -49,10 +49,13 @@ function userResponse(user) {
     preferredLanguage: user.preferredLanguage,
     avatar: user.avatar || '',
     bio: user.bio || '',
+    summary: user.summary || '',
     phone: user.phone || '',
     location: user.location || '',
     jobTitle: user.jobTitle || '',
     company: user.company || '',
+    linkedin: user.linkedin || '',
+    website: user.website || '',
     savedSkills: Array.isArray(user.savedSkills) ? user.savedSkills : [],
     subscriptionStatus: user.subscriptionStatus,
     documentsGeneratedCount: user.documentsGeneratedCount,
@@ -264,16 +267,19 @@ exports.me = async (req, res) => {
 
 exports.updateMe = async (req, res, next) => {
   try {
-    const { name, preferredLanguage, currentPassword, newPassword, bio, phone, location, jobTitle, company, savedSkills } = req.body;
+    const { name, preferredLanguage, currentPassword, newPassword, bio, summary, phone, location, jobTitle, company, linkedin, website, savedSkills } = req.body;
     const user = await User.findById(req.user._id);
 
     if (name) user.name = name;
     if (preferredLanguage) user.preferredLanguage = preferredLanguage;
     if (bio !== undefined) user.bio = bio;
+    if (summary !== undefined) user.summary = summary;
     if (phone !== undefined) user.phone = phone;
     if (location !== undefined) user.location = location;
     if (jobTitle !== undefined) user.jobTitle = jobTitle;
     if (company !== undefined) user.company = company;
+    if (linkedin !== undefined) user.linkedin = linkedin;
+    if (website !== undefined) user.website = website;
     if (savedSkills !== undefined) {
       const cleaned = (Array.isArray(savedSkills) ? savedSkills : [])
         .map((s) => String(s).trim())
@@ -393,45 +399,59 @@ exports.resendVerification = async (req, res, next) => {
   }
 };
 
+async function verifyGoogleCredential(credential) {
+  const client = getGoogleClient();
+
+  const ticket = await client.verifyIdToken({
+    idToken: credential,
+    audience: process.env.GOOGLE_CLIENT_ID
+  });
+
+  const payload = ticket.getPayload();
+  const { email, name, sub: googleId } = payload;
+
+  if (!email) {
+    const err = new Error('Google account must have an email');
+    err.googleNoEmail = true;
+    throw err;
+  }
+
+  let user = await User.findOne({ $or: [{ googleId }, { email: email.toLowerCase() }] });
+
+  if (user) {
+    if (!user.googleId) {
+      user.googleId = googleId;
+      user.emailVerified = true;
+      await user.save();
+    }
+  } else {
+    user = await User.create({
+      email: email.toLowerCase(),
+      name: name || email.split('@')[0],
+      googleId,
+      preferredLanguage: 'en',
+      emailVerified: true,
+      freeDocumentCredits: 1
+    });
+  }
+
+  return user;
+}
+
 exports.googleLogin = async (req, res, next) => {
   try {
     const { credential } = req.body;
     if (!credential) return res.status(400).json({ error: 'Google credential is required' });
 
-    let client;
+    let user;
     try {
-      client = getGoogleClient();
-    } catch {
-      return res.status(501).json({ error: 'Google sign-in is not configured on this server' });
-    }
-
-    const ticket = await client.verifyIdToken({
-      idToken: credential,
-      audience: process.env.GOOGLE_CLIENT_ID
-    });
-
-    const payload = ticket.getPayload();
-    const { email, name, sub: googleId, picture } = payload;
-
-    if (!email) return res.status(400).json({ error: 'Google account must have an email' });
-
-    let user = await User.findOne({ $or: [{ googleId }, { email: email.toLowerCase() }] });
-
-    if (user) {
-      if (!user.googleId) {
-        user.googleId = googleId;
-        user.emailVerified = true;
-        await user.save();
+      user = await verifyGoogleCredential(credential);
+    } catch (err) {
+      if (err.googleNoEmail) return res.status(400).json({ error: err.message });
+      if (err.message?.includes('Token used too late') || err.message?.includes('Invalid token')) {
+        return res.status(401).json({ error: 'Invalid Google credential' });
       }
-    } else {
-      user = await User.create({
-        email: email.toLowerCase(),
-        name: name || email.split('@')[0],
-        googleId,
-        preferredLanguage: 'en',
-        emailVerified: true,
-        freeDocumentCredits: 1
-      });
+      throw err;
     }
 
     const tokens = generateTokens(user._id);
@@ -450,6 +470,36 @@ exports.googleLogin = async (req, res, next) => {
       return res.status(401).json({ error: 'Invalid Google credential' });
     }
     next(err);
+  }
+};
+
+exports.googleRedirect = async (req, res, next) => {
+  try {
+    const idToken = req.body?.credential || req.body?.id_token;
+    if (!idToken) return res.redirect('/login?error=google_missing_credential');
+
+    let user;
+    try {
+      user = await verifyGoogleCredential(idToken);
+    } catch (err) {
+      logger.error(`Google redirect sign-in failed: ${err.message}`);
+      return res.redirect('/login?error=google_signin_failed');
+    }
+
+    const tokens = generateTokens(user._id);
+    setTokenCookies(res, tokens.accessToken, tokens.refreshToken);
+
+    posthog.identify(user._id.toString(), {
+      name: user.name,
+      email: user.email,
+      language: user.preferredLanguage || 'en'
+    });
+    posthog.capture('user_logged_in', user._id.toString(), { provider: 'google' });
+
+    res.redirect(303, '/dashboard');
+  } catch (err) {
+    logger.error(`Google redirect sign-in error: ${err.message}`);
+    res.redirect(303, '/login?error=google_signin_failed');
   }
 };
 

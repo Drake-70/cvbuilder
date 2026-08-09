@@ -43,3 +43,32 @@ test('generatePdf handles an empty CV', async () => {
   const buffer = await generatePdf({}, '', 'en');
   assert.ok(buffer.length > 0);
 });
+
+test('generatePdf applies a watermark overlay', async () => {
+  const clean = await generatePdf(sampleCV, sampleCoverLetter, 'en', 'modern');
+  const marked = await generatePdf(sampleCV, sampleCoverLetter, 'en', 'modern', 'FREE PREVIEW');
+  assert.deepEqual([...marked.slice(0, 5)].map(c => String.fromCharCode(c)).join(''), '%PDF-');
+  assert.ok(marked.length > clean.length, 'watermarked PDF should contain extra drawing content');
+});
+
+test('generatePdf watermarks a multi-page document without breaking it', async () => {
+  const longCV = {
+    ...sampleCV,
+    experience: Array.from({ length: 12 }, (_, i) => ({
+      title: `Role ${i}`,
+      company: 'Company',
+      dates: '2020 - 2021',
+      bullets: Array.from({ length: 4 }, (_, j) => `Bullet point ${j} for role ${i}`)
+    }))
+  };
+  const buffer = await generatePdf(longCV, sampleCoverLetter, 'en', 'modern', 'APERÇU GRATUIT');
+  assert.deepEqual([...buffer.slice(0, 5)].map(c => String.fromCharCode(c)).join(''), '%PDF-');
+  assert.ok(buffer.length > 0);
+});
+
+test('generatePdf watermark works for French output and all templates', async () => {
+  for (const tpl of PDF_TEMPLATES) {
+    const buffer = await generatePdf(sampleCV, sampleCoverLetter, 'fr', tpl, 'APERÇU GRATUIT');
+    assert.deepEqual([...buffer.slice(0, 5)].map(c => String.fromCharCode(c)).join(''), '%PDF-');
+  }
+});

@@ -22,7 +22,7 @@ export default function ContactPage() {
     e.preventDefault();
     setError('');
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
-      setError('Please enter a valid email address.');
+      setError(t('contact.invalid_email'));
       return;
     }
     setLoading(true);
@@ -30,11 +30,11 @@ export default function ContactPage() {
     try {
       await api.post('/contact', form);
       setSent(true);
-      toast.success('Message Sent', 'We\'ll get back to you within 24 hours.');
+      toast.success(t('contact.sent_toast'), t('contact.sent_desc'));
     } catch (err) {
-      const msg = err.response?.data?.error || 'Failed to send message. Please try again.';
+      const msg = err.response?.data?.error || t('contact.send_failed');
       setError(msg);
-      toast.error('Send Failed', msg);
+      toast.error(t('contact.send_failed_toast'), msg);
     } finally {
       setLoading(false);
     }
@@ -49,15 +49,15 @@ export default function ContactPage() {
               <polyline points="20,6 9,17 4,12"/>
             </svg>
           </div>
-          <h1 className="text-2xl font-bold text-surface-900 dark:text-white mb-2">Message Sent!</h1>
+          <h1 className="text-2xl font-bold text-surface-900 dark:text-white mb-2">{t('contact.sent_title')}</h1>
           <p className="text-surface-500 dark:text-surface-400 mb-6">
-            Thank you for reaching out. We typically respond within 24 hours.
+            {t('contact.sent_desc')}
           </p>
           <button
             onClick={() => { setSent(false); setForm({ name: user?.name || '', email: user?.email || '', subject: '', message: '' }); }}
             className="btn-secondary"
           >
-            Send Another Message
+            {t('contact.another')}
           </button>
         </div>
       </div>
@@ -68,10 +68,10 @@ export default function ContactPage() {
     <div className="py-12 sm:py-16 px-4">
       <div className="max-w-3xl mx-auto">
         <div className="text-center mb-12">
-          <p className="text-sm font-semibold text-brand-600 uppercase tracking-wider mb-2">Contact Us</p>
-          <h1 className="text-2xl sm:text-3xl font-bold text-surface-900 dark:text-white mb-3">Get in Touch</h1>
+          <p className="text-sm font-semibold text-brand-600 uppercase tracking-wider mb-2">{t('contact.kicker')}</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-surface-900 dark:text-white mb-3">{t('contact.title')}</h1>
           <p className="text-surface-500 dark:text-surface-400 max-w-md mx-auto">
-            Have a question, suggestion, or need help? We&apos;d love to hear from you.
+            {t('contact.desc')}
           </p>
         </div>
 
@@ -85,7 +85,7 @@ export default function ContactPage() {
                     <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>
                   </svg>
                 ),
-                label: 'Email',
+                label: t('contact.email_label'),
                 value: 'support@cvboost.cm'
               },
               {
@@ -94,7 +94,7 @@ export default function ContactPage() {
                     <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
                   </svg>
                 ),
-                label: 'Location',
+                label: t('contact.location_label'),
                 value: 'Douala, Cameroon'
               },
               {
@@ -103,8 +103,8 @@ export default function ContactPage() {
                     <circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/>
                   </svg>
                 ),
-                label: 'Response Time',
-                value: 'Within 24 hours'
+                label: t('contact.response_label'),
+                value: t('contact.response_value')
               }
             ].map((info, i) => (
               <div key={i} className="card p-4 flex items-start gap-3">
@@ -134,7 +134,7 @@ export default function ContactPage() {
               <div className="grid sm:grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="contact-name" className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">
-                    {t('required_field') === 'Required' ? 'Name' : 'Nom'}
+                    {t('contact.name_label')}
                   </label>
                   <input
                     id="contact-name"
@@ -143,12 +143,12 @@ export default function ContactPage() {
                     value={form.name}
                     onChange={(e) => setForm({ ...form, name: e.target.value })}
                     className="input-field"
-                    placeholder="Your name"
+                    placeholder={t('contact.name_label')}
                   />
                 </div>
                 <div>
                   <label htmlFor="contact-email" className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">
-                    {t('required_field') === 'Required' ? 'Email' : 'Email'}
+                    {t('contact.email_label')}
                   </label>
                   <input
                     id="contact-email"
@@ -164,7 +164,7 @@ export default function ContactPage() {
               </div>
 
               <div>
-                <label htmlFor="contact-subject" className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">Subject</label>
+                <label htmlFor="contact-subject" className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">{t('contact.subject_label')}</label>
                 <input
                   id="contact-subject"
                   type="text"
@@ -172,12 +172,12 @@ export default function ContactPage() {
                   value={form.subject}
                   onChange={(e) => setForm({ ...form, subject: e.target.value })}
                   className="input-field"
-                  placeholder="How can we help?"
+                  placeholder={t('contact.subject_placeholder')}
                 />
               </div>
 
               <div>
-                <label htmlFor="contact-message" className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">Message</label>
+                <label htmlFor="contact-message" className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">{t('contact.message_label')}</label>
                 <textarea
                   id="contact-message"
                   required
@@ -186,7 +186,7 @@ export default function ContactPage() {
                   value={form.message}
                   onChange={(e) => setForm({ ...form, message: e.target.value })}
                   className="input-field resize-none"
-                  placeholder="Tell us more..."
+                  placeholder={t('contact.message_placeholder')}
                 />
                 <div className="text-xs text-surface-400 dark:text-surface-500 text-right mt-1">{form.message.length}/2000</div>
               </div>
@@ -198,7 +198,7 @@ export default function ContactPage() {
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
                   </svg>
                 )}
-                {loading ? 'Sending...' : 'Send Message'}
+                {loading ? t('contact.sending') : t('contact.send')}
               </button>
             </form>
           </div>

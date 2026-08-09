@@ -7,6 +7,7 @@ import CVPreview from '../components/CVPreview';
 
 export default function SharedCVPage() {
   const { token } = useParams();
+  const { t } = useTranslation('common');
   const { t: tTailor } = useTranslation('tailor');
   const [doc, setDoc] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -20,7 +21,7 @@ export default function SharedCVPage() {
         setDoc(res.data);
         analytics.track('shared_cv_viewed', { hasCoverLetter: Boolean(res.data.coverLetter) });
       } catch (err) {
-        setError(err.response?.status === 404 ? 'This CV link is no longer available.' : 'Failed to load CV.');
+        setError(err.response?.status === 404 ? t('shared_cv_unavailable') : t('shared_cv_load_failed'));
       } finally {
         setLoading(false);
       }
@@ -43,7 +44,7 @@ export default function SharedCVPage() {
       window.URL.revokeObjectURL(url);
       analytics.track('shared_cv_downloaded', { format, hasCoverLetter: Boolean(doc?.coverLetter) });
     } catch {
-      setError('Failed to download. Please try again.');
+      setError(t('shared_cv_download_failed'));
     } finally {
       setDownloading(false);
     }
@@ -69,7 +70,7 @@ export default function SharedCVPage() {
           </svg>
         </div>
         <h2 className="text-xl font-bold text-surface-900 dark:text-white mb-2">{error}</h2>
-        <a href="/" className="btn-primary mt-4 inline-block no-underline">Go to CVBoost</a>
+        <a href="/" className="btn-primary mt-4 inline-block no-underline">{t('go_to_cvboost')}</a>
       </div>
     );
   }
@@ -84,9 +85,9 @@ export default function SharedCVPage() {
           <div>
             <h1 className="text-2xl font-bold text-surface-900 dark:text-white">{doc.jobTitle || tTailor('tailored_cv')}</h1>
             <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">
-              Shared CV &middot; {doc.language === 'fr' ? 'Fran\u00e7ais' : 'English'}
+              {t('shared_cv_title')} &middot; {doc.language === 'fr' ? 'Fran\u00e7ais' : 'English'}
             </p>
-            <p className="text-xs text-surface-400 mt-1">Powered by CVBoost</p>
+            <p className="text-xs text-surface-400 mt-1">{t('powered_by')}</p>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -103,7 +104,7 @@ export default function SharedCVPage() {
               className="btn-primary text-sm flex items-center gap-1.5"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-              {downloading ? tTailor('generating') : 'Download'}
+              {downloading ? tTailor('generating') : t('download')}
             </button>
           </div>
         </div>

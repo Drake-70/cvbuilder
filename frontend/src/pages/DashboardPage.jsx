@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
-import PaymentModal from '../components/PaymentModal';
 import ReferralWidget from '../components/ReferralWidget';
 import ApplicationTracker from '../components/ApplicationTracker';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -15,11 +14,9 @@ export default function DashboardPage() {
   const { t } = useTranslation('common');
   const { t: tTailor } = useTranslation('tailor');
   const { t: tJobs } = useTranslation('jobs');
-  const { user, fetchUser } = useAuth();
+  const { user } = useAuth();
   const { toast } = useToast();
 
-  const [paymentOpen, setPaymentOpen] = useState(false);
-  const [paymentDocId, setPaymentDocId] = useState(null);
   const [downloadingId, setDownloadingId] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
@@ -46,13 +43,11 @@ export default function DashboardPage() {
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
-    } catch (err) {
-      if (err.response?.status === 402) {
-        setPaymentDocId(docId);
-        setPaymentOpen(true);
-      } else {
-        toast.error(t('download_failed'), t('download_failed_msg'));
+      if (res.headers?.['x-watermarked'] === 'true') {
+        toast.info(t('watermark_toast_title'), t('watermark_toast_msg'));
       }
+    } catch (err) {
+      toast.error(t('download_failed'), t('download_failed_msg'));
     } finally {
       setDownloadingId(null);
     }
@@ -70,16 +65,6 @@ export default function DashboardPage() {
     } finally {
       setDeletingId(null);
       setDeleteTarget(null);
-    }
-  };
-
-  const handlePaymentSuccess = () => {
-    fetchUser();
-    invalidateCacheKey('/document/list');
-    refetchDocs();
-    if (paymentDocId) {
-      handleDownload(paymentDocId);
-      setPaymentDocId(null);
     }
   };
 
@@ -349,8 +334,6 @@ export default function DashboardPage() {
           </div>
         )}
       </div>
-
-      <PaymentModal open={paymentOpen} onClose={() => setPaymentOpen(false)} onSuccess={handlePaymentSuccess} documentId={paymentDocId} type="one-time" />
 
       <ConfirmDialog
         open={!!deleteTarget}

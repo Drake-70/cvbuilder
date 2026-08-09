@@ -1,22 +1,41 @@
 import { highlightText } from '../utils/gapKeywords';
+import { shouldSkillsFirst } from '../utils/cvLayout';
 
-export default function CVPreview({ cv, language = 'en', highlightTerms = [], markClass = 'cv-hl-new' }) {
+export default function CVPreview({ cv, language = 'en', highlightTerms = [], markClass = 'cv-hl-new', template = 'modern', watermarked = false, watermarkLabel = '', watermarkHint = '' }) {
   if (!cv) return null;
 
   const isFr = language === 'fr';
   const hl = (text) => highlightText(text, highlightTerms, markClass);
+  const skillsFirst = shouldSkillsFirst(cv);
+  const tpl = ['modern', 'classic', 'creative', 'professional', 'minimal', 'bold'].includes(template) ? template : 'modern';
+  const wmLabel = watermarkLabel || (isFr ? 'APERÇU GRATUIT' : 'FREE PREVIEW');
+  const wmHint = watermarkHint || (isFr ? 'Passez à Pro pour télécharger la version finale' : 'Upgrade to Pro to download the clean version');
+
+  const skillsSection = cv.skills && cv.skills.length > 0 ? (
+    <div className="cv-section">
+      <h2 className="cv-section-title">{isFr ? 'COMPETENCES' : 'SKILLS'}</h2>
+      <div className="cv-skills">
+        {cv.skills.map((skill, i) => (
+          <span key={i} className="cv-skill-tag">{hl(skill)}</span>
+        ))}
+      </div>
+    </div>
+  ) : null;
 
   return (
     <div className="cv-preview-wrapper">
-      <div className="cv-preview" role="document" aria-label={isFr ? 'Apercu du CV' : 'CV Preview'}>
+      <div className={`cv-preview cv-tpl-${tpl}`} role="document" aria-label={isFr ? 'Apercu du CV' : 'CV Preview'}>
         {/* Header */}
         <div className="cv-header">
           <h1 className="cv-name">{cv.name || 'Your Name'}</h1>
-          {(cv.email || cv.phone || cv.location) && (
+          {cv.headline && <p className="cv-headline">{cv.headline}</p>}
+          {(cv.email || cv.phone || cv.location || cv.linkedin || cv.website) && (
             <div className="cv-contact">
               {cv.email && <span>{cv.email}</span>}
               {cv.phone && <span>{cv.phone}</span>}
               {cv.location && <span>{cv.location}</span>}
+              {cv.linkedin && <span>{cv.linkedin}</span>}
+              {cv.website && <span>{cv.website}</span>}
             </div>
           )}
         </div>
@@ -28,6 +47,8 @@ export default function CVPreview({ cv, language = 'en', highlightTerms = [], ma
             <p className="cv-text">{hl(cv.summary)}</p>
           </div>
         )}
+
+        {skillsFirst && skillsSection}
 
         {/* Experience */}
         {cv.experience && cv.experience.length > 0 && (
@@ -73,15 +94,18 @@ export default function CVPreview({ cv, language = 'en', highlightTerms = [], ma
           </div>
         )}
 
-        {/* Skills */}
-        {cv.skills && cv.skills.length > 0 && (
+        {!skillsFirst && skillsSection}
+
+        {/* Certifications */}
+        {cv.certifications && cv.certifications.length > 0 && (
           <div className="cv-section">
-            <h2 className="cv-section-title">{isFr ? 'COMPETENCES' : 'SKILLS'}</h2>
-            <div className="cv-skills">
-              {cv.skills.map((skill, i) => (
-                <span key={i} className="cv-skill-tag">{hl(skill)}</span>
-              ))}
-            </div>
+            <h2 className="cv-section-title">{isFr ? 'CERTIFICATIONS' : 'CERTIFICATIONS'}</h2>
+            {cv.certifications.map((cert, i) => (
+              <p key={i} className="cv-text">
+                {[cert.title, cert.issuer && `— ${cert.issuer}`].filter(Boolean).join(' ')}
+                {cert.year ? ` (${cert.year})` : ''}
+              </p>
+            ))}
           </div>
         )}
 
@@ -95,6 +119,13 @@ export default function CVPreview({ cv, language = 'en', highlightTerms = [], ma
           ))
         )}
       </div>
+
+      {watermarked && (
+        <div className="cv-watermark" aria-hidden="true">
+          <div className="cv-watermark-label">{wmLabel}</div>
+          <div className="cv-watermark-hint">{wmHint}</div>
+        </div>
+      )}
     </div>
   );
 }

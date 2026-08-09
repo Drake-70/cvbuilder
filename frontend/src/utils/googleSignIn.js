@@ -31,7 +31,9 @@ export function initGoogleSignIn({ clientId, onCredential, onError, buttonRef })
           }
           latestCallback?.(response.credential);
         },
-        auto_select: false
+        auto_select: false,
+        ux_mode: 'redirect',
+        login_uri: `${window.location.origin}/api/auth/google-redirect`
       });
       initialized = true;
     }

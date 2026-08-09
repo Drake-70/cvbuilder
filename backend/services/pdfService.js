@@ -1,5 +1,6 @@
 const PDFDocument = require('pdfkit');
 const logger = require('../utils/logger');
+const { shouldSkillsFirst } = require('./cvLayout');
 
 const PAGE_WIDTH = 595.28;
 const PAGE_HEIGHT = 841.89;
@@ -12,6 +13,7 @@ const LABELS = {
     experience: 'Experience',
     education: 'Education',
     skills: 'Skills',
+    certifications: 'Certifications',
     coverLetter: 'Cover Letter'
   },
   fr: {
@@ -19,6 +21,7 @@ const LABELS = {
     experience: 'Expérience',
     education: 'Formation',
     skills: 'Compétences',
+    certifications: 'Certifications',
     coverLetter: 'Lettre de Motivation'
   }
 };
@@ -30,7 +33,7 @@ const TEMPLATES = {
     headingRule: '333333',
     nameColor: '1F2937',
     nameSize: 26,
-    nameAlign: 'center',
+    nameAlign: 'left',
     band: null,
     companyItalic: false,
     contactColor: '444444'
@@ -128,11 +131,13 @@ function sectionHeading(doc, tpl, text, y) {
 
 function contactInfo(cv) {
   const parts = [];
-  if (cv.email) parts.push(cv.email);
-  if (cv.phone) parts.push(cv.phone);
-  if (cv.location) parts.push(cv.location);
-  if (cv.nationality) parts.push(cv.nationality);
-  return parts.join('  |  ');
+  if (cv.email) parts.push({ text: cv.email });
+  if (cv.phone) parts.push({ text: cv.phone });
+  if (cv.location) parts.push({ text: cv.location });
+  if (cv.nationality) parts.push({ text: cv.nationality });
+  if (cv.linkedin) parts.push({ text: cv.linkedin, url: cv.linkedin });
+  if (cv.website) parts.push({ text: cv.website, url: cv.website });
+  return parts;
 }
 
 function nameHeader(doc, tpl, cv) {
@@ -170,12 +175,26 @@ function nameHeader(doc, tpl, cv) {
   }
 
   const info = contactInfo(cv);
-  if (info) {
+  const infoAlign = tpl.nameAlign || 'center';
+  if (cv.headline) {
+    doc
+      .fillColor(tpl.heading)
+      .font(FONTS[tpl.font].italic)
+      .fontSize(11)
+      .text(cv.headline, MARGIN, doc.y, { width: CONTENT_WIDTH, align: infoAlign });
+    doc.moveDown(0.6);
+  }
+  if (info.length) {
     doc
       .fillColor(tpl.contactColor)
       .font(FONTS[tpl.font].regular)
-      .fontSize(9)
-      .text(info, MARGIN, doc.y, { width: CONTENT_WIDTH, align: 'center' });
+      .fontSize(9);
+    info.forEach((part, i) => {
+      if (i > 0) doc.text('  |  ', { continued: true });
+      const opts = { width: CONTENT_WIDTH, align: infoAlign, continued: i < info.length - 1 };
+      if (part.url) opts.link = part.url;
+      doc.text(part.text, opts);
+    });
     doc.moveDown(1.2);
   } else {
     doc.moveDown(0.8);
@@ -184,6 +203,19 @@ function nameHeader(doc, tpl, cv) {
 }
 
 function writeSection(doc, tpl, cv) {
+  const skillsFirst = shouldSkillsFirst(cv);
+
+  const renderSkills = () => {
+    if (cv.skills && cv.skills.length > 0) {
+      sectionHeading(doc, tpl, LABELS[cv.language]?.skills || LABELS.en.skills);
+      doc
+        .font(FONTS[tpl.font].regular)
+        .fontSize(10)
+        .text(cv.skills.join(', '), { width: CONTENT_WIDTH });
+      doc.moveDown(0.9);
+    }
+  };
+
   if (cv.summary) {
     sectionHeading(doc, tpl, LABELS[cv.language]?.summary || LABELS.en.summary);
     doc
@@ -192,6 +224,8 @@ function writeSection(doc, tpl, cv) {
       .text(cv.summary, { width: CONTENT_WIDTH, lineGap: 2 });
     doc.moveDown(0.9);
   }
+
+  if (skillsFirst) renderSkills();
 
   if (cv.experience && cv.experience.length > 0) {
     sectionHeading(doc, tpl, LABELS[cv.language]?.experience || LABELS.en.experience);
@@ -257,13 +291,19 @@ function writeSection(doc, tpl, cv) {
     });
   }
 
-  if (cv.skills && cv.skills.length > 0) {
-    sectionHeading(doc, tpl, LABELS[cv.language]?.skills || LABELS.en.skills);
-    doc
-      .font(FONTS[tpl.font].regular)
-      .fontSize(10)
-      .text(cv.skills.join('  •  '), { width: CONTENT_WIDTH });
-    doc.moveDown(0.9);
+  if (!skillsFirst) renderSkills();
+
+  if (cv.certifications && cv.certifications.length > 0) {
+    sectionHeading(doc, tpl, LABELS[cv.language]?.certifications || LABELS.en.certifications);
+    cv.certifications.forEach(cert => {
+      const head = [cert.title, cert.issuer && ` — ${cert.issuer}`].filter(Boolean).join(' ');
+      const line = cert.year ? `${head}   (${cert.year})` : head;
+      doc
+        .font(FONTS[tpl.font].regular)
+        .fontSize(10)
+        .text(line, { width: CONTENT_WIDTH });
+      doc.moveDown(0.4);
+    });
   }
 
   if (cv.additionalSections && cv.additionalSections.length > 0) {
@@ -278,7 +318,26 @@ function writeSection(doc, tpl, cv) {
   }
 }
 
-function generatePdf(cv, coverLetter, language, templateName = 'modern') {
+function applyWatermark(doc, text) {
+  const pageRange = doc.bufferedPageRange();
+  const centerX = PAGE_WIDTH / 2;
+  const centerY = PAGE_HEIGHT / 2;
+  for (let i = 0; i < pageRange.count; i++) {
+    doc.switchToPage(pageRange.start + i);
+    doc.save();
+    doc.opacity(0.14);
+    doc.translate(centerX, centerY);
+    doc.rotate(38);
+    doc
+      .font('Helvetica-Bold')
+      .fontSize(46)
+      .fillColor('#6B7280')
+      .text(text, -280, -24, { width: 560, align: 'center' });
+    doc.restore();
+  }
+}
+
+function generatePdf(cv, coverLetter, language, templateName = 'modern', watermarkText = null) {
   const tpl = TEMPLATES[templateName] || TEMPLATES.modern;
   const lang = language === 'fr' ? 'fr' : 'en';
   const labels = LABELS[lang];
@@ -308,6 +367,8 @@ function generatePdf(cv, coverLetter, language, templateName = 'modern') {
           doc.moveDown(0.4);
         });
       }
+
+      if (watermarkText) applyWatermark(doc, watermarkText);
 
       doc.end();
     } catch (err) {

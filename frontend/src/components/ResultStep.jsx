@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
-import PaymentModal from './PaymentModal';
 import InterviewPrep from './InterviewPrep';
 import ATSScoreCard from './ATSScoreCard';
 import LinkedInGenerator from './LinkedInGenerator';
@@ -10,7 +9,7 @@ import BeforeAfterGaps from './BeforeAfterGaps';
 import api from '../services/api';
 import analytics from '../utils/analytics';
 
-export default function ResultStep({ result, onDownload, onReset, loading, documentId, onCoverLetterSelect }) {
+export default function ResultStep({ result, onDownload, onReset, loading, onCoverLetterSelect }) {
   const { t } = useTranslation('tailor');
   const { t: tCommon } = useTranslation('common');
   const { user } = useAuth();
@@ -18,7 +17,6 @@ export default function ResultStep({ result, onDownload, onReset, loading, docum
   const [view, setView] = useState('preview');
   const [template, setTemplate] = useState('modern');
   const [format, setFormat] = useState('docx');
-  const [paymentOpen, setPaymentOpen] = useState(false);
   const [grammarIssues, setGrammarIssues] = useState(null);
   const [grammarLoading, setGrammarLoading] = useState(false);
   const [grammarError, setGrammarError] = useState('');
@@ -41,14 +39,6 @@ export default function ResultStep({ result, onDownload, onReset, loading, docum
   const hasCredits = (user?.freeDocumentCredits || 0) > 0;
 
   const handleDownloadClick = () => {
-    if (isSubscribed || hasCredits) {
-      onDownload(template, format);
-    } else {
-      setPaymentOpen(true);
-    }
-  };
-
-  const handlePaymentSuccess = () => {
     onDownload(template, format);
   };
 
@@ -194,7 +184,14 @@ export default function ResultStep({ result, onDownload, onReset, loading, docum
       {/* Content */}
       <div className="result-content card p-5 sm:p-6 overflow-hidden" key={`${tab}-${view}`}>
         {tab === 'cv' && view === 'preview' && (
-          <CVPreview cv={cv} language={result.language} />
+          <CVPreview
+            cv={cv}
+            language={result.language}
+            template={template}
+            watermarked={!isSubscribed && !hasCredits}
+            watermarkLabel={tCommon('watermark_label')}
+            watermarkHint={tCommon('watermark_hint')}
+          />
         )}
 
         {tab === 'cv' && view === 'structured' && (
@@ -359,9 +356,7 @@ export default function ResultStep({ result, onDownload, onReset, loading, docum
                 <polyline points="7,10 12,15 17,10"/>
                 <line x1="12" y1="15" x2="12" y2="3"/>
               </svg>
-              {isSubscribed || hasCredits
-                ? (format === 'pdf' ? t('download_pdf', 'Download as PDF') : t('download_docx'))
-                : t('pay_and_download')}
+              {format === 'pdf' ? t('download_pdf', 'Download as PDF') : t('download_docx')}
             </>
           )}
         </button>
@@ -375,7 +370,7 @@ export default function ResultStep({ result, onDownload, onReset, loading, docum
 
         {!isSubscribed && !hasCredits && (
           <p className="text-center text-xs text-surface-400 mt-2">
-            {t('download_payment_hint')}
+            {tCommon('watermark_hint')}
           </p>
         )}
         {hasCredits && (
@@ -460,14 +455,6 @@ export default function ResultStep({ result, onDownload, onReset, loading, docum
           )}
         </div>
       </div>
-
-      <PaymentModal
-        open={paymentOpen}
-        onClose={() => setPaymentOpen(false)}
-        onSuccess={handlePaymentSuccess}
-        documentId={documentId}
-        type="one-time"
-      />
     </div>
   );
 }

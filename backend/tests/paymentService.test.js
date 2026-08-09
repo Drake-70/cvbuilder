@@ -156,3 +156,131 @@ test('isSandbox reflects NODE_ENV', () => {
   process.env.NODE_ENV = 'development';
   assert.equal(paymentService.isSandbox(), true);
 });
+
+test('getEnabledProviders always includes campay and only adds enabled card providers', () => {
+  const base = paymentService.getEnabledProviders().map((p) => p.id);
+  assert.deepEqual(base, ['campay']);
+
+  process.env.PAYSTACK_SECRET_KEY = 'pk_test_1';
+  process.env.STRIPE_SECRET_KEY = 'sk_test_1';
+  const all = paymentService.getEnabledProviders().map((p) => p.id);
+  assert.deepEqual(all, ['campay', 'paystack', 'stripe']);
+});
+
+test('initiateProvider: paystack initialize returns redirect with authorization url', async () => {
+  process.env.PAYSTACK_SECRET_KEY = 'pk_test_1';
+  mockFetch(({ url, options }) => {
+    if (url.includes('/transaction/initialize')) {
+      assert.equal(JSON.parse(options.body).email, 'card@example.com');
+      assert.equal(JSON.parse(options.body).amount, '500');
+      assert.equal(JSON.parse(options.body).currency, 'XAF');
+      return {
+        json: { status: true, message: 'OK', data: { authorization_url: 'https://paystack.com/pay/x', access_code: 'ac', reference: 'ref-ps' } }
+      };
+    }
+    throw new Error(`unexpected url ${url}`);
+  });
+
+  const result = await paymentService.initiateProvider({
+    provider: 'paystack',
+    email: 'card@example.com',
+    amount: 500,
+    currency: 'XAF',
+    reference: 'ref-ps'
+  });
+
+  assert.deepEqual(result, {
+    provider: 'paystack',
+    url: 'https://paystack.com/pay/x',
+    accessCode: 'ac',
+    reference: 'ref-ps',
+    redirect: true
+  });
+});
+
+test('initiateProvider: paystack throws when not configured', async () => {
+  delete process.env.PAYSTACK_SECRET_KEY;
+  await assert.rejects(
+    paymentService.initiateProvider({ provider: 'paystack', email: 'a@b.com', amount: 500, reference: 'r' }),
+    /Paystack is not configured/
+  );
+});
+
+test('initiateProvider: stripe creates checkout session with success/cancel urls', async () => {
+  process.env.STRIPE_SECRET_KEY = 'sk_test_1';
+  mockFetch(({ url, options }) => {
+    if (url.includes('/v1/checkout/sessions')) {
+      assert.ok(options.headers.Authorization.includes('sk_test_1'));
+      const body = options.body;
+      assert.equal(body.get('success_url'), 'https://cvboost.example/documents/abc?payment=pay-1');
+      assert.equal(body.get('cancel_url'), 'https://cvboost.example');
+      assert.equal(body.get('client_reference_id'), 'ref-st');
+      assert.equal(body.get('customer_email'), 'stripe@example.com');
+      return { json: { url: 'https://checkout.stripe.com/c/pay/x', id: 'cs_test_1' } };
+    }
+    throw new Error(`unexpected url ${url}`);
+  });
+
+  const result = await paymentService.initiateProvider({
+    provider: 'stripe',
+    email: 'stripe@example.com',
+    amount: 500,
+    currency: 'XAF',
+    reference: 'ref-st',
+    successUrl: 'https://cvboost.example/documents/abc?payment=pay-1',
+    cancelUrl: 'https://cvboost.example'
+  });
+
+  assert.deepEqual(result, { provider: 'stripe', url: 'https://checkout.stripe.com/c/pay/x', sessionId: 'cs_test_1', redirect: true });
+});
+
+test('initiateProvider: stripe throws when not configured', async () => {
+  delete process.env.STRIPE_SECRET_KEY;
+  await assert.rejects(
+    paymentService.initiateProvider({ provider: 'stripe', email: 'a@b.com', amount: 500, reference: 'r' }),
+    /Stripe is not configured/
+  );
+});
+
+test('initiateProvider: campay branch keeps existing ussd behaviour (no redirect)', async () => {
+  mockFetch(({ url }) => {
+    if (url.endsWith('/token/')) return { json: { access: 'tok-1', access_expires: 3600 } };
+    return { json: { reference: 'ref-c', status: 'PENDING', ussd_code: '*123#' } };
+  });
+
+  const result = await paymentService.initiateProvider({
+    provider: 'campay',
+    phoneNumber: '237655123456',
+    amount: 500,
+    reference: 'ref-c'
+  });
+
+  assert.equal(result.redirect, false);
+  assert.equal(result.ussdCode, '*123#');
+});
+
+test('checkProviderStatus: paystack verify maps success', async () => {
+  process.env.PAYSTACK_SECRET_KEY = 'pk_test_1';
+  mockFetch(({ url }) => {
+    if (url.includes('/transaction/verify/ref-ps')) {
+      return { json: { status: true, data: { status: 'success' } } };
+    }
+    throw new Error(`unexpected url ${url}`);
+  });
+
+  const result = await paymentService.checkProviderStatus({ provider: 'paystack', providerRef: 'ref-ps' });
+  assert.deepEqual(result, { status: 'SUCCESS', reference: 'ref-ps' });
+});
+
+test('checkProviderStatus: stripe session paid maps success', async () => {
+  process.env.STRIPE_SECRET_KEY = 'sk_test_1';
+  mockFetch(({ url }) => {
+    if (url.includes('/v1/checkout/sessions/cs_test_1')) {
+      return { json: { id: 'cs_test_1', payment_status: 'paid' } };
+    }
+    throw new Error(`unexpected url ${url}`);
+  });
+
+  const result = await paymentService.checkProviderStatus({ provider: 'stripe', providerRef: 'cs_test_1' });
+  assert.deepEqual(result, { status: 'SUCCESS', sessionId: 'cs_test_1' });
+});

@@ -1,9 +1,11 @@
-const CACHE_NAME = 'cvboost-v2';
+const CACHE_NAME = 'cvboost-v3';
 const PRECACHE = ['/', '/index.html'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE))
+    caches.open(CACHE_NAME)
+      .then((cache) => cache.addAll(PRECACHE))
+      .catch(() => {})
   );
   self.skipWaiting();
 });

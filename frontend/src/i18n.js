@@ -5,10 +5,12 @@ import enCommon from './locales/en/common.json';
 import enAuth from './locales/en/auth.json';
 import enTailor from './locales/en/tailor.json';
 import enJobs from './locales/en/jobs.json';
+import enPayment from './locales/en/payment.json';
 import frCommon from './locales/fr/common.json';
 import frAuth from './locales/fr/auth.json';
 import frTailor from './locales/fr/tailor.json';
 import frJobs from './locales/fr/jobs.json';
+import frPayment from './locales/fr/payment.json';
 
 const STORAGE_KEY = 'cvboost-lang';
 
@@ -21,17 +23,19 @@ i18n
         common: enCommon,
         auth: enAuth,
         tailor: enTailor,
-        jobs: enJobs
+        jobs: enJobs,
+        payment: enPayment
       },
       fr: {
         common: frCommon,
         auth: frAuth,
         tailor: frTailor,
-        jobs: frJobs
+        jobs: frJobs,
+        payment: frPayment
       }
     },
     fallbackLng: 'en',
-    ns: ['common', 'auth', 'tailor', 'jobs'],
+    ns: ['common', 'auth', 'tailor', 'jobs', 'payment'],
     defaultNS: 'common',
     interpolation: { escapeValue: false },
     detection: {
@@ -56,11 +60,12 @@ if (import.meta.hot) {
       './locales/en/common.json', './locales/fr/common.json',
       './locales/en/auth.json', './locales/fr/auth.json',
       './locales/en/tailor.json', './locales/fr/tailor.json',
-      './locales/en/jobs.json', './locales/fr/jobs.json'
+      './locales/en/jobs.json', './locales/fr/jobs.json',
+      './locales/en/payment.json', './locales/fr/payment.json'
     ],
     (modules) => {
       const langs = ['en', 'fr'];
-      const nss = ['common', 'auth', 'tailor', 'jobs'];
+      const nss = ['common', 'auth', 'tailor', 'jobs', 'payment'];
       modules.forEach((mod, i) => {
         if (mod && mod.default) {
           i18n.addResourceBundle(langs[i % 2], nss[Math.floor(i / 2)], mod.default, true, true);

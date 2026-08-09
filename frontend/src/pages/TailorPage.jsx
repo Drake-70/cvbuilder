@@ -13,6 +13,7 @@ import ResultStep from '../components/ResultStep';
 
 export default function TailorPage() {
   const { i18n, t } = useTranslation('tailor');
+  const { t: tCommon } = useTranslation('common');
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user, fetchUser } = useAuth();
@@ -170,7 +171,11 @@ export default function TailorPage() {
       window.URL.revokeObjectURL(url);
       fetchUser();
       analytics.track('document_download', { template, format });
-      toast.success('Downloaded', 'Your tailored CV has been saved.');
+      if (res.headers?.['x-watermarked'] === 'true') {
+        toast.info(tCommon('watermark_toast_title'), tCommon('watermark_toast_msg'));
+      } else {
+        toast.success('Downloaded', 'Your tailored CV has been saved.');
+      }
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to generate document.');
       toast.error('Download Failed', err.response?.data?.error || 'Please try again.');

@@ -1,10 +1,12 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import PaymentModal from '../components/PaymentModal';
 import { useCache } from '../hooks/useCache';
 import { PricingSkeleton } from '../components/Skeleton';
 
 export default function PricingPage() {
+  const { t } = useTranslation('common');
   const { user, fetchUser } = useAuth();
   const { data: pricing, isLoading } = useCache('/payments/pricing', { staleTime: 300_000 });
   const [modalOpen, setModalOpen] = useState(false);
@@ -22,17 +24,17 @@ export default function PricingPage() {
   return (
     <div className="max-w-4xl mx-auto px-4 py-10 sm:py-16 animate-slide-up" role="main">
       <div className="text-center mb-12">
-        <p className="kicker mb-3">Pricing</p>
-        <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-surface-900 dark:text-white mb-3">Simple, transparent pricing</h1>
+        <p className="kicker mb-3">{t('nav.pricing')}</p>
+        <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-surface-900 dark:text-white mb-3">{t('pricing.title')}</h1>
         <p className="text-surface-500 dark:text-surface-400 max-w-lg mx-auto">
-          Pay once per document, or subscribe for unlimited tailoring. All prices in XAF.
+          {t('pricing.subtitle')}
         </p>
       </div>
 
       {user?.subscriptionStatus === 'active' && (
         <div className="card bg-gradient-to-r from-emerald-500 to-emerald-600 border-0 p-5 mb-8 text-center text-white" role="status">
-          <h3 className="font-bold text-lg">You have an active subscription!</h3>
-          <p className="text-emerald-100 text-sm mt-1">Unlimited CV tailoring and downloads included.</p>
+          <h3 className="font-bold text-lg">{t('pricing.active_title')}</h3>
+          <p className="text-emerald-100 text-sm mt-1">{t('pricing.active_desc')}</p>
         </div>
       )}
 
@@ -42,23 +44,23 @@ export default function PricingPage() {
       <div className="grid sm:grid-cols-2 gap-6 max-w-2xl mx-auto">
         {/* One-time */}
         <div className="card p-6 sm:p-8 relative flex flex-col">
-          <h3 className="font-bold text-surface-900 dark:text-white mb-1">One-time Download</h3>
-          <p className="text-sm text-surface-500 dark:text-surface-400 mb-6">Perfect for a single application</p>
+          <h3 className="font-bold text-surface-900 dark:text-white mb-1">{t('pricing.onetime_title')}</h3>
+          <p className="text-sm text-surface-500 dark:text-surface-400 mb-6">{t('pricing.onetime_desc')}</p>
 
           <div className="mb-6 flex items-baseline">
             <span className="text-5xl font-extrabold tracking-tight text-surface-900 dark:text-white">
               {pricing ? pricing.oneTime.amount.toLocaleString() : '...'}
             </span>
-            <span className="text-sm text-surface-400 ml-2">XAF / once</span>
+            <span className="text-sm text-surface-400 ml-2">{t('pricing.xaf_once')}</span>
           </div>
 
           <ul className="space-y-3 mb-8 flex-1">
             {[
-              'Tailored CV (.docx)',
-              'Matching cover letter',
-              'Gap analysis',
-              'ATS-friendly format',
-              'One-time payment'
+              t('pricing.ft_tailored_cv'),
+              t('pricing.ft_cover_letter'),
+              t('pricing.ft_gap_analysis'),
+              t('pricing.ft_ats'),
+              t('pricing.ft_onetime_payment')
             ].map((feature, i) => (
               <li key={i} className="flex items-center gap-2.5 text-sm text-surface-600 dark:text-surface-300">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-brand-500 flex-shrink-0">
@@ -70,33 +72,33 @@ export default function PricingPage() {
           </ul>
 
           <button onClick={() => openPayment('one-time')} className="btn-secondary w-full" disabled={user?.subscriptionStatus === 'active'}>
-            {user?.subscriptionStatus === 'active' ? 'Included in subscription' : 'Pay & Download'}
+            {user?.subscriptionStatus === 'active' ? t('pricing.included_in_subscription') : t('pricing.pay_download')}
           </button>
         </div>
 
         {/* Subscription */}
         <div className="card p-6 sm:p-8 relative border-2 border-brand-400 flex flex-col">
           <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
-            <span className="badge badge-brand px-3 py-1">Best Value</span>
+            <span className="badge badge-brand px-3 py-1">{t('pricing.best_value')}</span>
           </div>
 
-          <h3 className="font-bold text-surface-900 dark:text-white mb-1">Monthly Subscription</h3>
-          <p className="text-sm text-surface-500 dark:text-surface-400 mb-6">Unlimited tailoring for active job seekers</p>
+          <h3 className="font-bold text-surface-900 dark:text-white mb-1">{t('pricing.sub_title')}</h3>
+          <p className="text-sm text-surface-500 dark:text-surface-400 mb-6">{t('pricing.sub_desc')}</p>
 
           <div className="mb-6 flex items-baseline">
             <span className="text-5xl font-extrabold tracking-tight text-surface-900 dark:text-white">
               {pricing ? pricing.subscription.amount.toLocaleString() : '...'}
             </span>
-            <span className="text-sm text-surface-400 ml-2">XAF / month</span>
+            <span className="text-sm text-surface-400 ml-2">{t('pricing.xaf_month')}</span>
           </div>
 
           <ul className="space-y-3 mb-8 flex-1">
             {[
-              'Unlimited CV tailoring',
-              'Unlimited cover letters',
-              'Unlimited downloads (.docx)',
-              'Gap analysis for each',
-              'Cancel anytime'
+              t('pricing.ft_unlimited_tailoring'),
+              t('pricing.ft_unlimited_letters'),
+              t('pricing.ft_unlimited_downloads'),
+              t('pricing.ft_gap_each'),
+              t('pricing.ft_cancel_anytime')
             ].map((feature, i) => (
               <li key={i} className="flex items-center gap-2.5 text-sm text-surface-600 dark:text-surface-300">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-brand-500 flex-shrink-0">
@@ -108,7 +110,7 @@ export default function PricingPage() {
           </ul>
 
           <button onClick={() => openPayment('subscription')} className="btn-primary w-full">
-            Subscribe Now
+            {t('pricing.subscribe_now')}
           </button>
         </div>
       </div>
@@ -116,7 +118,7 @@ export default function PricingPage() {
 
       {pricing?.sandbox && (
         <p className="text-center text-xs text-amber-600 mt-8 bg-amber-50 rounded-xl p-3 max-w-md mx-auto">
-          Sandbox mode active — payment amounts are reduced for testing.
+          {t('pricing.sandbox_note')}
         </p>
       )}
 
@@ -125,9 +127,9 @@ export default function PricingPage() {
           <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
         </svg>
         <div className="text-sm text-surface-600 dark:text-surface-300">
-          <p className="font-semibold text-surface-800 dark:text-surface-100">7-day money-back guarantee</p>
+          <p className="font-semibold text-surface-800 dark:text-surface-100">{t('pricing.guarantee_title')}</p>
           <p className="text-surface-500 dark:text-surface-400 mt-0.5">
-            Your first download is free on any new account. After that, if a tailored CV doesn&apos;t help you, we refund you in full — no questions asked.
+            {t('pricing.guarantee_desc')}
           </p>
         </div>
       </div>

@@ -61,7 +61,7 @@ export default function LandingPage() {
         <div className="max-w-4xl mx-auto text-center relative">
           <div className="inline-flex items-center gap-2 badge badge-brand mb-6" role="status">
             <span className="w-1.5 h-1.5 rounded-full bg-brand-500 animate-pulse" aria-hidden="true" />
-            AI-Powered CV Tailoring
+            {t('landing.hero_badge')}
           </div>
 
           <h1 id="hero-heading" className="text-4xl sm:text-5xl md:text-6xl font-extrabold text-surface-900 dark:text-white leading-[1.1] tracking-tight mb-6">
@@ -91,8 +91,8 @@ export default function LandingPage() {
       <section className="py-12 sm:py-16 px-4 relative" aria-label="Dashboard preview">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-10">
-            <p className="text-sm font-semibold text-brand-600 uppercase tracking-wider mb-2">Your Command Center</p>
-            <h2 className="text-2xl sm:text-3xl font-bold text-surface-900 dark:text-white">Everything you need, one dashboard</h2>
+            <p className="text-sm font-semibold text-brand-600 uppercase tracking-wider mb-2">{t('landing.dash_kicker')}</p>
+            <h2 className="text-2xl sm:text-3xl font-bold text-surface-900 dark:text-white">{t('landing.dash_title')}</h2>
           </div>
 
           <div className="relative">
@@ -162,9 +162,9 @@ export default function LandingPage() {
                 {/* Document list items */}
                 <div className="space-y-2">
                   {[
-                    { title: 'Marketing Manager', badge: 'ATS 94%', color: 'emerald' },
-                    { title: 'Software Developer', badge: 'Pending', color: 'amber' },
-                    { title: 'Project Coordinator', badge: 'Downloaded', color: 'brand' }
+                    { title: t('landing.mock_doc1'), badge: t('landing.mock_badge1'), color: 'emerald' },
+                    { title: t('landing.mock_doc2'), badge: t('landing.mock_badge2'), color: 'amber' },
+                    { title: t('landing.mock_doc3'), badge: t('landing.mock_badge3'), color: 'brand' }
                   ].map((doc, i) => (
                     <div key={i} className={`flex items-center gap-3 p-3 rounded-xl bg-surface-50 dark:bg-surface-700/40 border border-surface-100 dark:border-surface-700/60 ${i === 0 ? '' : 'opacity-70'}`}>
                       <div className="w-7 h-7 rounded-lg bg-brand-50 dark:bg-brand-900/30 flex items-center justify-center flex-shrink-0">
@@ -190,8 +190,8 @@ export default function LandingPage() {
       <section className="py-16 sm:py-20 px-4 bg-surface-0 dark:bg-surface-800 border-y border-surface-100 dark:border-surface-700" aria-labelledby="how-it-works-heading">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-12">
-            <p className="text-sm font-semibold text-brand-600 uppercase tracking-wider mb-2">How it works</p>
-            <h2 id="how-it-works-heading" className="text-2xl sm:text-3xl font-bold text-surface-900 dark:text-white">Three steps to your dream job</h2>
+            <p className="text-sm font-semibold text-brand-600 uppercase tracking-wider mb-2">{t('landing.how_kicker')}</p>
+            <h2 id="how-it-works-heading" className="text-2xl sm:text-3xl font-bold text-surface-900 dark:text-white">{t('landing.how_title')}</h2>
           </div>
 
           <div className="grid md:grid-cols-3 gap-8 relative">
@@ -201,7 +201,7 @@ export default function LandingPage() {
               {
                 num: '01',
                 title: tTailor('upload_cv'),
-                desc: 'Upload your existing CV or build one from scratch with our guided questionnaire.',
+                desc: t('landing.step1_desc'),
                 color: 'from-blue-500 to-indigo-600',
                 icon: (
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -214,7 +214,7 @@ export default function LandingPage() {
               {
                 num: '02',
                 title: tTailor('job_description'),
-                desc: 'Paste the job posting you want to apply for. AI analyzes the requirements instantly.',
+                desc: t('landing.step2_desc'),
                 color: 'from-amber-500 to-orange-600',
                 icon: (
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -226,7 +226,7 @@ export default function LandingPage() {
               {
                 num: '03',
                 title: tTailor('download_docx'),
-                desc: 'Get a polished, ATS-friendly CV and cover letter ready to send to employers.',
+                desc: t('landing.step3_desc'),
                 color: 'from-emerald-500 to-green-600',
                 icon: (
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -254,18 +254,18 @@ export default function LandingPage() {
         <div className="max-w-5xl mx-auto">
           <div className="grid lg:grid-cols-2 gap-10 lg:gap-14 items-center">
             <div>
-              <p className="text-sm font-semibold text-brand-600 uppercase tracking-wider mb-2">Job board</p>
+              <p className="text-sm font-semibold text-brand-600 uppercase tracking-wider mb-2">{t('landing.jobs_kicker')}</p>
               <h2 id="jobs-teaser-heading" className="text-2xl sm:text-3xl font-bold text-surface-900 dark:text-white mb-3">
-                Find your next job in Cameroon
+                {t('landing.jobs_title')}
               </h2>
               <p className="text-surface-500 dark:text-surface-400 leading-relaxed mb-6 max-w-md">
-                Browse live listings scraped from Cameroon job boards, apply with an AI-tailored CV in one click, and never miss a match with alerts.
+                {t('landing.jobs_desc')}
               </p>
               <ul className="space-y-3 mb-8">
                 {[
-                  'Live listings from Cameroon job boards',
-                  'Apply in one click with a CV tailored to the role',
-                  'Email + in-app alerts for new matching jobs'
+                  t('landing.jobs_bullet1'),
+                  t('landing.jobs_bullet2'),
+                  t('landing.jobs_bullet3')
                 ].map((item, i) => (
                   <li key={i} className="flex items-start gap-3 text-sm text-surface-600 dark:text-surface-300">
                     <span className="w-5 h-5 rounded-full bg-emerald-50 dark:bg-emerald-900/30 text-emerald-500 flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -279,10 +279,10 @@ export default function LandingPage() {
               </ul>
               <div className="flex flex-col sm:flex-row gap-3">
                 <Link to="/jobs" className="btn-primary no-underline text-center">
-                  Browse jobs{jobsCount ? ` (${jobsCount})` : ''}
+                  {t('landing.browse_jobs')}{jobsCount ? ` (${jobsCount})` : ''}
                 </Link>
                 <Link to="/register" className="btn-secondary no-underline text-center">
-                  Get job alerts
+                  {t('landing.get_job_alerts')}
                 </Link>
               </div>
             </div>
@@ -290,10 +290,10 @@ export default function LandingPage() {
             {/* Live listings preview */}
             <div className="rounded-2xl border border-surface-200/80 dark:border-surface-700/80 bg-surface-0 dark:bg-surface-800 overflow-hidden shadow-xl">
               <div className="flex items-center justify-between px-4 py-3 border-b border-surface-100 dark:border-surface-700">
-                <span className="text-sm font-semibold text-surface-900 dark:text-white">Latest openings</span>
+                <span className="text-sm font-semibold text-surface-900 dark:text-white">{t('landing.latest_openings')}</span>
                 <span className="inline-flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  Live
+                  {t('landing.live')}
                 </span>
               </div>
               <div className="divide-y divide-surface-100 dark:divide-surface-700">
@@ -326,7 +326,7 @@ export default function LandingPage() {
                   ))
                 )}
                 <Link to="/jobs" className="block px-4 py-3 text-center text-sm font-medium text-brand-600 dark:text-brand-400 hover:bg-brand-50/50 dark:hover:bg-brand-900/20 no-underline transition-colors">
-                  View all jobs &rarr;
+                  {t('landing.view_all_jobs')}
                 </Link>
               </div>
             </div>
@@ -341,10 +341,10 @@ export default function LandingPage() {
       <section className="py-16 sm:py-20 px-4" aria-labelledby="before-after-heading">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-12">
-            <p className="text-sm font-semibold text-brand-600 uppercase tracking-wider mb-2">Before &amp; after</p>
-            <h2 id="before-after-heading" className="text-2xl sm:text-3xl font-bold text-surface-900 dark:text-white mb-3">What a real tailoring looks like</h2>
+            <p className="text-sm font-semibold text-brand-600 uppercase tracking-wider mb-2">{t('landing.before_after_kicker')}</p>
+            <h2 id="before-after-heading" className="text-2xl sm:text-3xl font-bold text-surface-900 dark:text-white mb-3">{t('landing.before_after_title')}</h2>
             <p className="text-surface-500 dark:text-surface-400 max-w-lg mx-auto">
-              A Douala marketing assistant applying for a bank&apos;s communication officer role. Same facts — rewritten for the job.
+              {t('landing.before_after_desc')}
             </p>
           </div>
 
@@ -352,20 +352,20 @@ export default function LandingPage() {
             {/* Before */}
             <div className="card p-5 sm:p-6 border-rose-100 dark:border-rose-900/40">
               <div className="flex items-center justify-between mb-4">
-                <span className="badge badge-rose">Before</span>
+                <span className="badge badge-rose">{t('landing.before')}</span>
                 <div className="flex items-center gap-1.5 text-rose-500">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
                   </svg>
-                  ATS score <span className="font-bold text-lg">47</span>
+                  {t('landing.ats_score')} <span className="font-bold text-lg">47</span>
                 </div>
               </div>
               <div className="space-y-2.5 text-sm text-surface-600 dark:text-surface-400">
-                <p>&ldquo;Worked at a shop in Douala. Posted things on social media. Talked to customers. Did some events.&rdquo;</p>
+                <p>&ldquo;{t('landing.before_quote')}&rdquo;</p>
                 <ul className="space-y-1.5">
-                  <li className="flex items-start gap-2"><span className="text-rose-300 mt-0.5 text-xs">&#9679;</span>Social media responsibilities not linked to marketing goals</li>
-                  <li className="flex items-start gap-2"><span className="text-rose-300 mt-0.5 text-xs">&#9679;</span>No keywords from the job description (content, campaigns, reporting)</li>
-                  <li className="flex items-start gap-2"><span className="text-rose-300 mt-0.5 text-xs">&#9679;</span>No quantified impact, generic bullets</li>
+                  <li className="flex items-start gap-2"><span className="text-rose-300 mt-0.5 text-xs">&#9679;</span>{t('landing.before_point1')}</li>
+                  <li className="flex items-start gap-2"><span className="text-rose-300 mt-0.5 text-xs">&#9679;</span>{t('landing.before_point2')}</li>
+                  <li className="flex items-start gap-2"><span className="text-rose-300 mt-0.5 text-xs">&#9679;</span>{t('landing.before_point3')}</li>
                 </ul>
               </div>
             </div>
@@ -373,27 +373,27 @@ export default function LandingPage() {
             {/* After */}
             <div className="card p-5 sm:p-6 border-emerald-100 dark:border-emerald-900/40">
               <div className="flex items-center justify-between mb-4">
-                <span className="badge badge-emerald">After — AI tailored</span>
+                <span className="badge badge-emerald">{t('landing.after')}</span>
                 <div className="flex items-center gap-1.5 text-emerald-500">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22,4 12,14.01 9,11.01"/>
                   </svg>
-                  ATS score <span className="font-bold text-lg">92</span>
+                  {t('landing.ats_score')} <span className="font-bold text-lg">92</span>
                 </div>
               </div>
               <div className="space-y-2.5 text-sm text-surface-600 dark:text-surface-400">
-                <p className="font-semibold text-surface-800 dark:text-surface-200">&ldquo;Marketing Assistant with 3 years supporting retail communication in Douala.&rdquo;</p>
+                <p className="font-semibold text-surface-800 dark:text-surface-200">&ldquo;{t('landing.after_quote')}&rdquo;</p>
                 <ul className="space-y-1.5">
-                  <li className="flex items-start gap-2"><span className="text-emerald-400 mt-0.5 text-xs">&#9679;</span>Planned and posted social media content that drove weekly engagement for a retail client</li>
-                  <li className="flex items-start gap-2"><span className="text-emerald-400 mt-0.5 text-xs">&#9679;</span>Prepared campaign material and sales-team support in French and English</li>
-                  <li className="flex items-start gap-2"><span className="text-emerald-400 mt-0.5 text-xs">&#9679;</span>Reported weekly results in Excel to keep the marketing plan on track</li>
+                  <li className="flex items-start gap-2"><span className="text-emerald-400 mt-0.5 text-xs">&#9679;</span>{t('landing.after_point1')}</li>
+                  <li className="flex items-start gap-2"><span className="text-emerald-400 mt-0.5 text-xs">&#9679;</span>{t('landing.after_point2')}</li>
+                  <li className="flex items-start gap-2"><span className="text-emerald-400 mt-0.5 text-xs">&#9679;</span>{t('landing.after_point3')}</li>
                 </ul>
               </div>
             </div>
           </div>
 
           <p className="text-center text-sm text-surface-400 dark:text-surface-500 mt-6">
-            Try it with your own CV above — your score and gaps are computed instantly.
+            {t('landing.before_after_cta')}
           </p>
         </div>
       </section>
@@ -403,10 +403,10 @@ export default function LandingPage() {
         <div className="max-w-4xl mx-auto">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             {[
-              { value: '500+', label: 'CVs Tailored' },
-              { value: '98%', label: 'Satisfaction' },
-              { value: '2min', label: 'Avg. Time' },
-              { value: '3x', label: 'More Interviews' }
+              { value: '500+', label: t('landing.stat_cvs') },
+              { value: '98%', label: t('landing.stat_satisfaction') },
+              { value: '2min', label: t('landing.stat_time') },
+              { value: '3x', label: t('landing.stat_interviews') }
             ].map((stat, i) => (
               <div key={i} className="text-center p-6 rounded-2xl bg-surface-0 dark:bg-surface-800 border border-surface-100 dark:border-surface-700">
                 <div className="text-3xl sm:text-4xl font-extrabold text-brand-600 mb-1">{stat.value}</div>
@@ -421,18 +421,18 @@ export default function LandingPage() {
       <section className="py-16 sm:py-20 px-4 bg-surface-0 dark:bg-surface-800 border-y border-surface-100 dark:border-surface-700" aria-labelledby="features-heading">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-12">
-            <p className="text-sm font-semibold text-brand-600 uppercase tracking-wider mb-2">Why CVBoost?</p>
-            <h2 id="features-heading" className="text-2xl sm:text-3xl font-bold text-surface-900 dark:text-white">Built for Cameroon&apos;s job market</h2>
+            <p className="text-sm font-semibold text-brand-600 uppercase tracking-wider mb-2">{t('landing.features_kicker')}</p>
+            <h2 id="features-heading" className="text-2xl sm:text-3xl font-bold text-surface-900 dark:text-white">{t('landing.features_title')}</h2>
           </div>
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {[
-              { icon: FeatureIcons.bilingual, title: 'Bilingual', desc: 'Full French and English support. CV conventions respect local expectations.' },
-              { icon: FeatureIcons.mobile, title: 'Mobile-first', desc: 'Designed for phones. Works smoothly even on slower connections.' },
-              { icon: FeatureIcons.lock, title: 'No fabrication', desc: 'AI rewrites your real experience. Never invents fake achievements.' },
-              { icon: FeatureIcons.doc, title: 'ATS-friendly', desc: 'Clean .docx output that passes Applicant Tracking Systems.' },
-              { icon: FeatureIcons.zap, title: 'Instant results', desc: 'Tailored CV and cover letter in seconds, not hours.' },
-              { icon: FeatureIcons.coin, title: 'Affordable', desc: 'Pay per document or subscribe for unlimited tailoring.' }
+              { icon: FeatureIcons.bilingual, title: t('landing.feature_bilingual'), desc: t('landing.feature_bilingual_desc') },
+              { icon: FeatureIcons.mobile, title: t('landing.feature_mobile'), desc: t('landing.feature_mobile_desc') },
+              { icon: FeatureIcons.lock, title: t('landing.feature_no_fabrication'), desc: t('landing.feature_no_fabrication_desc') },
+              { icon: FeatureIcons.doc, title: t('landing.feature_ats'), desc: t('landing.feature_ats_desc') },
+              { icon: FeatureIcons.zap, title: t('landing.feature_instant'), desc: t('landing.feature_instant_desc') },
+              { icon: FeatureIcons.coin, title: t('landing.feature_affordable'), desc: t('landing.feature_affordable_desc') }
             ].map((f, i) => (
               <div key={i} className="card p-5">
                 <div className="w-10 h-10 rounded-xl bg-brand-50 dark:bg-brand-900/30 flex items-center justify-center text-brand-600 mb-3">
@@ -449,13 +449,13 @@ export default function LandingPage() {
       {/* Testimonial / Social Proof */}
       <section className="py-16 sm:py-20 px-4" aria-labelledby="proof-heading">
         <div className="max-w-4xl mx-auto text-center">
-          <p className="text-sm font-semibold text-brand-600 uppercase tracking-wider mb-2">Trusted by job seekers</p>
-          <h2 id="proof-heading" className="text-2xl sm:text-3xl font-bold text-surface-900 dark:text-white mb-10">What our users say</h2>
+          <p className="text-sm font-semibold text-brand-600 uppercase tracking-wider mb-2">{t('landing.proof_kicker')}</p>
+          <h2 id="proof-heading" className="text-2xl sm:text-3xl font-bold text-surface-900 dark:text-white mb-10">{t('landing.proof_title')}</h2>
           <div className="grid sm:grid-cols-3 gap-5">
             {[
-              { quote: 'Got 3 interview calls in one week after tailoring my CV with CVBoost!', name: 'Marie N.', role: 'Marketing Manager', city: 'Douala' },
-              { quote: 'The AI actually understood my experience and made it sound professional. Amazing.', name: 'Paul K.', role: 'Software Developer', city: 'Yaoundé' },
-              { quote: 'Finally a CV tool made for Cameroon. The bilingual support is exactly what I needed.', name: 'Aimée T.', role: 'Project Coordinator', city: 'Bafoussam' }
+              { quote: t('landing.testimonial1_quote'), name: 'Marie N.', role: t('landing.testimonial1_role'), city: 'Douala' },
+              { quote: t('landing.testimonial2_quote'), name: 'Paul K.', role: t('landing.testimonial2_role'), city: 'Yaoundé' },
+              { quote: t('landing.testimonial3_quote'), name: 'Aimée T.', role: t('landing.testimonial3_role'), city: 'Bafoussam' }
             ].map((test, i) => (
               <div key={i} className="testimonial-card card p-5 text-left">
                 <div className="flex gap-0.5 mb-3">
@@ -478,7 +478,7 @@ export default function LandingPage() {
                     <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22,4 12,14.01 9,11.01"/>
                     </svg>
-                    Verified
+                    {t('landing.verified')}
                   </span>
                 </div>
               </div>
@@ -494,9 +494,9 @@ export default function LandingPage() {
             <div className="absolute -top-24 -right-24 w-64 h-64 bg-brand-400/30 rounded-full blur-3xl" aria-hidden="true" />
             <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-black/20 rounded-full blur-3xl" aria-hidden="true" />
             <div className="relative">
-              <h2 id="cta-heading" className="text-2xl sm:text-3xl font-bold text-white mb-3">Ready to stand out?</h2>
+              <h2 id="cta-heading" className="text-2xl sm:text-3xl font-bold text-white mb-3">{t('landing.cta_title')}</h2>
               <p className="text-brand-100 mb-8 max-w-md mx-auto">
-                Join job seekers using AI to craft the perfect CV. Get started in under 2 minutes.
+                {t('landing.cta_desc')}
               </p>
               <Link to="/register" className="inline-block bg-white text-brand-700 px-8 py-3.5 rounded-xl font-bold hover:bg-brand-50 transition-all duration-200 no-underline shadow-lg hover:shadow-xl hover:scale-105 active:scale-[0.98]">
                 {t('get_started')} &rarr;
@@ -515,15 +515,15 @@ export default function LandingPage() {
             <span>&copy; {new Date().getFullYear()}</span>
           </div>
           <div className="flex items-center gap-4">
-            <Link to="/pricing" className="hover:text-surface-600 dark:hover:text-surface-300 no-underline text-surface-400">Pricing</Link>
-            <Link to="/about" className="hover:text-surface-600 dark:hover:text-surface-300 no-underline text-surface-400">About</Link>
-            <Link to="/contact" className="hover:text-surface-600 dark:hover:text-surface-300 no-underline text-surface-400">Contact</Link>
-            <Link to="/terms" className="hover:text-surface-600 dark:hover:text-surface-300 no-underline text-surface-400">Terms</Link>
-            <Link to="/privacy" className="hover:text-surface-600 dark:hover:text-surface-300 no-underline text-surface-400">Privacy</Link>
-            <Link to="/login" className="hover:text-surface-600 dark:hover:text-surface-300 no-underline text-surface-400">Log In</Link>
-            <Link to="/register" className="hover:text-surface-600 dark:hover:text-surface-300 no-underline text-surface-400">Sign Up</Link>
+            <Link to="/pricing" className="hover:text-surface-600 dark:hover:text-surface-300 no-underline text-surface-400">{t('nav.pricing')}</Link>
+            <Link to="/about" className="hover:text-surface-600 dark:hover:text-surface-300 no-underline text-surface-400">{t('nav.about')}</Link>
+            <Link to="/contact" className="hover:text-surface-600 dark:hover:text-surface-300 no-underline text-surface-400">{t('nav.contact')}</Link>
+            <Link to="/terms" className="hover:text-surface-600 dark:hover:text-surface-300 no-underline text-surface-400">{t('nav.terms')}</Link>
+            <Link to="/privacy" className="hover:text-surface-600 dark:hover:text-surface-300 no-underline text-surface-400">{t('nav.privacy')}</Link>
+            <Link to="/login" className="hover:text-surface-600 dark:hover:text-surface-300 no-underline text-surface-400">{t('login')}</Link>
+            <Link to="/register" className="hover:text-surface-600 dark:hover:text-surface-300 no-underline text-surface-400">{t('register')}</Link>
           </div>
-          <p>Made for job seekers in Cameroon</p>
+          <p>{t('landing.footer_tagline')}</p>
         </div>
       </footer>
     </div>

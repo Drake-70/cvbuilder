@@ -6,6 +6,21 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import ErrorState from '../components/ErrorState';
 import { useCache, invalidateCacheKey } from '../hooks/useCache';
 import { useToast } from '../contexts/ToastContext';
+import cvToText from '../utils/cvToText';
+
+const displayText = (cv) => {
+  if (typeof cv.originalText !== 'string') return cv.originalText || 'No content available.';
+  const text = cv.originalText.trim();
+  if (text.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(text);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        return cvToText(parsed);
+      }
+    } catch { /* fall through to raw */ }
+  }
+  return text;
+};
 
 export default function MyCVsPage() {
   const { t: tTailor, i18n } = useTranslation('tailor');
@@ -226,7 +241,7 @@ export default function MyCVsPage() {
               </button>
             </div>
             <div className="whitespace-pre-wrap text-sm text-surface-600 dark:text-surface-300 leading-relaxed bg-surface-50 dark:bg-surface-900 rounded-xl p-4 font-mono text-xs max-h-[60vh] overflow-y-auto">
-              {viewingCV.originalText || 'No content available.'}
+              {displayText(viewingCV)}
             </div>
           </div>
         </div>

@@ -26,10 +26,10 @@ export default function ResetPasswordPage() {
               <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
             </svg>
           </div>
-          <h1 className="text-xl font-bold text-surface-900 dark:text-white mb-2">Invalid Reset Link</h1>
-          <p className="text-surface-500 dark:text-surface-400 mb-6">This password reset link is invalid or missing a token.</p>
+          <h1 className="text-xl font-bold text-surface-900 dark:text-white mb-2">{t('reset_invalid_title')}</h1>
+          <p className="text-surface-500 dark:text-surface-400 mb-6">{t('reset_invalid_desc')}</p>
           <Link to="/forgot-password" className="btn-primary no-underline inline-block">
-            Request a New Link
+            {t('reset_request_new')}
           </Link>
         </div>
       </div>
@@ -39,11 +39,11 @@ export default function ResetPasswordPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (password !== confirmPassword) {
-      toast.error('Passwords Do Not Match', t('passwords_mismatch'));
+      toast.error(t('toast_passwords_mismatch_title'), t('passwords_mismatch'));
       return;
     }
     if (password.length < 6) {
-      toast.error('Password Too Short', t('password_too_short'));
+      toast.error(t('toast_password_too_short_title'), t('password_too_short'));
       return;
     }
 
@@ -51,10 +51,10 @@ export default function ResetPasswordPage() {
     try {
       await api.post('/auth/reset-password', { token, password });
       setSuccess(true);
-      toast.success(t('password_reset_success'), 'You can now log in with your new password.');
+      toast.success(t('password_reset_success'), t('reset_success_toast'));
     } catch (err) {
       const msg = err.response?.data?.error || tCommon('server_error');
-      toast.error('Reset Failed', msg);
+      toast.error(t('reset_failed_title'), msg);
     } finally {
       setLoading(false);
     }
@@ -74,9 +74,9 @@ export default function ResetPasswordPage() {
               <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
             </svg>
           </div>
-          <h2 className="text-3xl font-bold text-white mb-4">Create a New Password</h2>
+          <h2 className="text-3xl font-bold text-white mb-4">{t('reset_panel_title')}</h2>
           <p className="text-brand-100 text-lg leading-relaxed">
-            Choose a strong password to secure your CVBoost account.
+            {t('reset_panel_desc')}
           </p>
         </div>
       </div>
@@ -90,7 +90,7 @@ export default function ResetPasswordPage() {
 
           <div>
             <h1 className="text-2xl font-bold text-surface-900 dark:text-white">{t('reset_password')}</h1>
-            <p className="text-surface-500 dark:text-surface-400 mt-1">Enter your new password below.</p>
+            <p className="text-surface-500 dark:text-surface-400 mt-1">{t('reset_form_desc')}</p>
           </div>
 
           <div className="mt-8">
@@ -104,7 +104,7 @@ export default function ResetPasswordPage() {
                 </div>
                 <h2 className="text-lg font-semibold text-surface-900 dark:text-white mb-2">{t('password_reset_success')}</h2>
                 <p className="text-sm text-surface-500 dark:text-surface-400 mb-6">
-                  Your password has been updated. You can now sign in.
+                  {t('reset_success_desc')}
                 </p>
                 <Link to="/login" className="btn-primary inline-block no-underline">
                   {t('back_to_login')}

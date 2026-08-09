@@ -18,7 +18,7 @@ export default function RegisterPage() {
     referralCode: searchParams.get('ref') || ''
   });
   const [error, setError] = useState('');
-  const [agreed, setAgreed] = useState(false);
+  const [agreed, setAgreed] = useState(() => sessionStorage.getItem('cvboost_agreed') === 'true');
   const [loading, setLoading] = useState(false);
   const googleBtnRef = useRef(null);
 
@@ -123,15 +123,15 @@ export default function RegisterPage() {
               <line x1="23" y1="11" x2="17" y2="11"/>
             </svg>
           </div>
-          <h2 className="text-3xl font-bold text-white mb-4">Start tailoring your CV today</h2>
+          <h2 className="text-3xl font-bold text-white mb-4">{t('register_panel_title')}</h2>
           <p className="text-brand-100 text-lg leading-relaxed">
-            Create your free account and get your first AI-tailored CV in minutes.
+            {t('register_panel_desc')}
           </p>
           <div className="mt-10 grid grid-cols-3 gap-4">
             {[
-              { num: '500+', label: 'CVs tailored' },
-              { num: '98%', label: 'Satisfaction' },
-              { num: '2min', label: 'Avg. time' }
+              { num: '500+', label: t('stat_cvs_tailored') },
+              { num: '98%', label: t('stat_satisfaction') },
+              { num: '2min', label: t('stat_avg_time') }
             ].map((stat, i) => (
               <div key={i} className="bg-white/5 backdrop-blur-sm rounded-xl p-3 border border-white/10">
                 <div className="text-xl font-bold text-white">{stat.num}</div>
@@ -265,7 +265,7 @@ export default function RegisterPage() {
                   value={form.referralCode}
                   onChange={(e) => setForm({ ...form, referralCode: e.target.value })}
                   className="input-field"
-                  placeholder="Enter code"
+                  placeholder={t('referral_placeholder')}
                 />
               </div>
 
@@ -273,7 +273,7 @@ export default function RegisterPage() {
                 <input
                   type="checkbox"
                   checked={agreed}
-                  onChange={(e) => setAgreed(e.target.checked)}
+                  onChange={(e) => { setAgreed(e.target.checked); sessionStorage.setItem('cvboost_agreed', String(e.target.checked)); }}
                   className="mt-0.5 h-4 w-4 rounded border-surface-300 text-brand-600 focus:ring-brand-500 cursor-pointer"
                 />
                 <span className="text-sm text-surface-500 dark:text-surface-400">

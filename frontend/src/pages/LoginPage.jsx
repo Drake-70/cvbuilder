@@ -13,7 +13,7 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [form, setForm] = useState({ email: '', password: '' });
-  const [agreed, setAgreed] = useState(false);
+  const [agreed, setAgreed] = useState(() => sessionStorage.getItem('cvboost_agreed') === 'true');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const googleBtnRef = useRef(null);
@@ -100,23 +100,23 @@ export default function LoginPage() {
               <polyline points="10,9 9,9 8,9"/>
             </svg>
           </div>
-          <h2 className="text-3xl font-bold text-white mb-4">Welcome back to CVBoost</h2>
+          <h2 className="text-3xl font-bold text-white mb-4">{t('panel_title')}</h2>
           <p className="text-brand-100 text-lg leading-relaxed">
-            Sign in to access your tailored CVs, cover letters, and interview prep tools.
+            {t('panel_subtitle')}
           </p>
           <div className="mt-10 flex items-center justify-center gap-6 text-brand-200 text-sm">
             <div className="flex items-center gap-2">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="20,6 9,17 4,12"/>
               </svg>
-              ATS-Optimized
+              {t('ats_optimized')}
             </div>
             <div className="w-px h-4 bg-brand-400/40" />
             <div className="flex items-center gap-2">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="20,6 9,17 4,12"/>
               </svg>
-              AI-Powered
+              {t('ai_powered')}
             </div>
             <div className="w-px h-4 bg-brand-400/40" />
             <div className="flex items-center gap-2">
@@ -206,7 +206,7 @@ export default function LoginPage() {
                 <input
                   type="checkbox"
                   checked={agreed}
-                  onChange={(e) => setAgreed(e.target.checked)}
+                  onChange={(e) => { setAgreed(e.target.checked); sessionStorage.setItem('cvboost_agreed', String(e.target.checked)); }}
                   className="mt-0.5 h-4 w-4 rounded border-surface-300 text-brand-600 focus:ring-brand-500 cursor-pointer"
                 />
                 <span className="text-sm text-surface-500 dark:text-surface-400">
