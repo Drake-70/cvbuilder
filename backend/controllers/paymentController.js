@@ -7,6 +7,7 @@ const pricing = require('../config/pricing');
 const { sendPaymentReceiptEmail } = require('../services/emailService');
 const logger = require('../utils/logger');
 const posthog = require('../config/posthog');
+const cmoRevenue = require('../services/cmoRevenue');
 
 exports.initiate = async (req, res, next) => {
   try {
@@ -355,6 +356,19 @@ async function activatePayment(payment) {
       logger.error(`Payment receipt email failed for payment ${payment._id}: ${err.message}`);
     });
   }
+
+  // Feed the CMO.ai studio revenue ledger (fire-and-forget).
+  cmoRevenue.report({
+    product: 'cvboost',
+    provider: payment.paymentMethod || 'other',
+    kind: payment.type === 'subscription' ? 'subscription' : 'payment',
+    amount: payment.amount,
+    currency: payment.currency || 'XAF',
+    status: 'succeeded',
+    reference: payment.campayReference || String(payment._id),
+    customer: payment.email || (user && user.email) || String(payment.userId),
+    detail: payment.type
+  }).catch(() => {});
 }
 
 async function buildDocumentAttachment(documentId) {
