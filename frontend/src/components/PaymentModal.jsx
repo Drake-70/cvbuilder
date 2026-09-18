@@ -34,6 +34,8 @@ export default function PaymentModal({ open, onClose, onSuccess, documentId, typ
       setEmail('');
       setError('');
       setPaymentInfo(null);
+      window.CMO?.startFunnel?.('purchase');
+      window.CMO?.stepFunnel?.('purchase', 'viewed');
       requestAnimationFrame(() => {
         const firstFocusable = modalRef.current?.querySelector('button, input, [tabindex]:not([tabindex="-1"])');
         firstFocusable?.focus();
@@ -88,6 +90,8 @@ export default function PaymentModal({ open, onClose, onSuccess, documentId, typ
 
       if (res.data.redirect && res.data.url) {
         localStorage.setItem('cvboost_pending_payment', res.data.paymentId);
+        window.CMO?.stepFunnel?.('purchase', 'initiated');
+        window.CMO?.identify?.(method === 'campay' ? phoneNumber.trim() : email.trim());
         window.location.href = res.data.url;
         return;
       }
@@ -95,6 +99,8 @@ export default function PaymentModal({ open, onClose, onSuccess, documentId, typ
       setPaymentInfo(res.data);
       setStep('waiting');
       const paymentId = res.data.paymentId;
+      window.CMO?.stepFunnel?.('purchase', 'initiated');
+      window.CMO?.identify?.(method === 'campay' ? phoneNumber.trim() : email.trim());
 
       // Poll for status
       pollRef.current = setInterval(async () => {
@@ -103,6 +109,8 @@ export default function PaymentModal({ open, onClose, onSuccess, documentId, typ
           if (statusRes.data.status === 'success') {
             clearInterval(pollRef.current);
             setStep('success');
+            window.CMO?.stepFunnel?.('purchase', 'paid');
+            window.CMO?.completeFunnel?.('purchase');
             toast.success(t('success_toast'), t('success_toast_msg'));
             setTimeout(() => {
               onSuccess?.();

@@ -55,9 +55,14 @@ export default function RegisterPage() {
       const data = await register(form.email, form.password, form.name, undefined, form.referralCode || undefined);
       if (data.exists) {
         toast.success(t('create_account'), 'Check your email if an account exists.');
+        window.CMO?.identify?.(form.email);
         navigate('/login');
       } else {
         toast.success(t('create_account'), 'Welcome to CVBoost! Your first download is free.');
+        window.CMO?.startFunnel?.('signup');
+        window.CMO?.stepFunnel?.('signup', 'submitted');
+        window.CMO?.identify?.(form.email);
+        window.CMO?.completeFunnel?.('signup');
         navigate('/dashboard');
       }
     } catch (err) {
@@ -79,6 +84,7 @@ export default function RegisterPage() {
     try {
       await googleLogin(credential);
       toast.success(t('create_account'), 'Signed in with Google');
+      window.CMO?.identify?.(JSON.parse(atob(credential.split('.')[1]))?.email);
       navigate('/dashboard');
     } catch (err) {
       const msg = err.response?.data?.error || 'Google sign-in failed';
