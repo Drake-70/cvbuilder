@@ -6,6 +6,13 @@ WORKDIR /app
 # Backend
 COPY backend/package*.json ./backend/
 RUN cd backend && npm ci --omit=dev
+# The source is copied here rather than only in the production stage: that stage
+# pulls /app/backend from *this* one, so without this line the image ships
+# package.json and node_modules but no server.js, and the container dies at
+# start with `Cannot find module '/app/backend/server.js'`.
+COPY backend/ ./backend/
+# Fail at build time with a clear message instead of at container start.
+RUN test -f backend/server.js || (echo "ERROR: backend/server.js missing from the build context" && exit 1)
 
 # Frontend
 COPY frontend/package*.json ./frontend/
