@@ -4,13 +4,21 @@ const Job = require('../models/Job');
 const logger = require('../utils/logger');
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36';
-const REQUEST_TIMEOUT = 20000;
-const MAX_PER_SOURCE = 30;
-const MAX_DETAIL_ENRICHMENT = parseInt(process.env.JOB_ENRICH_MAX || '12', 10);
+const REQUEST_TIMEOUT = envInt('JOB_SCRAPE_TIMEOUT_MS', 30000);
+const DETAIL_TIMEOUT = envInt('JOB_DETAIL_TIMEOUT_MS', 45000);
+const MAX_PER_SOURCE = envInt('JOB_MAX_PER_SOURCE', 30);
+const MAX_DETAIL_ENRICHMENT = envInt('JOB_ENRICH_MAX', 12);
 const POLITE_DELAY_MS = 1500;
 
+function envInt(name, fallback) {
+  const parsed = parseInt(process.env[name], 10);
+  // A malformed value must degrade to the default rather than to NaN, which
+  // would turn `.slice(0, NaN)` into "enrich nothing".
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
 const CATEGORY_KEYWORDS = {
-  'IT & Software': ['developer', 'developpeur', 'software', 'ingénieur logiciel', 'engineer', 'data', 'devops', 'full stack', 'frontend', 'backend', 'programmeur', 'programmer', 'it support', 'réseau', 'network', 'security', 'sécurité', 'web', 'mobile', 'product manager', 'ux', 'ui', 'designer'],
+  'IT & Software': ['developer', 'developpeur', 'software', 'ingénieur logiciel', 'data', 'devops', 'full stack', 'frontend', 'backend', 'programmeur', 'programmer', 'it support', 'réseau', 'network', 'security', 'sécurité', 'web', 'mobile', 'product manager', 'ux', 'ui', 'designer'],
   'Accounting & Finance': ['accountant', 'comptable', 'finance', 'financier', 'audit', 'treasury', 'trésorier', 'bank', 'banque', 'bookkeeper', 'fiscal', 'tax'],
   'Engineering': ['engineer', 'ingénieur', 'civil', 'mechanical', 'mécanique', 'electrical', 'électrique', 'electrician', 'électricien', 'technician', 'technicien', 'hvac', 'plumbing', 'plombier', 'maintenance'],
   'Sales & Marketing': ['sales', 'vente', 'marketing', 'commercial', 'account manager', 'business development', 'développement commercial', 'brand', 'social media', 'content', 'seo', 'growth', 'b2b', 'b2c'],
@@ -93,26 +101,56 @@ function detectRemote(title, description, location) {
   return /\b(remote|télétravail|telework|work from home)\b/.test(blob);
 }
 
+/**
+ * Strip diacritics so "Ingenieur Logiciel" and "Ingénieur logiciel" match the
+ * same keyword. A large share of postings in this market are written without
+ * accents, and the accented keyword list previously missed all of them.
+ */
+function foldAccents(text) {
+  return String(text || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
 function guessCategory(title, description) {
-  const blob = `${title} ${description}`.toLowerCase();
+  const blob = foldAccents(`${title} ${description}`).toLowerCase();
   for (const [category, pattern] of Object.entries(CATEGORY_PATTERNS)) {
     if (pattern.test(blob)) return category;
   }
   return 'Other';
 }
 
+// Every keyword is wrapped in \b so it can only match a whole word. Without
+// this, "mobile" matched "Automobile", "hr" matched "thrh", and short tokens
+// like "ui"/"web" matched inside unrelated words.
 const CATEGORY_PATTERNS = Object.fromEntries(
   Object.entries(CATEGORY_KEYWORDS).map(([category, keywords]) => [
     category,
     new RegExp(
       keywords.map((k) => {
-        const esc = k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        return k.length <= 3 ? `\\b${esc}\\b` : esc;
+        const esc = foldAccents(k).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        return `\\b${esc}\\b`;
       }).join('|'),
       'i'
     )
   ])
 );
+
+/**
+ * Coerce anything to a real Date or null.
+ *
+ * Mongoose casts an `Invalid Date` into a CastError, and `bulkWrite` throws on
+ * a cast error even with `ordered: false` — so one malformed `datePosted` used
+ * to discard an entire source's results. Normalising here keeps bad dates out
+ * of the write path entirely.
+ */
+function toValidDate(value) {
+  if (!value) return null;
+  const d = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function isMissingDate(value) {
+  return !toValidDate(value);
+}
 
 function parseDate(text) {
   const blob = (text || '').toLowerCase();
@@ -127,8 +165,12 @@ function parseDate(text) {
   const months = { jan: 0, janv: 0, feb: 1, févr: 1, fevr: 1, mar: 2, mars: 2, apr: 3, avr: 3, may: 4, mai: 4, jun: 5, juin: 5, jul: 6, juil: 6, juill: 6, aug: 7, août: 7, aout: 7, sep: 8, sept: 8, oct: 9, nov: 10, déc: 11, dec: 11 };
   const dm = blob.match(/(\d{1,2})\s+(janv?|févr?|fevr?|mars|avr|mai|juin|juil?l?|aoû?t|aout|sept?|oct|nov|déc|dec)[a-z]*\.?\s*,?\s*(\d{4})?/);
   if (dm) {
+    // An unrecognised month abbreviation yields undefined, which would make
+    // `new Date(year, undefined, day)` an Invalid Date.
+    const month = months[dm[2]];
+    if (month === undefined) return null;
     const year = dm[3] ? parseInt(dm[3], 10) : new Date().getFullYear();
-    return new Date(year, months[dm[2]], parseInt(dm[1], 10));
+    return toValidDate(new Date(year, month, parseInt(dm[1], 10)));
   }
   return null;
 }
@@ -184,7 +226,7 @@ function extractJsonLdJobs($, baseUrl) {
         salary: clean(scalar(item.baseSalary?.value?.value || item.salary)),
         sourceUrl: absoluteUrl(scalar(item.url), baseUrl),
         applyUrl: absoluteUrl(scalar(item.url || item.directApply), baseUrl),
-        postedAt: item.datePosted ? new Date(item.datePosted) : null,
+        postedAt: toValidDate(item.datePosted),
         jobType: clean(scalar(item.employmentType))
       });
     }
@@ -295,16 +337,24 @@ function normalizeJob(raw, sourceKey, sourceName) {
     sourceUrl,
     applyUrl: clean(raw.applyUrl || raw.sourceUrl).slice(0, 500),
     contactEmail: extractEmails(`${raw.description} ${raw.title}`),
-    postedAt: raw.postedAt || null,
+    postedAt: toValidDate(raw.postedAt),
     isRemote: detectRemote(title, description, location),
     category: guessCategory(title, description),
     scrapedAt: new Date()
   };
 }
 
-async function fetchPage(url) {
-  const lastErr = { error: null };
-  for (let attempt = 0; attempt <= 2; attempt++) {
+/**
+ * Fetch a page with bounded retries.
+ *
+ * `attempts` is deliberately configurable per call site: detail pages run many
+ * times per cycle, so burning 3 x 20s on a single dead detail link stalled the
+ * whole source for over a minute. Timeouts are not retried — a socket that
+ * already timed out will usually time out again.
+ */
+async function fetchPage(url, { timeout = REQUEST_TIMEOUT, attempts = 3 } = {}) {
+  let lastErr = new Error(`request failed: ${url}`);
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
     if (attempt > 0) await sleep(jitter(3000) * Math.pow(2, attempt - 1));
     try {
       const res = await axios.get(url, {
@@ -313,14 +363,16 @@ async function fetchPage(url) {
           'Accept': 'text/html,application/xhtml+xml',
           'Accept-Language': 'en-US,en;q=0.9,fr;q=0.8'
         },
-        timeout: REQUEST_TIMEOUT,
+        timeout,
         responseType: 'text',
         maxRedirects: 5
       });
       return res.data;
     } catch (err) {
-      lastErr.error = err;
-      if (attempt < 2) {
+      lastErr = err;
+      const isTimeout = err.code === 'ECONNABORTED' || err.code === 'ETIMEDOUT';
+      if (isTimeout) break;
+      if (attempt < attempts - 1) {
         const retryAfter = err.response && err.response.status === 429
           ? parseInt(err.response.headers['retry-after'] || '', 10)
           : NaN;
@@ -329,13 +381,13 @@ async function fetchPage(url) {
       }
     }
   }
-  throw lastErr.error;
+  throw lastErr;
 }
 
 async function enrichJob(job) {
   if (!job || !job.sourceUrl) return job;
   try {
-    const html = await fetchPage(job.sourceUrl);
+    const html = await fetchPage(job.sourceUrl, { timeout: DETAIL_TIMEOUT, attempts: 2 });
     const $ = cheerio.load(html);
 
     const jsonLd = extractJsonLdJobs($, job.sourceUrl)[0];
@@ -344,7 +396,7 @@ async function enrichJob(job) {
       if (!job.location && jsonLd.location) job.location = jsonLd.location.slice(0, 160);
       if (!job.salary && jsonLd.salary) job.salary = jsonLd.salary.slice(0, 120);
       if (!job.jobType && jsonLd.jobType) job.jobType = jsonLd.jobType.slice(0, 80);
-      if (job.postedAt === null && jsonLd.postedAt) job.postedAt = jsonLd.postedAt;
+      if (isMissingDate(job.postedAt) && jsonLd.postedAt) job.postedAt = jsonLd.postedAt;
       if (!job.description && jsonLd.description) job.description = jsonLd.description.slice(0, 4000);
     }
 
@@ -364,18 +416,27 @@ async function enrichJob(job) {
     const salary = clean($('[class*="salary"], [class*="salaire"], [class*="wage"]').first().text());
     if (salary && !job.salary) job.salary = salary.slice(0, 120);
 
-    const email = extractEmails(`${$.html()} ${job.description}`);
-    if (email) job.contactEmail = email;
+    // Only look inside the job body. Previously this scanned the entire page
+    // HTML, so the board's own footer address (info@…, contact@…) was stored as
+    // the employer's contactEmail on most listings.
+    if (!job.contactEmail) {
+      const $content = cheerio.load($.html());
+      $content('script, style, noscript, header, footer, nav, form, .footer, [class*="footer"]').remove();
+      const email = extractEmails(`${$content('body').text()} ${job.description}`);
+      if (email) job.contactEmail = email;
+    }
 
-    if (job.postedAt === null) {
+    if (isMissingDate(job.postedAt)) {
       const dateText = clean($('[class*="date"], time').first().text().replace(/posté le/i, ''));
       job.postedAt = parseDate(dateText);
     }
 
     job.category = guessCategory(job.title, job.description || '');
     job.isRemote = detectRemote(job.title, job.description || '', job.location || '');
-  } catch {
-    // detail enrichment is best-effort
+  } catch (err) {
+    // Enrichment is best-effort, but it must not be invisible: a source that
+    // silently enriches nothing looks identical to a source that works.
+    logger.warn(`[jobs] enrichment skipped for ${job.sourceUrl}: ${err.message}`);
   }
   return job;
 }
@@ -390,15 +451,39 @@ async function scrapeSource(source) {
     .filter(Boolean)
     .slice(0, MAX_PER_SOURCE);
 
+  if (!jobs.length) {
+    logger.warn(`[jobs] ${source.name}: page parsed but yielded 0 jobs — the layout likely changed or the source is blocking us`);
+  }
+
   if (process.env.JOB_ENRICH_DETAILS !== 'false') {
-    const needs = jobs.filter((job) => !job.company || !job.description || job.postedAt === null);
+    const needs = jobs.filter((job) => !job.company || !job.description || isMissingDate(job.postedAt));
     const targets = [...needs, ...jobs.filter((job) => !needs.includes(job))].slice(0, MAX_DETAIL_ENRICHMENT);
     for (const job of targets) {
       await enrichJob(job);
       await sleep(jitter(600));
     }
+    logger.info(`[jobs] ${source.name}: enriched ${targets.length}/${jobs.length} listing(s)`);
   }
   return jobs;
+}
+
+/**
+ * Build the `$set` payload for one job.
+ *
+ * Blank and null fields are omitted so a scrape that cannot parse something
+ * this time does not erase what a previous, luckier scrape managed to store.
+ * Previously `$set: { ...job }` blanked `postedAt` back to null whenever the
+ * detail page went missing, silently degrading listings over time.
+ */
+function buildJobUpdate(job) {
+  const set = { scrapedAt: job.scrapedAt, active: true };
+  for (const [field, value] of Object.entries(job)) {
+    if (field === 'scrapedAt') continue;
+    if (value === null || value === undefined) continue;
+    if (typeof value === 'string' && value.trim() === '') continue;
+    set[field] = value;
+  }
+  return set;
 }
 
 async function upsertJobs(jobs) {
@@ -406,11 +491,37 @@ async function upsertJobs(jobs) {
   const ops = jobs.map((job) => ({
     updateOne: {
       filter: { sourceUrl: job.sourceUrl },
-      update: { $set: { ...job } },
+      update: { $set: buildJobUpdate(job) },
       upsert: true
     }
   }));
-  const result = await Job.bulkWrite(ops, { ordered: false });
+
+  let result;
+  try {
+    result = await Job.bulkWrite(ops, { ordered: false });
+  } catch (err) {
+    // A single malformed document fails the whole batch even with
+    // `ordered: false`. Fall back to writing one at a time so the healthy
+    // jobs still land instead of the source reporting a total loss.
+    logger.warn(`[jobs] bulk upsert failed (${err.message}) — retrying ${jobs.length} job(s) individually`);
+    let added = 0;
+    let updated = 0;
+    for (const job of jobs) {
+      try {
+        const single = await Job.updateOne(
+          { sourceUrl: job.sourceUrl },
+          { $set: buildJobUpdate(job) },
+          { upsert: true }
+        );
+        if (single.upsertedCount) added += 1;
+        else if (single.modifiedCount) updated += 1;
+      } catch (singleErr) {
+        logger.warn(`[jobs] skipped ${job.sourceUrl}: ${singleErr.message}`);
+      }
+    }
+    return { added, updated, total: jobs.length };
+  }
+
   return {
     added: result.upsertedCount || 0,
     updated: result.modifiedCount || 0,
@@ -418,7 +529,29 @@ async function upsertJobs(jobs) {
   };
 }
 
+// There are three independent triggers (GitHub Actions cron, the in-process
+// scheduler, and the Admin UI button). Without a lock they overlap, which
+// doubles the request load on both job boards and races the upserts.
+let inFlight = null;
+let scrapeTimer = null;
+let scrapeInterval = null;
+
 async function scrapeAll() {
+  if (inFlight) {
+    logger.info('[jobs] scrape already running — skipping duplicate trigger');
+    return { skipped: true, startedAt: inFlight.startedAt };
+  }
+  const startedAt = new Date();
+  inFlight = { startedAt, promise: null };
+  try {
+    const results = await runSources();
+    return { skipped: false, startedAt, results };
+  } finally {
+    inFlight = null;
+  }
+}
+
+async function runSources() {
   const results = [];
   for (const source of SOURCES) {
     const started = Date.now();
@@ -436,4 +569,60 @@ async function scrapeAll() {
   return results;
 }
 
-module.exports = { scrapeAll, scrapeSource, SOURCES, normalizeJob };
+function stopJobScheduler() {
+  if (scrapeTimer) {
+    clearTimeout(scrapeTimer);
+    scrapeTimer = null;
+  }
+  if (scrapeInterval) {
+    clearInterval(scrapeInterval);
+    scrapeInterval = null;
+  }
+}
+
+function startJobScheduler() {
+  stopJobScheduler();
+  if (process.env.JOB_SCRAPING_ENABLED === 'false') {
+    logger.info('[jobs] in-process scheduler disabled (JOB_SCRAPING_ENABLED=false)');
+    return;
+  }
+  const minutes = envInt('JOB_SCRAPE_INTERVAL_MINUTES', 360);
+  const intervalMs = Math.max(minutes, 15) * 60 * 1000;
+  logger.info(`[jobs] scheduler enabled — scraping every ${minutes} minutes`);
+  // Delay the first run so boot is not competing with page load.
+  scrapeTimer = setTimeout(() => {
+    runScheduledCycle();
+    // setInterval does not await the previous run; scrapeAll's in-flight lock
+    // makes an overlapping tick a no-op instead of a double scrape.
+    scrapeInterval = setInterval(runScheduledCycle, intervalMs);
+  }, 60000);
+  if (scrapeTimer.unref) scrapeTimer.unref();
+  if (scrapeInterval && scrapeInterval.unref) scrapeInterval.unref();
+}
+
+async function runScheduledCycle() {
+  try {
+    const { runScrapeCycle } = require('./jobService');
+    const cycle = await runScrapeCycle();
+    if (cycle.skipped) {
+      logger.info('[jobs] scheduled scrape skipped — a scrape was already in progress');
+      return;
+    }
+    logger.info(`[jobs] scheduled scrape done: ${JSON.stringify(cycle.results)}`);
+  } catch (err) {
+    logger.error(`[jobs] scheduled scrape failed: ${err.message}`);
+  }
+}
+
+module.exports = {
+  scrapeAll,
+  scrapeSource,
+  runScheduledCycle,
+  startJobScheduler,
+  stopJobScheduler,
+  buildJobUpdate,
+  guessCategory,
+  toValidDate,
+  SOURCES,
+  normalizeJob
+};

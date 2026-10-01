@@ -34,7 +34,7 @@ const jobSchema = new mongoose.Schema({
   },
   source: {
     type: String,
-    enum: ['careerjet', 'myjobmag', 'emploi', 'camerjobs', 'jobberman', 'goafrica'],
+    enum: ['careerjet', 'myjobmag', 'emploi', 'camerjobs', 'jobberman', 'goafrica', 'louma'],
     required: true,
     index: true
   },

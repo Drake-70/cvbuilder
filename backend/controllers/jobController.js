@@ -267,16 +267,36 @@ exports.markNotificationsRead = async (req, res, next) => {
   }
 };
 
+/**
+ * Constant-time string comparison so the shared scrape key cannot be
+ * recovered by timing the 403 responses.
+ */
+function secretsMatch(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string' || a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i += 1) {
+    diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return diff === 0;
+}
+
 exports.triggerScrape = async (req, res, next) => {
   try {
     const scrapeKey = process.env.JOB_SCRAPE_KEY;
-    const authorized = scrapeKey && req.headers['x-scrape-key'] === scrapeKey;
-    const isAdmin = req.user && req.user.role === 'admin';
+    const presentedKey = req.headers['x-scrape-key'];
+    const authorized = Boolean(scrapeKey) && secretsMatch(scrapeKey, presentedKey);
+    const isAdmin = Boolean(req.user && req.user.role === 'admin');
     if (!authorized && !isAdmin) {
       return res.status(403).json({ error: 'Not authorized to trigger a scrape' });
     }
 
     const cycle = await runScrapeCycle();
+    if (cycle.alreadyRunning) {
+      return res.status(409).json({
+        error: 'A scrape is already in progress',
+        startedAt: cycle.startedAt
+      });
+    }
     res.json(cycle);
   } catch (err) {
     next(err);

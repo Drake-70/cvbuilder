@@ -8,6 +8,7 @@ import { relativeTime } from '../utils/relativeTime';
 
 const SOURCE_LABELS = {
   goafrica: 'Go Africa Online',
+  louma: 'Louma Jobs',
   myjobmag: 'MyJobMag',
   emploi: 'Emploi.cm',
   jobberman: 'Jobberman',

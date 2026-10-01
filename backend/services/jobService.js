@@ -91,13 +91,24 @@ async function matchAlertsForJobs(jobs) {
 
 async function runScrapeCycle() {
   const { scrapeAll } = require('./jobScraper');
+  const { invalidateCache } = require('../middleware/cache');
   const Job = require('../models/Job');
 
-  const results = await scrapeAll();
+  const cycle = await scrapeAll();
+
+  // A duplicate trigger was suppressed; report it without touching the DB.
+  if (cycle.skipped) {
+    return { alreadyRunning: true, startedAt: cycle.startedAt, results: [], matched: { notifications: 0, emails: 0 } };
+  }
+
+  // Listings are cached for 60s, so a scrape that just landed would otherwise
+  // stay invisible until the TTL expired.
+  invalidateCache('/api/jobs');
+
   const since = new Date(Date.now() - 10 * 60 * 1000);
   const recentJobs = await Job.find({ scrapedAt: { $gte: since }, active: true }).limit(300).lean();
   const matched = await matchAlertsForJobs(recentJobs);
-  return { results, matched };
+  return { ...cycle, matched };
 }
 
 module.exports = { createNotification, matchAlertsForJobs, alertMatches, runScrapeCycle };

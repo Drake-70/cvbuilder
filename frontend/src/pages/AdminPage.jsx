@@ -19,7 +19,10 @@ export default function AdminPage() {
   const isAdmin = user?.role === 'admin';
 
   const loadJobStats = useCallback(async () => {
-    const sources = ['goafrica', 'myjobmag', 'emploi'];
+    // Must mirror SOURCES in backend/services/jobScraper.js. This previously
+    // listed two sources that were removed after they started returning 403,
+    // so the dashboard always reported 0 for them and never counted Louma.
+    const sources = ['goafrica', 'louma'];
     try {
       const entries = await Promise.all(
         sources.map(async (source) => {
