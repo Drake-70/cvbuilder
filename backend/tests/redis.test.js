@@ -77,3 +77,114 @@ test('an unparseable REDIS_URL degrades instead of killing the process', () => {
     delete require.cache[MODULE_PATH];
   }
 });
+
+test('a REDIS_URL with a leading space is trimmed instead of discarded', () => {
+  // A leading space is the one whitespace character that makes the WHATWG URL
+  // parser throw outright, which is what produced the production
+  // "could not be parsed (Invalid URL)" log line for an otherwise valid URL.
+  // A trailing space is harmless to the parser, so only the leading one is a
+  // real failure mode.
+  const { normalizeRedisUrl } = loadWith(undefined);
+
+  const padded = ' rediss://default:PW@my-db.upstash.io:6379';
+  const { url, changed } = normalizeRedisUrl(padded);
+
+  assert.equal(changed, true, 'a trimmed value must be reported as changed');
+  assert.equal(url, 'rediss://default:PW@my-db.upstash.io:6379');
+  assert.doesNotThrow(() => new URL(url), 'the trimmed value must be a valid URL');
+});
+
+test('a quoted or padded REDIS_URL is cleaned up', () => {
+  // Copying out of a dashboard table cell carries quotes and stray newlines.
+  const { normalizeRedisUrl } = loadWith(undefined);
+
+  for (const raw of [
+    '  rediss://default:PW@my-db.upstash.io:6379  ',
+    '"rediss://default:PW@my-db.upstash.io:6379"',
+    'rediss://default:PW@my-db.upstash.io:6379\n',
+    '\u00a0rediss://default:PW@my-db.upstash.io:6379'
+  ]) {
+    const { url, changed } = normalizeRedisUrl(raw);
+    assert.equal(
+      url,
+      'rediss://default:PW@my-db.upstash.io:6379',
+      `should clean up ${JSON.stringify(raw)}`
+    );
+    assert.equal(changed, true);
+  }
+});
+
+test('a well-formed REDIS_URL is left byte-for-byte alone', () => {
+  // The normal case must not report a change, or every deploy would log a
+  // misleading "had surrounding whitespace" warning.
+  const { normalizeRedisUrl } = loadWith(undefined);
+  const good = 'rediss://default:PW@my-db.upstash.io:6379';
+
+  assert.deepEqual(normalizeRedisUrl(good), { url: good, changed: false });
+});
+
+test('the Upstash REST URL is rejected with an explanation', () => {
+  // The console also shows an https:// REST endpoint. ioredis parses that
+  // without complaint and treats the literal string "https" as the hostname,
+  // producing a client that can never connect and never says why. A well-formed
+  // rediss:// string must be accepted by the same check.
+  const { assertRedisScheme } = loadWith(undefined);
+
+  assert.throws(
+    () => assertRedisScheme('https://my-db.upstash.io'),
+    /rediss:\/\/ or redis:\/\//,
+    'an HTTP REST endpoint is not a Redis connection string'
+  );
+  assert.doesNotThrow(() => assertRedisScheme('rediss://default:PW@my-db.upstash.io:6379'));
+  assert.doesNotThrow(() => assertRedisScheme('redis://localhost:6379'));
+});
+
+test('a password containing / or # is rejected instead of silently mis-parsed', () => {
+  // `rediss://default:p@ss/word@host:6379` parses without throwing, but the
+  // `/` ends the authority, so ioredis resolves the hostname to `ss`. That
+  // surfaces only as `getaddrinfo ENOTFOUND ss`, which never points at the URL
+  // being wrong. A generated Upstash password is URL-safe, so this means it was
+  // pasted unencoded.
+  const { assertEncodedPassword } = loadWith(undefined);
+
+  for (const raw of [
+    'rediss://default:p@ss/word@my-db.upstash.io:6379',
+    'rediss://default:ab#cd@my-db.upstash.io:6379',
+    'rediss://default:ab?cd@my-db.upstash.io:6379'
+  ]) {
+    assert.throws(
+      () => assertEncodedPassword(raw),
+      /percent-encoded/,
+      `should reject ${raw}`
+    );
+  }
+});
+
+test('a normal password is not mistaken for a URL problem', () => {
+  // The checks above must not fire on a normal URL, or Redis would be reported
+  // as broken on every deploy. A generated password is alphanumeric with the
+  // occasional - and _ .
+  const { assertEncodedPassword, assertRedisScheme } = loadWith(undefined);
+
+  for (const raw of [
+    'rediss://default:AbCd-1234_XyZ@my-db.upstash.io:6379',
+    'redis://user:pass@localhost:6379',
+    'rediss://default:PW@my-db.upstash.io:6379/',
+    'rediss://default:PW@my-db.upstash.io' // no explicit port
+  ]) {
+    assert.doesNotThrow(() => assertEncodedPassword(raw), `should accept ${raw}`);
+    assert.doesNotThrow(() => assertRedisScheme(raw), `should accept scheme of ${raw}`);
+  }
+});
+
+test('a non-Redis REDIS_URL leaves the app on in-process state', () => {
+  // The REST-URL case end to end: the module must load, report unconfigured,
+  // and hand back no client rather than building one aimed at host "https".
+  const redis = loadWith('https://my-db.upstash.io');
+  try {
+    assert.equal(redis.isConfigured(), false);
+    assert.equal(redis.getClient(), null);
+  } finally {
+    delete require.cache[MODULE_PATH];
+  }
+});

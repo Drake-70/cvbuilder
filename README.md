@@ -46,11 +46,28 @@ the public browser bundle, so never put a secret in one.
 | `JWT_SECRET` | Random string for access tokens |
 | `JWT_REFRESH_SECRET` | Random string for refresh tokens |
 | `GROQ_API_KEY` | From console.groq.com |
-| `REDIS_URL` | Optional. Upstash `rediss://` URL. Backs the response cache, rate-limit counters and job-scrape lock; all three fall back to per-process memory when unset |
+| `REDIS_URL` | Optional. Upstash `rediss://` URL (not the `https://` REST endpoint). Backs the response cache, rate-limit counters and job-scrape lock; all three fall back to per-process memory when unset or unusable |
 | `CORS_ORIGIN` | Frontend URL (http://localhost:5173 in dev) |
 | `FRONTEND_URL` | Base URL used in password-reset / verification emails |
 | `CAMPAY_SANDBOX_USERNAME` | CamPay sandbox username |
 | `CAMPAY_SANDBOX_PASSWORD` | CamPay sandbox password |
+
+`REDIS_URL` notes: use the **`rediss://`** connection string from the Upstash
+console, not the `https://…upstash.io` REST endpoint — ioredis parses the latter
+without complaint and treats the literal string `https` as the hostname, giving
+a client that can never connect. A password containing `/`, `#` or `?` must be
+percent-encoded in the URL. Surrounding whitespace, quotes and a stray newline
+from copy-paste are trimmed automatically and reported in the log as
+`REDIS_URL had surrounding whitespace or quotes`. A value that still cannot be
+used is named on one line and the app falls back to in-process state:
+
+```
+[error]: [redis] REDIS_URL could not be parsed (…) — cache, rate-limit counters and scrape lock stay in-process
+```
+
+Confirm it is live with `[redis] connected` in the logs, or `redis=configured`
+on the `startup:` line plus `"mongo"` and the health body showing the cache
+backend as Redis rather than memory.
 
 ### 3. Run
 

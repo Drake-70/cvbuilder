@@ -21,7 +21,77 @@ const logger = require('../utils/logger');
  * ioredis is left to reconnect in the background with a capped backoff.
  */
 
-const REDIS_URL = process.env.REDIS_URL || '';
+/**
+ * Clean up a pasted REDIS_URL.
+ *
+ * Two things go wrong when a URL is copied out of a dashboard rather than
+ * generated. Surrounding whitespace makes the WHATWG URL parser throw
+ * `TypeError: Invalid URL` — verified against ioredis 6, and a *leading* space
+ * is the only whitespace that does. And a leading tab, newline or non-breaking
+ * space does not throw at all: the parser treats `rediss` as the host, so the
+ * client silently points at a host named "rediss" and every command fails with
+ * no explanation of why.
+ *
+ * Returns the cleaned URL plus whether anything was changed, so a value that
+ * needed fixing is visible in the log rather than being quietly corrected.
+ */
+function normalizeRedisUrl(value) {
+  const raw = String(value);
+  // Strip all leading/trailing whitespace, including the Unicode kinds a
+  // browser dashboard or spreadsheet can introduce (\u00a0, \u3000, \ufeff).
+  const trimmed = raw.replace(/^[\s\u00a0\u3000\ufeff]+|[\s\u00a0\u3000\ufeff]+$/g, '');
+
+  // Quotes are sometimes carried along from copying out of a table cell.
+  const unquoted = /^(['"])(.*)\1$/.test(trimmed) ? trimmed.slice(1, -1) : trimmed;
+
+  return { url: unquoted, changed: unquoted !== raw };
+}
+
+/**
+ * Reject a value that is not a Redis connection string before handing it to
+ * ioredis. The Upstash console also shows an HTTP REST endpoint
+ * (`https://....upstash.io`), and ioredis parses that without complaint —
+ * treating the literal string "https" as the hostname — so a wrong paste
+ * produces a client that can never connect and never explains itself.
+ */
+function assertRedisScheme(url) {
+  if (!/^rediss?:\/\//i.test(url)) {
+    const shown = url.slice(0, 12).replace(/[^a-z:/?#[\]@!$&'()*+,;=.-]/gi, '');
+    throw new Error(
+      `expected a rediss:// or redis:// connection string, got something starting "${shown}"`
+    );
+  }
+}
+
+/**
+ * Reject a URL whose password contains a character that ends the authority
+ * early. `rediss://default:p@ss/word@host:6379` parses without error, but
+ * everything after the `/` is read as a path, so ioredis ends up with the
+ * hostname `ss` and a client that can never connect. The failure surfaces only
+ * as `getaddrinfo ENOTFOUND ss`, which gives no hint that the URL is the
+ * problem. A generated Upstash password is URL-safe, so finding one of these
+ * characters means it was pasted without percent-encoding.
+ */
+function assertEncodedPassword(url) {
+  // A password may legally contain `@` and `:` (both are sub-delims inside
+  // userinfo), so those are allowed. It may NOT contain `/ ? # [ ]` or a bare
+  // percent sign: each of those ends the authority or starts a fragment, and
+  // Node's parser then silently resolves the hostname to whatever followed.
+  //   rediss://default:p@ss/word@host:6379  ->  hostname "ss"
+  //   rediss://default:ab#cd@host:6379      ->  hostname "ab"
+  //
+  // Everything before the LAST `@` is the userinfo; the host follows.
+  const at = url.lastIndexOf('@');
+  if (at === -1) return;
+  const userInfo = url.slice(url.indexOf('//') + 2, at);
+
+  if (/[/ ?#[\]%]/.test(userInfo)) {
+    throw new Error(
+      'the username or password contains a character that must be percent-encoded '
+      + '(one of / ? # [ ] or %) — as written, it ends the host part of the URL'
+    );
+  }
+}
 
 let client = null;
 let configured = false;
@@ -41,29 +111,47 @@ function noteError(err) {
   logger.warn(`[redis] unavailable, using in-process state: ${err.message}`);
 }
 
-if (REDIS_URL) {
+/**
+ * Build a client for testing a URL in isolation, without the module-load side
+ * effects of the real block below. Never called at runtime.
+ */
+function createClient(url) {
+  const client = new Redis(url, {
+    maxRetriesPerRequest: 1,
+    enableOfflineQueue: false,
+    connectTimeout: 5000,
+    retryStrategy: (attempt) => Math.min(attempt * 500, 30000),
+    keepAlive: 10000
+  });
+  client.on('error', noteError);
+  return client;
+}
+
+const RAW_REDIS_URL = process.env.REDIS_URL || '';
+
+if (RAW_REDIS_URL) {
   // Construction is wrapped because ioredis parses the URL eagerly and throws on
   // a value it cannot parse (a stray paste, or the Upstash REST URL pasted
   // instead of the rediss:// one). That throw happened at require time, before
   // any log line, and took the whole process down — the exact opposite of the
   // "Redis is strictly optional" contract above.
   try {
-    client = new Redis(REDIS_URL, {
-      // Fail fast rather than queue work behind a socket that may never open.
-      maxRetriesPerRequest: 1,
-      enableOfflineQueue: false,
-      connectTimeout: 5000,
-      // Capped backoff so a long outage does not turn into a reconnect storm.
-      retryStrategy: (attempt) => Math.min(attempt * 500, 30000),
-      // Managed Redis drops idle connections; these keep the socket warm and are
-      // supported by Upstash.
-      keepAlive: 10000
-    });
+    const { url, changed } = normalizeRedisUrl(RAW_REDIS_URL);
+    if (changed) {
+      // Never echo the value: it embeds the password.
+      logger.warn(
+        `[redis] REDIS_URL had surrounding whitespace or quotes; using the trimmed value `
+        + `(${RAW_REDIS_URL.length} -> ${url.length} chars)`
+      );
+    }
+    assertRedisScheme(url);
+    assertEncodedPassword(url);
+
+    client = createClient(url);
 
     client.on('ready', () => {
       logger.info('[redis] connected');
     });
-    client.on('error', noteError);
     configured = true;
   } catch (err) {
     client = null;
@@ -101,5 +189,10 @@ module.exports = {
   isConfigured,
   isReady,
   getClient,
-  noteError
+  noteError,
+  // Exported for tests: these are the parsing rules that decide whether a pasted
+  // URL is usable, and they must be verifiable without a live Redis.
+  normalizeRedisUrl,
+  assertRedisScheme,
+  assertEncodedPassword
 };
