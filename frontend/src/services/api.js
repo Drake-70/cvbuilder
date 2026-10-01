@@ -50,6 +50,14 @@ api.interceptors.response.use(
     sanitized.status = error.response?.status;
     sanitized.code = error.response?.data?.code;
     sanitized.response = { data: error.response?.data, status: error.response?.status };
+
+    // The backend refuses gated routes for unverified accounts. Any component
+    // that calls one without sitting behind ProtectedRoute would otherwise show
+    // an opaque error, so send the user to the screen that can clear it.
+    if (sanitized.code === 'EMAIL_NOT_VERIFIED' && !window.location.pathname.startsWith('/verify-email')) {
+      window.location.href = '/verify-email';
+    }
+
     return Promise.reject(sanitized);
   }
 );

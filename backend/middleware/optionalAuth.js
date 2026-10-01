@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const enforceVerified = require('./requireVerified');
 
 /**
  * Populates `req.user` when a valid access token cookie is present, but never
@@ -18,6 +19,12 @@ const optionalAuth = async (req, res, next) => {
   } catch {
     // An absent or invalid token simply means "not a signed-in user".
   }
+
+  // Present only for routes that opt into the verification gate via its bypass
+  // list. Doing the check here keeps optionalAuth symmetric with requireAuth
+  // without changing the meaning of routes that do not.
+  if (req.user && !enforceVerified(req, res)) return;
+
   next();
 };
 

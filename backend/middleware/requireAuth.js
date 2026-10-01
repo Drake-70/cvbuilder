@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const enforceVerified = require('./requireVerified');
 
 const requireAuth = async (req, res, next) => {
   try {
@@ -15,6 +16,11 @@ const requireAuth = async (req, res, next) => {
     }
 
     req.user = user;
+
+    // Unverified accounts get a valid session but cannot use the app. Checked
+    // here rather than per-route so a new endpoint cannot forget it.
+    if (!enforceVerified(req, res)) return;
+
     next();
   } catch (err) {
     if (err.name === 'TokenExpiredError') {

@@ -69,6 +69,12 @@ services:
         sync: false
       - key: STRIPE_WEBHOOK_SECRET
         sync: false
+      # Read by the backend and served to the browser at runtime via
+      # GET /api/config. The VITE_ copy below is a local-dev fallback only:
+      # Vite inlines VITE_* at build time, and on Render's Docker runtime the
+      # frontend build runs inside `docker build`, where env vars are absent.
+      # So the build-time copy is always empty in production and the Google
+      # button only renders because of the runtime endpoint.
       - key: GOOGLE_CLIENT_ID
         sync: false
       - key: VITE_GOOGLE_CLIENT_ID
@@ -106,6 +112,11 @@ services:
       - key: JOB_EXPIRY_DAYS
         value: "30"
       - key: JOB_SCRAPE_KEY
+        sync: false
+      # Unverified accounts are held at /verify-email. Set this to "false" during
+      # a mail-provider outage to let signups through, then remove it. Only the
+      # literal "false" disables the gate.
+      - key: REQUIRE_EMAIL_VERIFICATION
         sync: false
       # Web push. Both keys must be set together or push stays disabled.
       # Never rotate these casually: doing so invalidates every existing

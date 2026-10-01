@@ -4,6 +4,13 @@ import { useAuth } from '../contexts/AuthContext';
 export default function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
 
+  // Unverified accounts are held at the verification screen. The backend also
+  // returns EMAIL_NOT_VERIFIED for these routes, so this is the UX half of one
+  // gate rather than the only enforcement.
+  if (user && !user.emailVerified) {
+    return <Navigate to="/verify-email" replace />;
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">

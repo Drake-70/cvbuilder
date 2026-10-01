@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { initGoogleSignIn } from '../utils/googleSignIn';
+import useGoogleClientId from '../hooks/useGoogleClientId';
 import logoImg from '../assets/cvboost-logo.png';
 
 export default function LoginPage() {
@@ -17,6 +18,7 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const googleBtnRef = useRef(null);
+  const { clientId, enabled: googleEnabled } = useGoogleClientId();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -33,9 +35,10 @@ export default function LoginPage() {
     }
     setLoading(true);
     try {
-      await login(form.email, form.password);
+      const data = await login(form.email, form.password);
       toast.success(t('welcome_back'), t('login_subtitle'));
-      navigate('/dashboard');
+      // Unverified accounts are held at the verification screen.
+      navigate(data.user?.emailVerified === false ? '/verify-email' : '/dashboard');
     } catch (err) {
       const msg = err.response?.data?.error || t('invalid_credentials');
       setError(msg);
@@ -53,9 +56,12 @@ export default function LoginPage() {
       return;
     }
     try {
-      await googleLogin(credential);
+      const data = await googleLogin(credential);
       toast.success(t('welcome_back'), 'Signed in with Google');
-      navigate('/dashboard');
+      // Google asserts the address is verified, so this is normally true; the
+      // check keeps a pre-existing unverified account from landing on the
+      // dashboard and bouncing straight back.
+      navigate(data.user?.emailVerified === false ? '/verify-email' : '/dashboard');
     } catch (err) {
       const msg = err.response?.data?.error || 'Google sign-in failed';
       setError(msg);
@@ -72,14 +78,17 @@ export default function LoginPage() {
   const googleErrorRef = useRef(handleGoogleError);
   googleErrorRef.current = handleGoogleError;
 
+  // Waits for the runtime client ID, so the button is only rendered once there
+  // is something to initialise Google Identity Services with.
   useEffect(() => {
+    if (!googleEnabled) return;
     initGoogleSignIn({
-      clientId: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+      clientId,
       onCredential: (credential) => googleCredentialRef.current(credential),
       onError: () => googleErrorRef.current(),
       buttonRef: googleBtnRef
     });
-  }, []);
+  }, [googleEnabled, clientId]);
 
   return (
     <div className="min-h-screen flex">
@@ -143,7 +152,7 @@ export default function LoginPage() {
 
           <div className="mt-8">
             {/* Google Sign-In Button */}
-            {import.meta.env.VITE_GOOGLE_CLIENT_ID && (
+            {googleEnabled && (
               <>
                 <div ref={googleBtnRef} className="flex justify-center mb-4" />
                 <div className="relative my-4">

@@ -6,10 +6,10 @@ import { useToast } from '../contexts/ToastContext';
 /**
  * Persistent "verify your email" banner, modelled on GitHub's.
  *
- * Deliberately non-blocking: the account works, it just carries a reminder.
- * GitHub gates far more than this does, and a hard gate on a product that
- * already depends on a third-party mail provider would mean a mail outage locks
- * everyone out of their own account.
+ * Enforcement lives in two places: the backend returns EMAIL_NOT_VERIFIED for
+ * gated routes, and ProtectedRoute redirects to /verify-email. This banner is
+ * the visible reminder on the few screens an unverified user can still reach
+ * (the verification page above all), where a link to resend is the useful action.
  */
 export default function EmailVerificationBanner({ onDismiss }) {
   const { user, resendVerification } = useAuth();

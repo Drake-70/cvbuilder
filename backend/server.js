@@ -52,6 +52,7 @@ const aiRoutes = require('./routes/ai');
 const draftRoutes = require('./routes/draft');
 const jobRoutes = require('./routes/jobs');
 const pushRoutes = require('./routes/push');
+const configRoutes = require('./routes/config');
 const { startJobScheduler, stopJobScheduler } = require('./services/jobScraper');
 const posthog = require('./config/posthog');
 
@@ -178,6 +179,9 @@ app.use('/api/jobs', jobRoutes);
 // /public-key is deliberately unauthenticated inside the router; the rest of
 // these routes declare their own requireAuth.
 app.use('/api/push', pushRoutes);
+// Runtime browser config (currently just the Google client ID). Unauthenticated:
+// the login and register pages need it before anyone holds a session.
+app.use('/api', configRoutes);
 
 // Unknown API routes must 404 as JSON. The SPA catch-all below would otherwise
 // answer them with index.html and HTTP 200, which hides typos from monitoring
