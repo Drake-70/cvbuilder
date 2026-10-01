@@ -1,5 +1,25 @@
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
+
+// Observability — Sentry is enabled only when SENTRY_DSN is set.
+//
+// This MUST stay above `require('express')`. expressIntegration() monkey-patches
+// express, so initialising Sentry afterwards loads fine but silently leaves
+// Express uninstrumented, and the SDK says so on startup:
+//   "[Sentry] express is not instrumented. This is likely because you
+//    required/imported express before calling Sentry.init()."
+// dotenv still has to run first so SENTRY_DSN is readable.
+let Sentry = null;
+if (process.env.SENTRY_DSN) {
+  Sentry = require('@sentry/node');
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    environment: process.env.NODE_ENV || 'development',
+    tracesSampleRate: 0.1,
+    integrations: [Sentry.expressIntegration()]
+  });
+}
+
 const express = require('express');
 const cors = require('cors');
 const compression = require('compression');
@@ -37,18 +57,6 @@ const posthog = require('./config/posthog');
 const app = express();
 
 app.set('trust proxy', 1);
-
-// Observability — Sentry is enabled only when SENTRY_DSN is set
-let Sentry = null;
-if (process.env.SENTRY_DSN) {
-  Sentry = require('@sentry/node');
-  Sentry.init({
-    dsn: process.env.SENTRY_DSN,
-    environment: process.env.NODE_ENV || 'development',
-    tracesSampleRate: 0.1,
-    integrations: [Sentry.expressIntegration()]
-  });
-}
 
 // Security
 // Security — CSP is declared in frontend/index.html meta tag (single source of truth)
