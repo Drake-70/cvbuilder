@@ -162,9 +162,14 @@ export default function AdminPage() {
                   { label: 'Total Users', value: dashboard.stats.totalUsers, color: 'brand' },
                   { label: 'Active Subs', value: dashboard.stats.activeSubscriptions, color: 'emerald' },
                   { label: 'Documents', value: dashboard.stats.totalDocuments, color: 'blue' },
-                  { label: 'Saved CVs', value: dashboard.stats.totalCVs, color: 'amber' }
+                  { label: 'Saved CVs', value: dashboard.stats.totalCVs, color: 'amber' },
+                  // Makes the expiry sweep observable: a runaway or
+                  // misconfigured JOB_EXPIRY_DAYS empties the board, and this
+                  // is where that shows up.
+                  { label: 'Live Jobs', value: dashboard.stats.activeJobs, color: 'emerald' },
+                  { label: 'Expired Jobs', value: dashboard.stats.expiredJobs, color: 'slate' }
                 ].map(s => {
-                  const colorMap = { brand: 'text-brand-600 dark:text-brand-400', emerald: 'text-emerald-600 dark:text-emerald-400', blue: 'text-blue-600 dark:text-blue-400', amber: 'text-amber-600 dark:text-amber-400' };
+                  const colorMap = { brand: 'text-brand-600 dark:text-brand-400', emerald: 'text-emerald-600 dark:text-emerald-400', blue: 'text-blue-600 dark:text-blue-400', amber: 'text-amber-600 dark:text-amber-400', slate: 'text-surface-500 dark:text-surface-400' };
                   return (
                     <div key={s.label} className="card p-4 text-center">
                       <p className={'text-2xl font-bold ' + (colorMap[s.color] || 'text-surface-600')}>{s.value}</p>
@@ -267,7 +272,9 @@ export default function AdminPage() {
                   <div>
                     <h3 className="text-sm font-bold text-surface-900 dark:text-white">Job Listings</h3>
                     <p className="text-xs text-surface-500 dark:text-surface-400 mt-0.5">
-                      {jobStats ? `${jobStats.total} active listings in the database.` : 'Loading job stats...'}
+                      {jobStats
+                        ? `${jobStats.total} active listings on the board.${dashboard?.stats?.expiredJobs ? ` ${dashboard.stats.expiredJobs} aged out and hidden.` : ''}`
+                        : 'Loading job stats...'}
                     </p>
                   </div>
                   <button

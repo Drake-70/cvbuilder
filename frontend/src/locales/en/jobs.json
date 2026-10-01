@@ -84,5 +84,10 @@
   "days_ago": "{{n}}d ago",
   "hours_ago": "{{n}}h ago",
   "minutes_ago": "{{n}}m ago",
-  "today": "Today"
+  "today": "Today",
+  "expired": "Expired",
+  "expired_banner_title": "This listing is no longer accepting applications",
+  "expired_banner_desc": "It hasn't been seen on its source board recently, so the posting is likely closed. You can still view the details and any application you already made.",
+  "expired_in_list": "Expired",
+  "expired_cannot_apply": "No longer accepting applications"
 }

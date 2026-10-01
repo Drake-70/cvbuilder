@@ -90,7 +90,7 @@ async function matchAlertsForJobs(jobs) {
 }
 
 async function runScrapeCycle() {
-  const { scrapeAll } = require('./jobScraper');
+  const { scrapeAll, expireStaleJobs } = require('./jobScraper');
   const { invalidateCache } = require('../middleware/cache');
   const Job = require('../models/Job');
 
@@ -101,6 +101,16 @@ async function runScrapeCycle() {
     return { alreadyRunning: true, startedAt: cycle.startedAt, results: [], matched: { notifications: 0, emails: 0 } };
   }
 
+  // Runs after the upserts so a listing that is still on its source board has
+  // already had `scrapedAt` refreshed and cannot be expired in the same pass.
+  // Failure here must not lose a good scrape, so it degrades to a warning.
+  let expiry = { expired: 0, skipped: true };
+  try {
+    expiry = await expireStaleJobs();
+  } catch (err) {
+    logger.warn(`[jobs] expiry sweep failed: ${err.message}`);
+  }
+
   // Listings are cached for 60s, so a scrape that just landed would otherwise
   // stay invisible until the TTL expired.
   invalidateCache('/api/jobs');
@@ -108,7 +118,9 @@ async function runScrapeCycle() {
   const since = new Date(Date.now() - 10 * 60 * 1000);
   const recentJobs = await Job.find({ scrapedAt: { $gte: since }, active: true }).limit(300).lean();
   const matched = await matchAlertsForJobs(recentJobs);
-  return { ...cycle, matched };
+  // `expiry` is surfaced so the number of listings aged out is visible in the
+  // scrape response and the GitHub Actions log rather than only in a debug line.
+  return { ...cycle, matched, expiry };
 }
 
 module.exports = { createNotification, matchAlertsForJobs, alertMatches, runScrapeCycle };

@@ -76,6 +76,25 @@ export default function JobDetailPage() {
       </button>
 
       <div className="card p-6 sm:p-8">
+        {job.expired && (
+          <div
+            role="status"
+            className="flex items-start gap-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 p-4 mb-5"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5">
+              <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+            </svg>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">
+                {t('expired_banner_title')}
+              </p>
+              <p className="text-sm text-amber-800 dark:text-amber-300/90 mt-1">
+                {t('expired_banner_desc')}
+              </p>
+            </div>
+          </div>
+        )}
+
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-5">
           <div className="min-w-0">
             <p className="text-xs text-surface-400 mb-2 flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -102,9 +121,17 @@ export default function JobDetailPage() {
                 {t('applied')}
               </span>
             ) : user ? (
-              <button onClick={() => setShowApply(true)} className="btn-primary text-sm cursor-pointer">
-                {t('apply')}
-              </button>
+              job.expired ? (
+                // Already-applied users still see "Applied" above; everyone else
+                // is told plainly that the posting is closed.
+                <span className="inline-flex items-center rounded-xl px-4 py-2.5 text-sm font-medium bg-surface-100 dark:bg-surface-800 text-surface-500 dark:text-surface-400">
+                  {t('expired_cannot_apply')}
+                </span>
+              ) : (
+                <button onClick={() => setShowApply(true)} className="btn-primary text-sm cursor-pointer">
+                  {t('apply')}
+                </button>
+              )
             ) : (
               <Link to="/login" className="btn-primary no-underline text-sm">{t('login_to_apply')}</Link>
             )}
@@ -190,7 +217,9 @@ export default function JobDetailPage() {
         )}
       </div>
 
-      {showApply && user && (
+      {/* Defence in depth: the Apply button is already hidden for expired
+          listings, but never mount the modal if the flag is set somehow. */}
+      {showApply && user && !job.expired && (
         <ApplyModal
           job={job}
           applied={isApplied}

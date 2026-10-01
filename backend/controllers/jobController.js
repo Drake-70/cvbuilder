@@ -42,11 +42,18 @@ exports.listJobs = async (req, res, next) => {
 
 exports.getJob = async (req, res, next) => {
   try {
-    const job = await Job.findOne({ _id: req.params.id, active: true }).lean();
+    // Expired listings stay readable on purpose: a user who already applied to
+    // a job must not have it vanish from under them. The board itself still
+    // only lists active jobs, and `expired` tells the client to render it as
+    // no longer accepting applications.
+    const job = await Job.findById(req.params.id).lean();
     if (!job) return res.status(404).json({ error: 'Job not found' });
 
-    Job.updateOne({ _id: job._id }, { $inc: { viewCount: 1 } }).catch(() => {});
-    res.json({ job });
+    // Only count a view against a listing that is still live.
+    if (job.active) {
+      Job.updateOne({ _id: job._id }, { $inc: { viewCount: 1 } }).catch(() => {});
+    }
+    res.json({ job: { ...job, expired: !job.active } });
   } catch (err) {
     next(err);
   }
@@ -60,13 +67,21 @@ exports.createApplication = async (req, res, next) => {
       return res.status(400).json({ error: 'Invalid application method' });
     }
 
-    const job = await Job.findOne({ _id: jobId, active: true });
+    const job = await Job.findById(jobId);
     if (!job) return res.status(404).json({ error: 'Job not found' });
 
     const language = req.user.preferredLanguage || 'en';
     let tailoredDocumentId = null;
     let coverLetter = '';
     let application = await Application.findOne({ userId: req.user._id, jobId: job._id });
+
+    // An expired listing is still readable so existing applicants keep their
+    // history, but starting a brand new application to a dead posting would
+    // only waste the user's time and spend an AI call. Editing an application
+    // they already made is still allowed.
+    if (!job.active && !application) {
+      return res.status(409).json({ error: 'This listing has expired and is no longer accepting applications' });
+    }
 
     if (method === 'tailor') {
       let cvTextSource = cvText;
@@ -159,7 +174,7 @@ exports.listApplications = async (req, res, next) => {
       .sort({ createdAt: -1 })
       .skip((page - 1) * 20)
       .limit(20)
-      .populate('jobId', 'title company location salary category source sourceUrl active')
+      .populate('jobId', 'title company location salary category source sourceUrl active expiredAt')
       .lean();
     res.json({ applications });
   } catch (err) {

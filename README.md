@@ -151,6 +151,34 @@ cvbuilder/
 external scheduler can treat both `200` and `409` as success. See
 `.github/workflows/jobs-scrape.yml`.
 
+#### Listing expiry
+
+A listing leaves the board once no scrape has seen it for `JOB_EXPIRY_DAYS`
+(default 30). The sweep runs at the end of every scrape cycle and reports its
+count in the response as `expiry.expired`, so it is visible in the workflow log
+and in `GET /api/admin/dashboard` (`stats.activeJobs` / `stats.expiredJobs`).
+
+Three deliberate properties:
+
+- **Age is measured from `scrapedAt` (last seen), not `postedAt`.** Most of these
+  boards publish no posting date, so a `postedAt`-based sweep could never age
+  those listings out. Worse, it would let a still-listed old job flip between
+  active and expired on every cycle, because the scrape reactivates it and the
+  sweep immediately expires it again.
+- **Expiry is a soft flag, never a delete.** It only sets `active: false` and
+  stamps `expiredAt`. Nothing is removed from the database, so `viewCount` and
+  `applyCount` are preserved.
+- **It is self-healing.** A listing that reappears on its source board gets
+  `active: true, expiredAt: null` on the next scrape and comes straight back.
+
+An expired listing still resolves via `GET /api/jobs/:id` with `expired: true`,
+so a user who already applied does not have it vanish from under them. The
+frontend shows an expired banner and hides the Apply button, and the server
+answers `409` if someone starts a *new* application against an expired posting
+while still allowing edits to one they already made.
+
+Set `JOB_EXPIRY_DAYS=0` to turn the sweep off without a code change.
+
 ## Testing
 
 ```bash

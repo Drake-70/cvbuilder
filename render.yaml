@@ -100,5 +100,9 @@ services:
         value: "true"
       - key: JOB_ENRICH_MAX
         value: "12"
+      # Days a listing stays on the board after a scrape last saw it. Soft flag
+      # only (active:false); a relisted job reactivates itself. 0 disables.
+      - key: JOB_EXPIRY_DAYS
+        value: "30"
       - key: JOB_SCRAPE_KEY
         sync: false

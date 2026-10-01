@@ -68,6 +68,13 @@ const jobSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  // Set when the listing ages out of the board (see expireStaleJobs). Kept
+  // distinct from `active` so the reason a job is hidden stays auditable, and
+  // cleared again if a later scrape sees the job still listed by its source.
+  expiredAt: {
+    type: Date,
+    default: null
+  },
   viewCount: {
     type: Number,
     default: 0
@@ -82,5 +89,7 @@ jobSchema.index({ title: 'text', company: 'text', description: 'text', location:
 jobSchema.index({ active: 1, postedAt: -1 });
 jobSchema.index({ active: 1, category: 1, postedAt: -1 });
 jobSchema.index({ active: 1, location: 1, postedAt: -1 });
+// Supports the expiry sweep, which scans active jobs by last-seen date.
+jobSchema.index({ active: 1, scrapedAt: 1 });
 
 module.exports = mongoose.model('Job', jobSchema);

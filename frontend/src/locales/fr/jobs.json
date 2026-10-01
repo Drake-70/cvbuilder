@@ -84,5 +84,10 @@
   "days_ago": "il y a {{n}}j",
   "hours_ago": "il y a {{n}}h",
   "minutes_ago": "il y a {{n}}m",
-  "today": "Aujourd'hui"
+  "today": "Aujourd'hui",
+  "expired": "Expirée",
+  "expired_banner_title": "Cette annonce n'accepte plus de candidatures",
+  "expired_banner_desc": "Elle n'a pas été vue récemment sur son site source, l'offre est probablement close. Vous pouvez toujours consulter les détails et les candidatures déjà envoyées.",
+  "expired_in_list": "Expirée",
+  "expired_cannot_apply": "Ne accepte plus de candidatures"
 }

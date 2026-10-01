@@ -322,12 +322,22 @@ export default function JobsPage() {
                           {t('applied_on')} {relativeTime(app.appliedAt || app.createdAt, t)} · {methodLabels[app.method] || app.method}
                         </p>
                       </div>
-                      <span className="flex-shrink-0 inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 dark:text-emerald-400 rounded-full px-2 py-0.5">
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22,4 12,14.01 9,11.01"/>
-                        </svg>
-                        {t('applied')}
-                      </span>
+                      <div className="flex-shrink-0 flex items-center gap-1.5">
+                        {/* `active` is explicitly false only for aged-out
+                            listings; the field defaults to true, so this must
+                            not be a truthiness check. */}
+                        {job.active === false && (
+                          <span className="inline-flex items-center text-[11px] font-medium text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 rounded-full px-2 py-0.5">
+                            {t('expired_in_list')}
+                          </span>
+                        )}
+                        <span className="flex-shrink-0 inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 dark:text-emerald-400 rounded-full px-2 py-0.5">
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22,4 12,14.01 9,11.01"/>
+                          </svg>
+                          {t('applied')}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 );

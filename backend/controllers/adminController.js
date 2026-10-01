@@ -2,6 +2,7 @@ const User = require('../models/User');
 const TailoredDocument = require('../models/TailoredDocument');
 const CV = require('../models/CV');
 const Payment = require('../models/Payment');
+const Job = require('../models/Job');
 const logger = require('../utils/logger');
 
 exports.getDashboard = async (req, res, next) => {
@@ -12,14 +13,20 @@ exports.getDashboard = async (req, res, next) => {
       totalDocuments,
       totalCVs,
       recentUsers,
-      recentPayments
+      recentPayments,
+      activeJobs,
+      expiredJobs
     ] = await Promise.all([
       User.countDocuments(),
       User.countDocuments({ subscriptionStatus: 'active' }),
       TailoredDocument.countDocuments(),
       CV.countDocuments(),
       User.find().sort({ createdAt: -1 }).limit(10).select('email name subscriptionStatus createdAt'),
-      Payment.find().sort({ createdAt: -1 }).limit(10).select('userId amount status method createdAt')
+      Payment.find().sort({ createdAt: -1 }).limit(10).select('userId amount status method createdAt'),
+      Job.countDocuments({ active: true }),
+      // Surfaced so the expiry sweep is observable: a runaway or misconfigured
+      // JOB_EXPIRY_DAYS shows up here instead of silently emptying the board.
+      Job.countDocuments({ active: false })
     ]);
 
     res.json({
@@ -28,7 +35,9 @@ exports.getDashboard = async (req, res, next) => {
         activeSubscriptions,
         totalDocuments,
         totalCVs,
-        freeUsers: totalUsers - activeSubscriptions
+        freeUsers: totalUsers - activeSubscriptions,
+        activeJobs,
+        expiredJobs
       },
       recentUsers,
       recentPayments

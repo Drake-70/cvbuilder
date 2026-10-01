@@ -476,7 +476,10 @@ async function scrapeSource(source) {
  * detail page went missing, silently degrading listings over time.
  */
 function buildJobUpdate(job) {
-  const set = { scrapedAt: job.scrapedAt, active: true };
+  // `expiredAt: null` revives a listing that had aged out: the sweep below
+  // only ever sets `active: false`, so a job still present on its source board
+  // comes back on the next scrape instead of flip-flopping every cycle.
+  const set = { scrapedAt: job.scrapedAt, active: true, expiredAt: null };
   for (const [field, value] of Object.entries(job)) {
     if (field === 'scrapedAt') continue;
     if (value === null || value === undefined) continue;
@@ -527,6 +530,54 @@ async function upsertJobs(jobs) {
     updated: result.modifiedCount || 0,
     total: jobs.length
   };
+}
+
+/**
+ * Age at which a listing is considered gone, in days.
+ *
+ * `0` (or any non-positive value) disables expiry entirely, so an operator can
+ * turn the sweep off without a redeploy.
+ */
+function expiryDays() {
+  const parsed = parseInt(process.env.JOB_EXPIRY_DAYS, 10);
+  if (!Number.isFinite(parsed) || parsed < 0) return 30;
+  return parsed;
+}
+
+/**
+ * Deactivate listings that have not been seen by a scrape for `days` days.
+ *
+ * Age is measured from `scrapedAt` ("last seen"), deliberately not `postedAt`:
+ *
+ * - Most Cameroonian job boards do not expose a posting date, so `postedAt` is
+ *   frequently null and those listings could never age out.
+ * - Keying off `postedAt` would make a still-listed old job flip between active
+ *   and expired on every cycle, because the scrape reactivates it and the sweep
+ *   immediately expires it again.
+ *
+ * This is a soft flag, not a delete. `buildJobUpdate` sets `active: true` (and
+ * clears `expiredAt`) whenever a scrape sees the job still listed, so a listing
+ * that comes back revives itself with its view and apply counts intact. Nothing
+ * is ever removed from the database.
+ */
+async function expireStaleJobs(options = {}) {
+  const days = options.days === undefined ? expiryDays() : options.days;
+  const now = options.now === undefined ? Date.now() : options.now;
+  if (!Number.isFinite(days) || days <= 0) {
+    return { expired: 0, skipped: true, days };
+  }
+
+  const cutoff = new Date(now - days * 24 * 60 * 60 * 1000);
+  const result = await Job.updateMany(
+    { active: true, scrapedAt: { $ne: null, $lte: cutoff } },
+    { $set: { active: false, expiredAt: new Date(now) } }
+  );
+
+  const expired = result.modifiedCount || 0;
+  if (expired > 0) {
+    logger.info(`[jobs] expired ${expired} listing(s) not seen in the last ${days} day(s)`);
+  }
+  return { expired, skipped: false, days, cutoff };
 }
 
 // There are three independent triggers (GitHub Actions cron, the in-process
@@ -620,6 +671,8 @@ module.exports = {
   runScheduledCycle,
   startJobScheduler,
   stopJobScheduler,
+  expireStaleJobs,
+  expiryDays,
   buildJobUpdate,
   guessCategory,
   toValidDate,
