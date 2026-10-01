@@ -30,6 +30,8 @@ const pushSubscriptionSchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
-pushSubscriptionSchema.index({ userId: 1 });
+// The userId index is declared inline above (`index: true`). Declaring it here
+// as well produced two definitions of the same index and a Mongoose warning on
+// every boot; the inline form is the one that stays.
 
 module.exports = mongoose.model('PushSubscription', pushSubscriptionSchema);
