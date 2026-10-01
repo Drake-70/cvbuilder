@@ -31,7 +31,8 @@ const adminRoutes = require('./routes/admin');
 const aiRoutes = require('./routes/ai');
 const draftRoutes = require('./routes/draft');
 const jobRoutes = require('./routes/jobs');
-const { runScrapeCycle } = require('./services/jobService');
+const { startJobScheduler, stopJobScheduler } = require('./services/jobScraper');
+const posthog = require('./config/posthog');
 
 const app = express();
 
@@ -120,6 +121,16 @@ const contactLimiter = rateLimit({
   legacyHeaders: false
 });
 
+// Health check (cached 30s).
+//
+// Registered BEFORE the rate limiter on purpose. The general limiter allows
+// 200 requests / 15 min in production, while Render probes every few seconds
+// and restarts the instance after 60s of failed checks — so a rate-limited
+// health endpoint means a restart loop.
+app.get('/api/health', cacheMiddleware(30), (_req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString(), env: process.env.NODE_ENV || 'development' });
+});
+
 app.use(generalLimiter);
 
 // Body parsing
@@ -137,11 +148,6 @@ app.use(sanitize);
 app.use(morgan('combined', {
   stream: { write: (msg) => logger.info(msg.trim()) }
 }));
-
-// Health check (cached 30s)
-app.get('/api/health', cacheMiddleware(30), (_req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString(), env: process.env.NODE_ENV || 'development' });
-});
 
 // Routes
 app.use('/api/auth', authLimiter, authRoutes);
@@ -162,9 +168,12 @@ app.use('/api/ai', aiLimiter, aiRoutes);
 app.use('/api/drafts', draftRoutes);
 app.use('/api/jobs', jobRoutes);
 
-// Error handler
-if (Sentry) Sentry.setupExpressErrorHandler(app);
-app.use(errorHandler);
+// Unknown API routes must 404 as JSON. The SPA catch-all below would otherwise
+// answer them with index.html and HTTP 200, which hides typos from monitoring
+// and makes an unreachable endpoint look healthy.
+app.use('/api', (_req, res) => {
+  res.status(404).json({ error: 'Not found' });
+});
 
 // Serve frontend in production
 if (process.env.NODE_ENV === 'production') {
@@ -191,40 +200,66 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
-const PORT = process.env.PORT || 5000;
+// Error handler — registered last so it also covers failures raised by static
+// file serving and res.sendFile, not just the API routes.
+if (Sentry) Sentry.setupExpressErrorHandler(app);
+app.use(errorHandler);
 
-function startJobScheduler() {
-  if (process.env.JOB_SCRAPING_ENABLED === 'false') {
-    logger.info('[jobs] scraping disabled via JOB_SCRAPING_ENABLED');
-    return;
-  }
-  const minutes = Math.max(parseInt(process.env.JOB_SCRAPE_INTERVAL_MINUTES || '360', 10), 15);
-  logger.info(`[jobs] scheduler enabled — scraping every ${minutes} minutes`);
-  setTimeout(async () => {
-    try {
-      const summary = await runScrapeCycle();
-      logger.info(`[jobs] scheduled scrape done: ${JSON.stringify(summary.results || [])}`);
-    } catch (err) {
-      logger.error(`[jobs] scheduled scrape failed: ${err.message}`);
-    }
-  }, 60000);
-  setInterval(async () => {
-    try {
-      const summary = await runScrapeCycle();
-      logger.info(`[jobs] scheduled scrape done: ${JSON.stringify(summary.results || [])}`);
-    } catch (err) {
-      logger.error(`[jobs] scheduled scrape failed: ${err.message}`);
-    }
-  }, minutes * 60 * 1000);
-}
+const PORT = process.env.PORT || 5000;
+const HOST = process.env.HOST || '0.0.0.0';
+
+let server = null;
 
 const start = async () => {
   await connectDB();
-  app.listen(PORT, () => {
-    logger.info(`CVBoost server running on port ${PORT} [${process.env.NODE_ENV || 'development'}]`);
+  server = app.listen(PORT, HOST, () => {
+    logger.info(`CVBoost server running on ${HOST}:${PORT} [${process.env.NODE_ENV || 'development'}]`);
   });
   startJobScheduler();
 };
+
+let shuttingDown = false;
+
+// Render (and Docker) send SIGTERM and then SIGKILL. Without a handler, every
+// in-flight PDF/DOCX render and payment webhook is cut off mid-write.
+const shutdown = (signal) => {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  logger.info(`${signal} received — shutting down gracefully`);
+
+  stopJobScheduler();
+
+  const forceExit = setTimeout(() => {
+    logger.warn('graceful shutdown timed out — forcing exit');
+    process.exit(1);
+  }, 10000);
+  if (forceExit.unref) forceExit.unref();
+
+  const done = () => {
+    Promise.resolve(flushLogs()).finally(() => {
+      logger.info('shutdown complete');
+      process.exit(0);
+    });
+  };
+
+  if (server) server.close(done);
+  else done();
+};
+
+async function flushLogs() {
+  try {
+    await posthog.flush();
+  } catch { /* telemetry must never block shutdown */ }
+  try {
+    if (typeof logger.close === 'function') await logger.close();
+  } catch { /* ignore */ }
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
+process.on('unhandledRejection', (reason) => {
+  logger.error(`unhandled promise rejection: ${reason && reason.message ? reason.message : reason}`);
+});
 
 start();
 

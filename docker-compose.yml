@@ -3,14 +3,20 @@ services:
     build: .
     ports:
       - "5000:5000"
+    # `required: false` keeps `docker compose up` working on a fresh clone,
+    # where backend/.env does not exist yet (it is git-ignored). Copy
+    # backend/.env.example to backend/.env to populate it locally.
     env_file:
-      - ./backend/.env
+      - path: ./backend/.env
+        required: false
     environment:
       - NODE_ENV=production
       - PORT=5000
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:5000/api/health"]
+      # $$ escapes the variable so it is read inside the container, not by
+      # Compose — a hardcoded port silently breaks if PORT is ever changed.
+      test: ["CMD-SHELL", "wget -qO- http://localhost:$${PORT:-5000}/api/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3

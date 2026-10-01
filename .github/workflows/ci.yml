@@ -2,46 +2,61 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [master, main]
   pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   backend:
     name: Backend unit tests
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: backend
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: backend/package-lock.json
-      - run: npm ci
-      - run: npm test
+      - name: Install dependencies
+        run: npm ci
+        working-directory: backend
+      - name: Run unit tests
+        run: npm test
+        working-directory: backend
 
   frontend:
     name: Frontend lint + build
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: frontend
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: frontend/package-lock.json
-      - run: npm ci
-      - run: npm run lint
-      - run: npm run build
+      - name: Install dependencies
+        run: npm ci
+        working-directory: frontend
+      - name: Lint
+        run: npm run lint
+        working-directory: frontend
+      - name: Build
+        run: npm run build
+        working-directory: frontend
 
   e2e:
     name: Playwright e2e
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     needs: [backend, frontend]
     services:
       mongo:
@@ -61,17 +76,80 @@ jobs:
       JWT_SECRET: ci-jwt-secret
       JWT_REFRESH_SECRET: ci-jwt-refresh-secret
       GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+      # Never let the test server start its own scrape scheduler — the
+      # jobs-scrape workflow is the single source of scheduled scrape triggers.
+      JOB_SCRAPING_ENABLED: 'false'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: package-lock.json
-      - run: npm ci
-      - run: npm ci
+      - name: Install root dependencies
+        run: npm ci
+      - name: Install backend dependencies
+        run: npm ci
         working-directory: backend
-      - run: npm ci
+      - name: Install frontend dependencies
+        run: npm ci
         working-directory: frontend
-      - run: npx playwright install --with-deps chromium
-      - run: npx playwright test
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+      - name: Run e2e tests
+        run: npx playwright test
+
+  deploy-readiness:
+    name: Deployment config checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    # A container on Docker's default bridge cannot reach the runner's
+    # loopback, so the image is smoke-tested with --network host, which makes
+    # 127.0.0.1:27017 (the Mongo service) and 127.0.0.1:5000 (the app) both
+    # resolve on the runner.
+    services:
+      mongo:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.runCommand({ ping: 1 })'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Syntax-check backend entrypoint
+        run: node --check backend/server.js
+      - name: Verify production dependency install
+        run: npm ci --omit=dev
+        working-directory: backend
+      - name: Validate docker compose file
+        run: docker compose config --quiet
+      - name: Build production image
+        run: docker build --tag cvboost:ci .
+      - name: Smoke-test container health endpoint
+        run: |
+          docker run --detach --name cvboost-ci --network host \
+            --env MONGODB_URI="mongodb://127.0.0.1:27017/cvboost_ci" \
+            --env NODE_ENV=production \
+            --env JWT_SECRET=ci-secret \
+            --env JWT_REFRESH_SECRET=ci-refresh-secret \
+            --env JOB_SCRAPING_ENABLED=false \
+            cvboost:ci
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:5000/api/health; then
+              echo "health endpoint responded"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::health endpoint never became ready"
+          docker logs cvboost-ci
+          exit 1
+      - name: Clean up container
+        if: always()
+        run: docker rm --force cvboost-ci 2>/dev/null || true

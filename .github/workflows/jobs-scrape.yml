@@ -7,15 +7,53 @@ on:
     - cron: '17 */6 * * *'
   workflow_dispatch:
 
+# A full cycle takes 60-120s of outbound HTTP, so the job needs a generous
+# ceiling. The curl below caps itself at 420s.
+timeout-minutes: 15
+
+concurrency:
+  group: jobs-scrape
+  cancel-in-progress: false
+
 jobs:
   scrape:
     name: Trigger /api/jobs/scrape
     runs-on: ubuntu-latest
     steps:
       - name: POST scrape trigger
+        env:
+          APP_URL: ${{ vars.APP_URL }}
+          JOB_SCRAPE_KEY: ${{ secrets.JOB_SCRAPE_KEY }}
         run: |
-          curl -fsS \
+          if [ -z "$APP_URL" ]; then
+            echo "::error::Repository variable APP_URL is not set (Settings -> Secrets and variables -> Actions -> Variables)"
+            exit 1
+          fi
+          if [ -z "$JOB_SCRAPE_KEY" ]; then
+            echo "::error::Secret JOB_SCRAPE_KEY is not set (Settings -> Secrets and variables -> Actions -> Secrets)"
+            exit 1
+          fi
+
+          # 200 = completed, 409 = the in-process scheduler is already running a
+          # cycle. Both are healthy outcomes, so only 409 is swallowed.
+          status=$(curl -sS -o /tmp/scrape-response.json -w '%{http_code}' \
             --max-time 420 \
             -X POST \
-            -H "x-scrape-key: ${{ secrets.JOB_SCRAPE_KEY }}" \
-            "${{ vars.APP_URL }}/api/jobs/scrape"
+            -H "x-scrape-key: $JOB_SCRAPE_KEY" \
+            "$APP_URL/api/jobs/scrape") || {
+              echo "::error::Request to $APP_URL failed (no HTTP response)"
+              exit 1
+            }
+
+          echo "HTTP $status"
+          cat /tmp/scrape-response.json
+          echo
+
+          case "$status" in
+            200) echo "Scrape cycle completed." ;;
+            409) echo "A scrape was already in progress — nothing to do." ;;
+            403) echo "::error::Rejected: JOB_SCRAPE_KEY does not match the deployed app"
+                 exit 1 ;;
+            *)   echo "::error::Unexpected status $status"
+                 exit 1 ;;
+          esac

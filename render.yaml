@@ -3,10 +3,12 @@ services:
     name: cvboost
     runtime: node
     plan: free
-    buildCommand: cd frontend && npm install && npm run build && cd ../backend && npm install
+    buildCommand: cd frontend && npm ci && npm run build && cd ../backend && npm ci
     startCommand: node backend/server.js
     healthCheckPath: /api/health
-    healthCheckTimeout: 100
+    # Matches the SIGTERM handler in backend/server.js, which drains in-flight
+    # requests before exiting. Must be >= the app's own 10s force-exit timer.
+    maxShutdownDelaySeconds: 15
     autoDeploy: true
     envVars:
       - key: NODE_ENV
@@ -21,6 +23,8 @@ services:
         generateValue: true
       - key: GROQ_API_KEY
         sync: false
+      - key: AI_MODEL
+        value: openai/gpt-oss-120b
       - key: POSTHOG_PROJECT_TOKEN
         sync: false
       - key: POSTHOG_HOST
@@ -29,22 +33,29 @@ services:
         sync: false
       - key: BETTERSTACK_SOURCE_TOKEN
         sync: false
+      - key: VITE_APP_ENV
+        value: production
       - key: VITE_SENTRY_DSN
         sync: false
       - key: VITE_POSTHOG_KEY
         sync: false
       - key: VITE_POSTHOG_HOST
         sync: false
+      # `property: url` is not a valid value for serviceEnvVarProperty (the
+      # schema allows only host/port/hostport/slug/connectionString), so the
+      # old blueprint silently fell back to http://localhost:5173 for both of
+      # these — which broke every password-reset and verification email link.
+      # RENDER_EXTERNAL_URL is the service's own public URL.
       - key: CORS_ORIGIN
         fromService:
           name: cvboost
           type: web
-          property: url
+          envVarKey: RENDER_EXTERNAL_URL
       - key: FRONTEND_URL
         fromService:
           name: cvboost
           type: web
-          property: url
+          envVarKey: RENDER_EXTERNAL_URL
       - key: CAMPAY_API_URL
         value: https://api.campay.net/api
       - key: CAMPAY_SANDBOX_USERNAME
@@ -56,6 +67,12 @@ services:
       - key: CAMPAY_PASSWORD
         sync: false
       - key: CAMPAY_WEBHOOK_SECRET
+        sync: false
+      - key: PAYSTACK_SECRET_KEY
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
         sync: false
       - key: GOOGLE_CLIENT_ID
         sync: false
@@ -71,11 +88,17 @@ services:
         sync: false
       - key: SMTP_FROM
         sync: false
+      - key: CMO_ENDPOINT
+        sync: false
+      - key: CMO_REVENUE_KEY
+        sync: false
       - key: JOB_SCRAPING_ENABLED
         value: "true"
       - key: JOB_SCRAPE_INTERVAL_MINUTES
         value: "360"
       - key: JOB_ENRICH_DETAILS
         value: "true"
+      - key: JOB_ENRICH_MAX
+        value: "12"
       - key: JOB_SCRAPE_KEY
         sync: false
