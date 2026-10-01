@@ -1,16 +1,93 @@
 const nodemailer = require('nodemailer');
+const axios = require('axios');
 const logger = require('../utils/logger');
 const { frontendUrl } = require('../config/urls');
 
 let transporter = null;
 
+const FROM = process.env.SMTP_FROM || 'CVBoost <noreply@cvboost.app>';
+
+// Brevo's transactional API is reached over HTTPS on port 443, which no cloud
+// provider blocks. This matters because Render blocks outbound SMTP (25/465/587)
+// on free instances — see the platform changelog — so an SMTP transport there
+// fails with a bare "Connection timeout" and no usable diagnostics.
+const BREVO_ENDPOINT = 'https://api.brevo.com/v3/smtp/email';
+
+// Nodemailer waits 120s for an SMTP connection by default. Over a blocked port
+// that is 120s of silence per email before anything is logged, so keep the
+// HTTP path short and let it report a real reason.
+const BREVO_TIMEOUT_MS = parseInt(process.env.BREVO_TIMEOUT_MS || '15000', 10);
+
+/**
+ * Split `CVBoost <noreply@cvboost.app>` into the shape Brevo expects.
+ * Brevo rejects a `sender` it has not verified, so a malformed or unverified
+ * FROM must fail loudly rather than silently produce an undeliverable message.
+ */
+function parseFrom(from) {
+  const match = /^\s*(.*?)\s*<([^>]+)>\s*$/.exec(from || '');
+  if (match) return { name: match[1] || undefined, email: match[2].trim() };
+  return { email: (from || '').trim() };
+}
+
+/**
+ * Minimal transport with the same `sendMail` contract as a nodemailer
+ * transporter, so `sendMail()` below is unaware of which one is in use.
+ */
+function createBrevoTransport(apiKey) {
+  return {
+    kind: 'brevo-api',
+    async sendMail({ from, to, subject, html, text, attachments }) {
+      const payload = {
+        sender: parseFrom(from),
+        to: [{ email: to }],
+        subject,
+        htmlContent: html,
+        textContent: text
+      };
+
+      // Brevo takes attachments as { name, content } with base64 content.
+      if (attachments && attachments.length) {
+        payload.attachment = attachments.map((a) => ({
+          name: a.filename,
+          content: Buffer.isBuffer(a.content) ? a.content.toString('base64') : a.content
+        }));
+      }
+
+      const response = await axios.post(BREVO_ENDPOINT, payload, {
+        timeout: BREVO_TIMEOUT_MS,
+        headers: {
+          'api-key': apiKey,
+          'content-type': 'application/json',
+          accept: 'application/json'
+        }
+      });
+
+      // Brevo answers 201 with the message id in a header, not the body.
+      return {
+        messageId: response.headers?.['x-message-id'] || response.data?.messageId || 'unknown'
+      };
+    }
+  };
+}
+
 function getTransporter() {
   if (transporter) return transporter;
 
-  const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM } = process.env;
+  const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM, BREVO_API_KEY } = process.env;
+
+  // Prefer the HTTPS API: it works on every host, including platforms that
+  // block outbound SMTP. This is the path a Render free instance must take.
+  if (BREVO_API_KEY) {
+    if (!SMTP_FROM) {
+      logger.warn('BREVO_API_KEY is set but SMTP_FROM is not — Brevo will reject an unverified sender');
+    }
+    transporter = createBrevoTransport(BREVO_API_KEY);
+    logger.info('Email transport: Brevo API over HTTPS (port 443)');
+    return transporter;
+  }
 
   if (!SMTP_HOST) {
-    logger.warn('SMTP not configured — emails will be logged to console only');
+    logger.warn('No BREVO_API_KEY and no SMTP_HOST — emails will be logged to console only');
     return null;
   }
 
@@ -19,6 +96,7 @@ function getTransporter() {
     return null;
   }
 
+  logger.info(`Email transport: SMTP ${SMTP_HOST}:${SMTP_PORT || '587'}`);
   transporter = nodemailer.createTransport({
     host: SMTP_HOST,
     port: parseInt(SMTP_PORT || '587', 10),
@@ -28,8 +106,6 @@ function getTransporter() {
 
   return transporter;
 }
-
-const FROM = process.env.SMTP_FROM || 'CVBoost <noreply@cvboost.app>';
 
 async function sendMail({ to, subject, html, text, attachments }) {
   const transport = getTransporter();
@@ -45,8 +121,26 @@ async function sendMail({ to, subject, html, text, attachments }) {
     logger.info(`Email sent to ${to}: ${info.messageId}`);
     return { success: true, messageId: info.messageId };
   } catch (err) {
-    logger.error(`Email failed to ${to}: ${err.message}`);
-    return { success: false, error: err.message };
+    // Distinguish the failure modes an operator actually has to act on. A bare
+    // "Connection timeout" tells you nothing about which of these it is.
+    let reason = err.message;
+    if (transport.kind === 'brevo-api' && err.response) {
+      const status = err.response.status;
+      const apiMessage = err.response.data?.message;
+      if (status === 401 || status === 403) {
+        reason = `Brevo rejected the API key (${status}) — check BREVO_API_KEY`;
+      } else if (status === 400 && /sender/i.test(apiMessage || '')) {
+        reason = `Brevo rejected the sender "${FROM}" (${apiMessage}) — verify this address in Brevo, then set SMTP_FROM to match`;
+      } else if (status === 429) {
+        reason = 'Brevo rate limit reached';
+      } else if (apiMessage) {
+        reason = `Brevo ${status}: ${apiMessage}`;
+      }
+    } else if (transport.kind !== 'brevo-api' && /timeout|ETIMEDOUT|ENETUNREACH|EAI_AGAIN/i.test(reason)) {
+      reason += ' — the host may block outbound SMTP (ports 25/465/587); set BREVO_API_KEY to send over HTTPS instead';
+    }
+    logger.error(`Email failed to ${to}: ${reason}`);
+    return { success: false, error: reason };
   }
 }
 

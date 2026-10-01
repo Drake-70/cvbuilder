@@ -73,6 +73,11 @@ services:
         sync: false
       - key: VITE_GOOGLE_CLIENT_ID
         sync: false
+      # Render blocks outbound SMTP (25/465/587) on free instances, so the
+      # nodemailer path below can only ever time out there. BREVO_API_KEY sends
+      # over HTTPS on 443 instead and is preferred whenever it is set.
+      - key: BREVO_API_KEY
+        sync: false
       - key: SMTP_HOST
         value: smtp-relay.brevo.com
       - key: SMTP_PORT
@@ -81,6 +86,7 @@ services:
         sync: false
       - key: SMTP_PASS
         sync: false
+      # Must be an address verified as a sender in Brevo, or sends are rejected.
       - key: SMTP_FROM
         sync: false
       - key: CMO_ENDPOINT
