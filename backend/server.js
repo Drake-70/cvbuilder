@@ -33,6 +33,8 @@ const sanitize = require('./middleware/sanitize');
 const csrfProtection = require('./middleware/csrf');
 const logger = require('./utils/logger');
 const { cacheMiddleware, invalidateCache } = require('./middleware/cache');
+const redis = require('./config/redis');
+const { RedisStore } = require('rate-limit-redis');
 
 const authRoutes = require('./routes/auth');
 const cvRoutes = require('./routes/cv');
@@ -89,13 +91,35 @@ app.use(cors({
 
 const isProd = process.env.NODE_ENV === 'production';
 
+/**
+ * Shared store for every rate limiter.
+ *
+ * Returns undefined when Redis is not configured, which makes express-rate-limit
+ * fall back to its in-memory store. Without Redis the counters live per process:
+ * they reset on every restart, which hands an attacker a fresh budget on each
+ * deploy.
+ *
+ * `passOnStoreError` is set on the limiters themselves so a Redis outage fails
+ * open. The alternative — every limiter returning 500 while Redis reconnects —
+ * turns a caching problem into a total outage.
+ */
+function limiterStore(prefix) {
+  if (!redis.isConfigured()) return undefined;
+  return new RedisStore({
+    prefix,
+    sendCommand: (...args) => redis.getClient().call(...args)
+  });
+}
+
 // Rate limiters
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: isProd ? 200 : 2000,
   message: { error: 'Too many requests, please try again later.' },
   standardHeaders: true,
-  legacyHeaders: false
+  legacyHeaders: false,
+  store: limiterStore('cvboost:rl:general:'),
+  passOnStoreError: true
 });
 
 const aiLimiter = rateLimit({
@@ -103,7 +127,9 @@ const aiLimiter = rateLimit({
   max: 10,
   message: { error: 'Too many AI requests. Please wait a moment before trying again.' },
   standardHeaders: true,
-  legacyHeaders: false
+  legacyHeaders: false,
+  store: limiterStore('cvboost:rl:ai:'),
+  passOnStoreError: true
 });
 
 const paymentLimiter = rateLimit({
@@ -111,7 +137,9 @@ const paymentLimiter = rateLimit({
   max: 5,
   message: { error: 'Too many payment attempts. Please wait before trying again.' },
   standardHeaders: true,
-  legacyHeaders: false
+  legacyHeaders: false,
+  store: limiterStore('cvboost:rl:payment:'),
+  passOnStoreError: true
 });
 
 const authLimiter = rateLimit({
@@ -119,7 +147,9 @@ const authLimiter = rateLimit({
   max: isProd ? 50 : 500,
   message: { error: 'Too many auth attempts. Please try again later.' },
   standardHeaders: true,
-  legacyHeaders: false
+  legacyHeaders: false,
+  store: limiterStore('cvboost:rl:auth:'),
+  passOnStoreError: true
 });
 
 const contactLimiter = rateLimit({
@@ -127,7 +157,9 @@ const contactLimiter = rateLimit({
   max: 5,
   message: { error: 'Too many contact form submissions.' },
   standardHeaders: true,
-  legacyHeaders: false
+  legacyHeaders: false,
+  store: limiterStore('cvboost:rl:contact:'),
+  passOnStoreError: true
 });
 
 // Health check (cached 30s).
@@ -136,7 +168,11 @@ const contactLimiter = rateLimit({
 // 200 requests / 15 min in production, while Render probes every few seconds
 // and restarts the instance after 60s of failed checks — so a rate-limited
 // health endpoint means a restart loop.
-app.get('/api/health', cacheMiddleware(30), (_req, res) => {
+//
+// memoryOnly: Render polls this every few seconds, and this endpoint does no
+// work worth caching. Sending those probes to Redis would spend a metered
+// command on every health check for no benefit.
+app.get('/api/health', cacheMiddleware(30, undefined, { memoryOnly: true }), (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString(), env: process.env.NODE_ENV || 'development' });
 });
 

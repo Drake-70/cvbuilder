@@ -17,6 +17,11 @@ services:
         value: "22"
       - key: MONGODB_URI
         sync: false
+      # Optional. Backs the response cache, rate-limit counters and job-scrape
+      # lock. Unset leaves all three in per-process memory, which resets on every
+      # restart. Upstash: use the rediss:// URL so TLS is negotiated.
+      - key: REDIS_URL
+        sync: false
       - key: JWT_SECRET
         generateValue: true
       - key: JWT_REFRESH_SECRET

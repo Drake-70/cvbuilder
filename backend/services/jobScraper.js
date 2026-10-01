@@ -1,7 +1,9 @@
 const axios = require('axios');
 const cheerio = require('cheerio');
+const crypto = require('crypto');
 const Job = require('../models/Job');
 const logger = require('../utils/logger');
+const redis = require('../config/redis');
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36';
 const REQUEST_TIMEOUT = envInt('JOB_SCRAPE_TIMEOUT_MS', 30000);
@@ -583,22 +585,84 @@ async function expireStaleJobs(options = {}) {
 // There are three independent triggers (GitHub Actions cron, the in-process
 // scheduler, and the Admin UI button). Without a lock they overlap, which
 // doubles the request load on both job boards and races the upserts.
+//
+// When Redis is available the lock is held there, so it also covers a second
+// instance and survives a crash mid-scrape (the whole point of the TTL). Without
+// Redis it degrades to a process-local flag, which is what this used to be.
+const SCRAPE_LOCK_KEY = 'cvboost:jobs:scrape-lock';
+// Longer than any observed cycle. A scrape that overruns this loses its lock,
+// which is the safer failure: a stuck lock would stop scraping until TTL.
+const SCRAPE_LOCK_TTL_MS = 15 * 60 * 1000;
+// Compare-and-delete: only release a lock this run actually holds, so a slow
+// scrape whose lock already expired cannot delete a successor's lock.
+const RELEASE_LOCK_LUA =
+  'if redis.call("get", KEYS[1]) == ARGV[1] then return redis.call("del", KEYS[1]) else return 0 end';
+
 let inFlight = null;
 let scrapeTimer = null;
 let scrapeInterval = null;
 
-async function scrapeAll() {
-  if (inFlight) {
-    logger.info('[jobs] scrape already running — skipping duplicate trigger');
-    return { skipped: true, startedAt: inFlight.startedAt };
-  }
+/**
+ * Take the scrape lock. Returns `{ acquired, startedAt, token }`.
+ *
+ * The in-process flag is checked first even when Redis is configured: two
+ * triggers in the same tick must not both reach Redis for the same work.
+ */
+async function acquireScrapeLock() {
   const startedAt = new Date();
-  inFlight = { startedAt, promise: null };
+
+  if (inFlight) {
+    return { acquired: false, startedAt: inFlight.startedAt, token: null };
+  }
+  inFlight = { startedAt };
+
+  const token = crypto.randomUUID();
+
+  if (redis.isReady()) {
+    try {
+      const reply = await redis
+        .getClient()
+        .set(SCRAPE_LOCK_KEY, token, 'PX', SCRAPE_LOCK_TTL_MS, 'NX');
+      if (reply !== 'OK') {
+        inFlight = null;
+        // The holder's start time is not known here; the caller only logs it.
+        return { acquired: false, startedAt, token: null };
+      }
+      return { acquired: true, startedAt, token };
+    } catch (err) {
+      // Fail open. A Redis blip must not stop job scraping, and the in-process
+      // flag still prevents overlap within this instance.
+      redis.noteError(err);
+    }
+  }
+
+  return { acquired: true, startedAt, token };
+}
+
+async function releaseScrapeLock(token) {
+  inFlight = null;
+
+  if (!token || !redis.isReady()) return;
+  try {
+    await redis.getClient().eval(RELEASE_LOCK_LUA, 1, SCRAPE_LOCK_KEY, token);
+  } catch (err) {
+    // The TTL reclaims the lock. Worth a line, not worth failing the cycle.
+    redis.noteError(err);
+  }
+}
+
+async function scrapeAll() {
+  const { acquired, startedAt, token } = await acquireScrapeLock();
+  if (!acquired) {
+    logger.info('[jobs] scrape already running — skipping duplicate trigger');
+    return { skipped: true, startedAt };
+  }
+
   try {
     const results = await runSources();
     return { skipped: false, startedAt, results };
   } finally {
-    inFlight = null;
+    await releaseScrapeLock(token);
   }
 }
 

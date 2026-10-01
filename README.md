@@ -46,6 +46,7 @@ the public browser bundle, so never put a secret in one.
 | `JWT_SECRET` | Random string for access tokens |
 | `JWT_REFRESH_SECRET` | Random string for refresh tokens |
 | `GROQ_API_KEY` | From console.groq.com |
+| `REDIS_URL` | Optional. Upstash `rediss://` URL. Backs the response cache, rate-limit counters and job-scrape lock; all three fall back to per-process memory when unset |
 | `CORS_ORIGIN` | Frontend URL (http://localhost:5173 in dev) |
 | `FRONTEND_URL` | Base URL used in password-reset / verification emails |
 | `CAMPAY_SANDBOX_USERNAME` | CamPay sandbox username |
