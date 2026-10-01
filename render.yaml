@@ -41,21 +41,16 @@ services:
         sync: false
       - key: VITE_POSTHOG_HOST
         sync: false
-      # `property: url` is not a valid value for serviceEnvVarProperty (the
-      # schema allows only host/port/hostport/slug/connectionString), so the
-      # old blueprint silently fell back to http://localhost:5173 for both of
-      # these — which broke every password-reset and verification email link.
-      # RENDER_EXTERNAL_URL is the service's own public URL.
-      - key: CORS_ORIGIN
-        fromService:
-          name: cvboost
-          type: web
-          envVarKey: RENDER_EXTERNAL_URL
-      - key: FRONTEND_URL
-        fromService:
-          name: cvboost
-          type: web
-          envVarKey: RENDER_EXTERNAL_URL
+      # CORS_ORIGIN and FRONTEND_URL are deliberately NOT set here. The app
+      # derives its own public origin from RENDER_EXTERNAL_URL, which Render
+      # injects into every service (see backend/config/urls.js); an explicit
+      # value here would win over it.
+      #
+      # The previous version used `fromService: {envVarKey: RENDER_EXTERNAL_URL}`
+      # pointing at this same service. That is a self-reference, so it only
+      # works if Render supports it during provisioning -- and it never applied
+      # at all when the service was created by hand. Deriving the origin in code
+      # is correct regardless of how the service was created.
       - key: CAMPAY_API_URL
         value: https://api.campay.net/api
       - key: CAMPAY_SANDBOX_USERNAME

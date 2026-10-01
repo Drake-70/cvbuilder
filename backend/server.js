@@ -70,10 +70,9 @@ app.use(helmet({
 // Compress JSON/static responses (gzip/br) — biggest transfer-size win
 app.use(compression());
 
-// CORS — supports comma-separated list of origins
-const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:5173')
-  .split(',')
-  .map(o => o.trim());
+// CORS — supports a comma-separated list of origins, and falls back to the
+// platform's own public URL so a deploy is never left allowing only localhost.
+const allowedOrigins = require('./config/urls').allowedOrigins();
 
 app.use(cors({
   origin: (origin, callback) => {

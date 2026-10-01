@@ -215,9 +215,17 @@ Notes:
   limiter on purpose. The general limiter allows 200 requests / 15 min in
   production, but Render probes every few seconds and restarts the instance
   after 60s of failed checks — a rate-limited health endpoint is a restart loop.
-- `CORS_ORIGIN` and `FRONTEND_URL` both resolve from the service's own
-  `RENDER_EXTERNAL_URL`, so password-reset and verification emails point at the
-  deployed origin with no manual editing.
+- `CORS_ORIGIN` and `FRONTEND_URL` are not set by the Blueprint at all. The app
+  derives its own public origin from `RENDER_EXTERNAL_URL`, which Render injects
+  into every service, so password-reset and verification links point at the
+  deployed origin with no manual configuration. This also means a service created
+  by hand — which never receives Blueprint `envVars` or `fromService` wiring —
+  is still correct. See `backend/config/urls.js`.
+
+  The previous Blueprint set both via `fromService: {envVarKey:
+  RENDER_EXTERNAL_URL}` pointing at the service itself. A service created
+  manually got neither, so both silently fell back to `http://localhost:5173`
+  and every password-reset email in production was a dead link.
 - `maxShutdownDelaySeconds: 15` matches the `SIGTERM` handler in
   `backend/server.js`, which drains in-flight requests and flushes logs before
   exiting. Don't lower it below the app's 10s force-exit timer.

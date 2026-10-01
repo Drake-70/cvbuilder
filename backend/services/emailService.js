@@ -1,5 +1,6 @@
 const nodemailer = require('nodemailer');
 const logger = require('../utils/logger');
+const { frontendUrl } = require('../config/urls');
 
 let transporter = null;
 
@@ -50,7 +51,7 @@ async function sendMail({ to, subject, html, text, attachments }) {
 }
 
 async function sendPasswordResetEmail(email, token, language = 'en') {
-  const baseUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+  const baseUrl = frontendUrl();
   const resetUrl = `${baseUrl}/reset-password?token=${token}`;
 
   const subjects = {
@@ -92,7 +93,7 @@ async function sendPasswordResetEmail(email, token, language = 'en') {
 }
 
 async function sendVerificationEmail({ email, token, language = 'en' }) {
-  const baseUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+  const baseUrl = frontendUrl();
   const verifyUrl = `${baseUrl}/verify-email?token=${token}`;
 
   const subjects = {
@@ -201,7 +202,7 @@ async function sendPaymentReceiptEmail({ email, amount, currency = 'XAF', type =
 async function sendJobAlertEmail({ email, language = 'en', jobs }) {
   if (!jobs || !jobs.length) return { success: true, consoleOnly: true };
 
-  const baseUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+  const baseUrl = frontendUrl();
   const isFr = language === 'fr';
 
   const list = jobs.map((job) => {
