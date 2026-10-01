@@ -57,3 +57,23 @@ test('an empty REDIS_URL is treated as unconfigured', () => {
   assert.equal(redis.isConfigured(), false);
   assert.equal(redis.getClient(), null);
 });
+
+test('an unparseable REDIS_URL degrades instead of killing the process', () => {
+  // ioredis parses the URL eagerly and throws on a value it cannot parse — a
+  // stray space, or a pasted REST URL fragment. That throw happened while this
+  // module was being required, before any log line, so a typo in an optional
+  // dependency took down the whole deploy. "Redis is optional" has to survive
+  // the URL being wrong, not just the socket being down.
+  let redis = null;
+  assert.doesNotThrow(() => {
+    redis = loadWith('not a url');
+  }, 'requiring config/redis must never throw');
+
+  try {
+    assert.equal(redis.isConfigured(), false);
+    assert.equal(redis.getClient(), null);
+    assert.equal(redis.isReady(), false);
+  } finally {
+    delete require.cache[MODULE_PATH];
+  }
+});

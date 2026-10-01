@@ -42,24 +42,37 @@ function noteError(err) {
 }
 
 if (REDIS_URL) {
-  configured = true;
+  // Construction is wrapped because ioredis parses the URL eagerly and throws on
+  // a value it cannot parse (a stray paste, or the Upstash REST URL pasted
+  // instead of the rediss:// one). That throw happened at require time, before
+  // any log line, and took the whole process down — the exact opposite of the
+  // "Redis is strictly optional" contract above.
+  try {
+    client = new Redis(REDIS_URL, {
+      // Fail fast rather than queue work behind a socket that may never open.
+      maxRetriesPerRequest: 1,
+      enableOfflineQueue: false,
+      connectTimeout: 5000,
+      // Capped backoff so a long outage does not turn into a reconnect storm.
+      retryStrategy: (attempt) => Math.min(attempt * 500, 30000),
+      // Managed Redis drops idle connections; these keep the socket warm and are
+      // supported by Upstash.
+      keepAlive: 10000
+    });
 
-  client = new Redis(REDIS_URL, {
-    // Fail fast rather than queue work behind a socket that may never open.
-    maxRetriesPerRequest: 1,
-    enableOfflineQueue: false,
-    connectTimeout: 5000,
-    // Capped backoff so a long outage does not turn into a reconnect storm.
-    retryStrategy: (attempt) => Math.min(attempt * 500, 30000),
-    // Managed Redis drops idle connections; these keep the socket warm and are
-    // supported by Upstash.
-    keepAlive: 10000
-  });
-
-  client.on('ready', () => {
-    logger.info('[redis] connected');
-  });
-  client.on('error', noteError);
+    client.on('ready', () => {
+      logger.info('[redis] connected');
+    });
+    client.on('error', noteError);
+    configured = true;
+  } catch (err) {
+    client = null;
+    configured = false;
+    logger.error(
+      `[redis] REDIS_URL could not be parsed (${err.message}) — `
+      + 'cache, rate-limit counters and scrape lock stay in-process'
+    );
+  }
 } else {
   logger.info('[redis] REDIS_URL not set — cache, rate-limit counters and scrape lock stay in-process');
 }

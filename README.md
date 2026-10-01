@@ -216,6 +216,16 @@ Notes:
   limiter on purpose. The general limiter allows 200 requests / 15 min in
   production, but Render probes every few seconds and restarts the instance
   after 60s of failed checks — a rate-limited health endpoint is a restart loop.
+- **The HTTP port opens before MongoDB connects**, and `/api/health` answers `200`
+  the whole time. Render treats a container that has not opened its port as a
+  failed deploy and kills it, so waiting on the database before listening meant a
+  slow or paused free-tier Atlas cluster produced `Application exited early` with
+  no application log explaining why. The health body reports
+  `mongo: connecting | connected | reconnecting`, and a failed connection is
+  retried in the background instead of exiting the process.
+- Startup logs a presence-only summary (`startup: env=… mongo=… redis=… sentry=…
+  push=…`) so a missing or typo'd env var is obvious. No secret values are ever
+  printed.
 - `CORS_ORIGIN` and `FRONTEND_URL` are not set by the Blueprint at all. The app
   derives its own public origin from `RENDER_EXTERNAL_URL`, which Render injects
   into every service, so password-reset and verification links point at the

@@ -57,6 +57,7 @@ const pushRoutes = require('./routes/push');
 const configRoutes = require('./routes/config');
 const { startJobScheduler, stopJobScheduler } = require('./services/jobScraper');
 const posthog = require('./config/posthog');
+const pushConfig = require('./config/push');
 
 const app = express();
 
@@ -162,6 +163,15 @@ const contactLimiter = rateLimit({
   passOnStoreError: true
 });
 
+// MongoDB readiness, driven by the background connection in start().
+//
+// The HTTP port is opened *before* MongoDB connects. A paused free-tier Atlas
+// cluster can take longer than Render's port-open timeout, and blocking the
+// listen on the connection made a slow database look like a dead container
+// ("Application exited early") with no error in the log.
+let mongoReady = false;
+let mongoEverReady = false;
+
 // Health check (cached 30s).
 //
 // Registered BEFORE the rate limiter on purpose. The general limiter allows
@@ -169,11 +179,20 @@ const contactLimiter = rateLimit({
 // and restarts the instance after 60s of failed checks — so a rate-limited
 // health endpoint means a restart loop.
 //
+// Always 200 while the process is up: this is a liveness probe. MongoDB state
+// is reported in the body instead, because failing the probe during a cold
+// database start would make the platform reject an otherwise healthy deploy.
+//
 // memoryOnly: Render polls this every few seconds, and this endpoint does no
 // work worth caching. Sending those probes to Redis would spend a metered
 // command on every health check for no benefit.
 app.get('/api/health', cacheMiddleware(30, undefined, { memoryOnly: true }), (_req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString(), env: process.env.NODE_ENV || 'development' });
+  res.json({
+    status: 'ok',
+    mongo: mongoReady ? 'connected' : (mongoEverReady ? 'reconnecting' : 'connecting'),
+    timestamp: new Date().toISOString(),
+    env: process.env.NODE_ENV || 'development'
+  });
 });
 
 app.use(generalLimiter);
@@ -269,12 +288,52 @@ const HOST = process.env.HOST || '0.0.0.0';
 
 let server = null;
 
+/**
+ * Connect to MongoDB, retrying in the background until it succeeds.
+ *
+ * Runs *after* the HTTP port is open. A failed connection keeps the process
+ * alive and retrying (with /api/health reporting `mongo: connecting`) instead of
+ * exiting, so a cold or paused cluster produces a clear, greppable log line
+ * rather than Render's opaque "Application exited early".
+ */
+async function connectWithRetry() {
+  for (;;) {
+    try {
+      await connectDB();
+      mongoReady = true;
+      mongoEverReady = true;
+      startJobScheduler();
+      return;
+    } catch (err) {
+      logger.error(`[mongo] unavailable: ${err.message} — retrying in 15s`);
+      await new Promise((resolve) => setTimeout(resolve, 15000));
+    }
+  }
+}
+
 const start = async () => {
-  await connectDB();
+  // Presence-only startup summary: which integrations this deploy actually has,
+  // without ever printing a secret. Makes a missing/typo'd env var obvious.
+  logger.info(
+    `startup: env=${process.env.NODE_ENV || 'development'} `
+    + `mongo=${process.env.MONGODB_URI ? 'configured' : 'MISSING'} `
+    + `redis=${redis.isConfigured() ? 'configured' : 'off'} `
+    + `sentry=${process.env.SENTRY_DSN ? 'on' : 'off'} `
+    + `push=${pushConfig.isConfigured() ? 'on' : 'off'}`
+  );
+
+  // Bind the port first. Render treats a container that never opens its port as
+  // a failed deploy and kills it; waiting on MongoDB here meant a slow database
+  // killed the process before the reason could be logged.
   server = app.listen(PORT, HOST, () => {
-    logger.info(`CVBoost server running on ${HOST}:${PORT} [${process.env.NODE_ENV || 'development'}]`);
+    logger.info(`CVBoost server listening on ${HOST}:${PORT} [${process.env.NODE_ENV || 'development'}]`);
   });
-  startJobScheduler();
+  server.on('error', (err) => {
+    logger.error(`HTTP server failed to start: ${err.message}`);
+    process.exit(1);
+  });
+
+  await connectWithRetry();
 };
 
 let shuttingDown = false;
