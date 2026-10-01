@@ -51,6 +51,7 @@ const adminRoutes = require('./routes/admin');
 const aiRoutes = require('./routes/ai');
 const draftRoutes = require('./routes/draft');
 const jobRoutes = require('./routes/jobs');
+const pushRoutes = require('./routes/push');
 const { startJobScheduler, stopJobScheduler } = require('./services/jobScraper');
 const posthog = require('./config/posthog');
 
@@ -174,6 +175,9 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/ai', aiLimiter, aiRoutes);
 app.use('/api/drafts', draftRoutes);
 app.use('/api/jobs', jobRoutes);
+// /public-key is deliberately unauthenticated inside the router; the rest of
+// these routes declare their own requireAuth.
+app.use('/api/push', pushRoutes);
 
 // Unknown API routes must 404 as JSON. The SPA catch-all below would otherwise
 // answer them with index.html and HTTP 200, which hides typos from monitoring

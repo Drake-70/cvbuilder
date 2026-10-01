@@ -7,6 +7,7 @@ const TailoredDocument = require('../models/TailoredDocument');
 const User = require('../models/User');
 const { tailorCV } = require('../services/aiService');
 const { runScrapeCycle } = require('../services/jobService');
+const { notifyUser } = require('../services/pushService');
 const posthog = require('../config/posthog');
 
 const JOB_CATEGORIES = [
@@ -139,13 +140,20 @@ exports.createApplication = async (req, res, next) => {
 
     Job.updateOne({ _id: job._id }, { $inc: { applyCount: 1 } }).catch(() => {});
 
-    await Notification.create({
+    const notification = await Notification.create({
       userId: req.user._id,
       type: 'application',
       title: job.title,
       body: `Application ${method === 'tailor' ? 'tailored for' : 'sent for'} ${job.company || 'this job'}`,
       jobId: job._id,
       link: `/jobs/${job._id}`
+    });
+
+    notifyUser(req.user._id, {
+      title: `Application sent: ${job.title}`,
+      body: `${job.company || 'This job'} — ${job.location || 'Cameroon'}`,
+      link: '/dashboard',
+      tag: `application-${notification._id}`
     });
 
     const payload = { application, method };

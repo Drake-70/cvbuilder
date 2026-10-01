@@ -5,6 +5,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useState, useRef, useEffect } from 'react';
 import { setItem } from '../utils/storage';
 import NotificationBell from './NotificationBell';
+import EmailVerificationBanner from './EmailVerificationBanner';
 import logoImg from '../assets/cvboost-logo.png';
 
 const HIDE_HEADER_PATHS = ['/login', '/register', '/forgot-password', '/reset-password'];
@@ -72,6 +73,8 @@ export default function Header() {
   ] : [];
 
   return (
+    <>
+      <EmailVerificationBanner />
     <header className="sticky top-0 z-50 backdrop-blur-xl bg-surface-0/80 dark:bg-surface-900/80 border-b border-surface-200/60 dark:border-surface-700/60" role="banner">
       <div className="max-w-6xl mx-auto px-4 sm:px-6">
         <div className="flex items-center justify-between h-16">
@@ -283,5 +286,6 @@ export default function Header() {
         )}
       </div>
     </header>
+    </>
   );
 }

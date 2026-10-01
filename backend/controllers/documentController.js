@@ -4,6 +4,7 @@ const Notification = require('../models/Notification');
 const ShareView = require('../models/ShareView');
 const { generateDocx } = require('../services/documentService');
 const { generatePdf } = require('../services/pdfService');
+const { notifyUser } = require('../services/pushService');
 const posthog = require('../config/posthog');
 const crypto = require('crypto');
 
@@ -109,6 +110,13 @@ exports.saveDocument = async (req, res, next) => {
         title: jobTitle ? `Your tailored CV for "${jobTitle}" is ready` : 'Your tailored CV is ready',
         body: 'Your CV and cover letter have been generated.',
         link: `/documents/${doc._id}`
+      });
+
+      notifyUser(req.user._id, {
+        title: 'Your tailored CV is ready',
+        body: jobTitle ? `Tailored for ${jobTitle}. Open it to review and download.` : 'Open it to review and download.',
+        link: `/documents/${doc._id}`,
+        tag: `document-${doc._id}`
       });
     } catch {
       // Notification must never break the save flow

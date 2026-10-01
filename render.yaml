@@ -107,3 +107,12 @@ services:
         value: "30"
       - key: JOB_SCRAPE_KEY
         sync: false
+      # Web push. Both keys must be set together or push stays disabled.
+      # Never rotate these casually: doing so invalidates every existing
+      # browser subscription, silently and with no error.
+      - key: VAPID_PUBLIC_KEY
+        sync: false
+      - key: VAPID_PRIVATE_KEY
+        sync: false
+      - key: VAPID_SUBJECT
+        sync: false

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import api from '../services/api';
+import PushNotificationCard from '../components/PushNotificationCard';
 
 export default function SettingsPage() {
   const { t } = useTranslation('common');
@@ -216,6 +217,8 @@ export default function SettingsPage() {
           </button>
         </form>
       </div>
+
+      <PushNotificationCard />
 
       {/* Password */}
       <div className="card p-6 mb-6">

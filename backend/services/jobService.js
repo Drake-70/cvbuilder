@@ -3,6 +3,7 @@ const Notification = require('../models/Notification');
 const User = require('../models/User');
 const { sendJobAlertEmail } = require('./emailService');
 const logger = require('../utils/logger');
+const { sendToUser } = require('./pushService');
 
 function textMatchesKeywords(text, keywords) {
   const blob = text.toLowerCase();
@@ -45,6 +46,10 @@ async function matchAlertsForJobs(jobs) {
     if (user) users.set(id, user);
   }
 
+  // Collected per user rather than sent inline: one push per user summarising
+  // the cycle, instead of one push per matched job, which would flood a phone.
+  const jobsToPush = new Map();
+
   let created = 0;
   for (const job of jobs) {
     for (const alert of alerts) {
@@ -62,6 +67,11 @@ async function matchAlertsForJobs(jobs) {
       });
       created += 1;
 
+      const pushKey = alert.userId.toString();
+      if (!jobsToPush.has(pushKey)) jobsToPush.set(pushKey, { userId: alert.userId, jobs: [] });
+      const pushList = jobsToPush.get(pushKey).jobs;
+      if (!pushList.some((j) => j._id.equals(job._id))) pushList.push(job);
+
       await JobAlert.updateOne({ _id: alert._id }, { $set: { lastMatchedAt: new Date() } });
 
       if (alert.emailEnabled) {
@@ -71,6 +81,23 @@ async function matchAlertsForJobs(jobs) {
         if (!list.some((j) => j._id.equals(job._id))) list.push(job);
       }
     }
+  }
+
+  let pushes = 0;
+  for (const { userId, jobs: matched } of jobsToPush.values()) {
+    const first = matched[0];
+    const result = await sendToUser(userId, {
+      title: matched.length === 1
+        ? `New job: ${first.title}`
+        : `${matched.length} new jobs match your alerts`,
+      body: matched.length === 1
+        ? `${first.company || 'Unknown company'} — ${first.location || 'Cameroon'}`
+        : matched.slice(0, 3).map((j) => j.title).join(' · '),
+      link: `/jobs/${first._id}`,
+      // One notification per user per cycle: a matching tag collapses repeats.
+      tag: `job-alert-${userId}`
+    });
+    pushes += result.sent;
   }
 
   let sent = 0;
@@ -85,8 +112,8 @@ async function matchAlertsForJobs(jobs) {
     if (result && !result.consoleOnly) sent += 1;
   }
 
-  logger.info(`[jobs] alerts matched ${created} new notification(s), ${sent} email(s)`);
-  return { notifications: created, emails: sent };
+  logger.info(`[jobs] alerts matched ${created} new notification(s), ${sent} email(s), ${pushes} push(es)`);
+  return { notifications: created, emails: sent, pushes };
 }
 
 async function runScrapeCycle() {
