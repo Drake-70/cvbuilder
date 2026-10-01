@@ -231,13 +231,21 @@ if (process.env.NODE_ENV === 'production') {
   const frontendDist = path.join(__dirname, '..', 'frontend', 'dist');
   // CDN-friendly caching: Vite emits content-hashed asset filenames (immutable),
   // index.html must revalidate, and everything else is safe to cache briefly.
-  const hashedAsset = /[\\/]assets\/[^\\/]+-[a-f0-9]{8}\./;
+  //
+  // Vite's hash is base64url (A-Za-z0-9_-), not hex: a pattern like [a-f0-9]{8}
+  // silently never matches (e.g. `index-CykKxNMw.js`), so hashed assets fell
+  // through to the 1h rule and lost their immutable long cache.
+  const hashedAsset = /[\\/]assets[\\/][^\\/]*-[A-Za-z0-9_-]{8}\.[^\\/]+$/;
   app.use(express.static(frontendDist, {
     maxAge: '1y',
     immutable: true,
     index: false,
     setHeaders: (res, filePath) => {
       if (filePath.endsWith('.html')) {
+        res.setHeader('Cache-Control', 'no-cache');
+      } else if (filePath.endsWith('sw.js')) {
+        // The service worker script must never be cached long: a stale worker
+        // keeps controlling the page and can serve a stale app shell.
         res.setHeader('Cache-Control', 'no-cache');
       } else if (hashedAsset.test(filePath)) {
         res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
