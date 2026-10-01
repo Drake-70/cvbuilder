@@ -17,6 +17,7 @@ export default function LoginPage() {
   const [agreed, setAgreed] = useState(() => sessionStorage.getItem('cvboost_agreed') === 'true');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleUnavailable, setGoogleUnavailable] = useState(false);
   const googleBtnRef = useRef(null);
   const { clientId, enabled: googleEnabled } = useGoogleClientId();
 
@@ -69,8 +70,15 @@ export default function LoginPage() {
     }
   };
 
-  const handleGoogleError = () => {
+  const handleGoogleError = (code) => {
     setError('');
+    // A failed script load is definitive: an ad blocker, tracking prevention, or
+    // a network filter stopped Google Identity Services. Surface a fallback
+    // instead of leaving an empty gap where the button should be. A button that
+    // merely renders late is left alone so a slow connection is not misreported.
+    if (code === 'gsi_script_load_failed') {
+      setGoogleUnavailable(true);
+    }
   };
 
   const googleCredentialRef = useRef(handleGoogleCredential);
@@ -85,7 +93,7 @@ export default function LoginPage() {
     initGoogleSignIn({
       clientId,
       onCredential: (credential) => googleCredentialRef.current(credential),
-      onError: () => googleErrorRef.current(),
+      onError: (code) => googleErrorRef.current(code),
       buttonRef: googleBtnRef
     });
   }, [googleEnabled, clientId]);
@@ -152,7 +160,7 @@ export default function LoginPage() {
 
           <div className="mt-8">
             {/* Google Sign-In Button */}
-            {googleEnabled && (
+            {googleEnabled && !googleUnavailable && (
               <>
                 <div ref={googleBtnRef} className="flex justify-center mb-4" />
                 <div className="relative my-4">
@@ -164,6 +172,11 @@ export default function LoginPage() {
                   </div>
                 </div>
               </>
+            )}
+            {googleEnabled && googleUnavailable && (
+              <p className="text-xs text-surface-400 dark:text-surface-500 text-center mb-4" role="status">
+                {t('google_unavailable', "Google sign-in couldn't load in this browser. Continue with your email below.")}
+              </p>
             )}
 
             <form onSubmit={handleSubmit} className="space-y-5" noValidate>
