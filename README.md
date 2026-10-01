@@ -52,14 +52,28 @@ the public browser bundle, so never put a secret in one.
 | `CAMPAY_SANDBOX_USERNAME` | CamPay sandbox username |
 | `CAMPAY_SANDBOX_PASSWORD` | CamPay sandbox password |
 
-`REDIS_URL` notes: use the **`rediss://`** connection string from the Upstash
-console, not the `https://…upstash.io` REST endpoint — ioredis parses the latter
-without complaint and treats the literal string `https` as the hostname, giving
-a client that can never connect. A password containing `/`, `#` or `?` must be
-percent-encoded in the URL. Surrounding whitespace, quotes and a stray newline
-from copy-paste are trimmed automatically and reported in the log as
-`REDIS_URL had surrounding whitespace or quotes`. A value that still cannot be
-used is named on one line and the app falls back to in-process state:
+`REDIS_URL` notes: the value must be **only the `rediss://` connection string**,
+not the `redis-cli -u rediss://…` command that the Upstash console displays as
+its main connect snippet, and not the `https://…upstash.io` REST endpoint.
+ioredis parses the REST endpoint without complaint and treats the literal
+string `https` as the hostname, giving a client that can never connect.
+
+These paste mistakes are corrected automatically and reported on one line
+without echoing the password:
+
+```
+[warn]: [redis] REDIS_URL needed repair (a pasted redis-cli command + surrounding whitespace); using the corrected value (70 -> 47 chars)
+```
+
+Repairs applied: a pasted `redis-cli` invocation, surrounding whitespace
+(including a leading tab, newline or non-breaking space, which Node's URL parser
+would otherwise turn into a hostname of `rediss`), and surrounding quotes. A
+password containing `/`, `?`, `#`, `[`, `]` or a bare `%` must be percent-encoded
+and is **not** auto-corrected — it is reported, because as written those
+characters end the host part of the URL.
+
+A value that still cannot be used is named on one line and the app falls back to
+in-process state:
 
 ```
 [error]: [redis] REDIS_URL could not be parsed (…) — cache, rate-limit counters and scrape lock stay in-process

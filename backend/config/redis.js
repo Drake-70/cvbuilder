@@ -24,13 +24,21 @@ const logger = require('../utils/logger');
 /**
  * Clean up a pasted REDIS_URL.
  *
- * Two things go wrong when a URL is copied out of a dashboard rather than
- * generated. Surrounding whitespace makes the WHATWG URL parser throw
- * `TypeError: Invalid URL` — verified against ioredis 6, and a *leading* space
- * is the only whitespace that does. And a leading tab, newline or non-breaking
- * space does not throw at all: the parser treats `rediss` as the host, so the
- * client silently points at a host named "rediss" and every command fails with
- * no explanation of why.
+ * Three things go wrong when a URL is copied out of a dashboard rather than
+ * generated, all verified against ioredis 6.
+ *
+ * 1. The Upstash console's main "connect" snippet is a whole command:
+ *    `redis-cli -u rediss://default:PASSWORD@host.upstash.io:6379`. Pasting that
+ *    verbatim puts a shell invocation where a URL is expected. The URL is
+ *    extracted from it below.
+ *
+ * 2. Surrounding whitespace makes the WHATWG URL parser throw
+ *    `TypeError: Invalid URL`, and a *leading* space is the only whitespace that
+ *    does.
+ *
+ * 3. A leading tab, newline or non-breaking space does not throw at all: the
+ *    parser treats `rediss` as the host, so the client silently points at a host
+ *    named "rediss" and every command fails with no explanation of why.
  *
  * Returns the cleaned URL plus whether anything was changed, so a value that
  * needed fixing is visible in the log rather than being quietly corrected.
@@ -42,9 +50,21 @@ function normalizeRedisUrl(value) {
   const trimmed = raw.replace(/^[\s\u00a0\u3000\ufeff]+|[\s\u00a0\u3000\ufeff]+$/g, '');
 
   // Quotes are sometimes carried along from copying out of a table cell.
-  const unquoted = /^(['"])(.*)\1$/.test(trimmed) ? trimmed.slice(1, -1) : trimmed;
+  let cleaned = /^(['"])(.*)\1$/.test(trimmed) ? trimmed.slice(1, -1) : trimmed;
 
-  return { url: unquoted, changed: unquoted !== raw };
+  // A pasted redis-cli invocation, with or without flags. The URL always appears
+  // as the -u/--url argument (Upstash and Upstash-compatible providers both show
+  // exactly that), but fall back to the first redis:// token in the string so an
+  // unusual flag order still works. Both the single- and double-quote forms are
+  // handled, since the copy usually includes the surrounding quotes.
+  if (/^redis-cli\b/i.test(cleaned)) {
+    const withFlag = /(?:-u|--url)\s+["']?(rediss?:\/\/\S+?)["']?(?:\s|$)/i.exec(cleaned);
+    const anyToken = /(rediss?:\/\/\S+)/i.exec(cleaned);
+    const extracted = (withFlag && withFlag[1]) || (anyToken && anyToken[1]);
+    if (extracted) cleaned = extracted;
+  }
+
+  return { url: cleaned, changed: cleaned !== raw };
 }
 
 /**
@@ -56,7 +76,19 @@ function normalizeRedisUrl(value) {
  */
 function assertRedisScheme(url) {
   if (!/^rediss?:\/\//i.test(url)) {
-    const shown = url.slice(0, 12).replace(/[^a-z:/?#[\]@!$&'()*+,;=.-]/gi, '');
+    // Preview the value for the log. Letters, digits and URL punctuation only, so
+    // a pasted command line or a stray password fragment cannot leak into the
+    // logs — a filtered preview of "redis-cli -u rediss://..." used to render as
+    // the unreadable "redis-cli--", which told the reader nothing.
+    const shown = url.replace(/[^a-z0-9:/.@_-]/gi, '').slice(0, 24);
+
+    if (/^redis-cli/i.test(url)) {
+      throw new Error(
+        'the value is a redis-cli command, not a URL. Use only the connection '
+        + 'string, e.g. rediss://default:<password>@<host>:6379'
+      );
+    }
+
     throw new Error(
       `expected a rediss:// or redis:// connection string, got something starting "${shown}"`
     );
@@ -139,9 +171,21 @@ if (RAW_REDIS_URL) {
     const { url, changed } = normalizeRedisUrl(RAW_REDIS_URL);
     if (changed) {
       // Never echo the value: it embeds the password.
+      // Name which repairs applied, so "whitespace" is never reported for what
+      // was actually a pasted redis-cli command. Detection runs on the RAW value
+      // because `url` is already the repaired result.
+      const repairs = [];
+      if (/^redis-cli\b/i.test(trimmedRedisUrl(RAW_REDIS_URL))) {
+        repairs.push('a pasted redis-cli command');
+      }
+      if (/^['"]/.test(trimmedRedisUrl(RAW_REDIS_URL))) repairs.push('surrounding quotes');
+      if (trimmedRedisUrl(trimmedRedisUrl(RAW_REDIS_URL)) !== RAW_REDIS_URL) {
+        repairs.push('surrounding whitespace');
+      }
+
       logger.warn(
-        `[redis] REDIS_URL had surrounding whitespace or quotes; using the trimmed value `
-        + `(${RAW_REDIS_URL.length} -> ${url.length} chars)`
+        `[redis] REDIS_URL needed repair (${repairs.join(' + ') || 'unrecognised formatting'}); `
+        + `using the corrected value (${RAW_REDIS_URL.length} -> ${url.length} chars)`
       );
     }
     assertRedisScheme(url);
@@ -183,6 +227,11 @@ function isReady() {
 
 function getClient() {
   return client;
+}
+
+/** Whitespace-stripped view of a raw value, used only for the repair log line. */
+function trimmedRedisUrl(value) {
+  return String(value).replace(/^[\s\u00a0\u3000\ufeff]+|[\s\u00a0\u3000\ufeff]+$/g, '');
 }
 
 module.exports = {

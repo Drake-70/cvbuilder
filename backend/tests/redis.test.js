@@ -78,6 +78,53 @@ test('an unparseable REDIS_URL degrades instead of killing the process', () => {
   }
 });
 
+test('a pasted redis-cli command yields the URL it contains', () => {
+  // The Upstash console's primary connect snippet is a whole command, so
+  // pasting what is on screen is the most likely mistake of all. Production
+  // reported `got something starting "redis-cli--"`.
+  const { normalizeRedisUrl } = loadWith(undefined);
+  const expected = 'rediss://default:PW@my-db.upstash.io:6379';
+
+  for (const raw of [
+    `redis-cli -u ${expected}`,
+    `redis-cli -u ${expected} `,
+    `redis-cli --url ${expected}`,
+    `redis-cli -u "${expected}"`,
+    `redis-cli -u '${expected}'`,
+    `redis-cli --tls -u ${expected}`,
+    `  redis-cli -u ${expected}  `
+  ]) {
+    const { url, changed } = normalizeRedisUrl(raw);
+    assert.equal(url, expected, `should extract the URL from ${JSON.stringify(raw)}`);
+    assert.equal(changed, true, `${JSON.stringify(raw)} needed fixing`);
+    assert.doesNotThrow(() => new URL(url));
+  }
+});
+
+test('an extracted redis-cli URL still has to be a valid Redis URL', () => {
+  // Extraction must not become a way to smuggle a bad value past the checks:
+  // the rest of the pipeline has to see exactly what it would have seen had the
+  // URL been pasted on its own.
+  const { normalizeRedisUrl, assertRedisScheme, assertEncodedPassword } = loadWith(undefined);
+
+  // No redis:// token to extract, so the command survives and is reported as
+  // the command it is.
+  const { url } = normalizeRedisUrl('redis-cli -u https://my-db.upstash.io');
+  assert.throws(() => assertRedisScheme(url), /redis-cli command, not a URL/);
+
+  const slashy = normalizeRedisUrl('redis-cli -u rediss://default:p@ss/word@my-db.upstash.io:6379');
+  assert.throws(() => assertEncodedPassword(slashy.url), /percent-encoded/);
+});
+
+test('a redis-cli value with no URL in it is reported clearly', () => {
+  // The error has to name the mistake, and must not echo anything that could be
+  // a password.
+  const { normalizeRedisUrl, assertRedisScheme } = loadWith(undefined);
+
+  const { url } = normalizeRedisUrl('redis-cli --version');
+  assert.throws(() => assertRedisScheme(url), /redis-cli command, not a URL/);
+});
+
 test('a REDIS_URL with a leading space is trimmed instead of discarded', () => {
   // A leading space is the one whitespace character that makes the WHATWG URL
   // parser throw outright, which is what produced the production
