@@ -254,9 +254,26 @@ Notes:
   no application log explaining why. The health body reports
   `mongo: connecting | connected | reconnecting`, and a failed connection is
   retried in the background instead of exiting the process.
-- Startup logs a presence-only summary (`startup: env=… mongo=… redis=… sentry=…
-  push=…`) so a missing or typo'd env var is obvious. No secret values are ever
-  printed.
+- Startup logs a presence-only summary (`startup: env=… mongo=… redis=… email=…
+  sentry=… push=…`) so a missing or typo'd env var is obvious. No secret values are
+  ever printed, and a field that was cleared but left blank or whitespace reads
+  as unset rather than configured.
+- `email=` on that line is the one to watch. It is `brevo` (real delivery over
+  HTTPS), `smtp` (real delivery, which Render's free tier blocks), or `console`,
+  where every send is written to the log instead of an inbox. `console` is
+  silent from the user's side — signup succeeds, the response says the
+  verification link is on its way, and it never arrives. `SMTP_FROM` must match
+  a sender already verified in Brevo, or Brevo rejects each message.
+- Email delivery failures are reported to the user where that is safe to do so.
+  `sendMail` signals failure by resolving `{ success: false }` rather than
+  rejecting, so the send call sites check the resolved value; they previously
+  used `.catch()`, which could never fire, and `POST /auth/resend-verification`
+  answered `200 { message: 'Verification email sent' }` no matter what happened.
+  It now returns `502` with the real reason — the caller is the signed-in
+  account, so there is no account-enumeration risk. `POST /auth/forgot-password`
+  deliberately keeps one identical reply for both outcomes, because reporting a
+  delivery failure there would distinguish "account exists but mail is broken"
+  from "no such account"; those failures go to the log only.
 - `CORS_ORIGIN` and `FRONTEND_URL` are not set by the Blueprint at all. The app
   derives its own public origin from `RENDER_EXTERNAL_URL`, which Render injects
   into every service, so password-reset and verification links point at the

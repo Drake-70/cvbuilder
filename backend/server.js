@@ -58,6 +58,9 @@ const configRoutes = require('./routes/config');
 const { startJobScheduler, stopJobScheduler } = require('./services/jobScraper');
 const posthog = require('./config/posthog');
 const pushConfig = require('./config/push');
+// Loaded for `transportStatus()` in the startup summary only. The service
+// builds no transporter and opens no socket at require time.
+const emailService = require('./services/emailService');
 
 const app = express();
 
@@ -311,14 +314,30 @@ async function connectWithRetry() {
   }
 }
 
+/**
+ * Whether an env var is actually usable, for the presence-only startup summary.
+ *
+ * A bare truthiness check reports an empty string as configured, and clearing a
+ * field in the Render dashboard is the single most likely way to end up with
+ * one — so `SENTRY_DSN=''` reported `sentry=on` while Sentry was off. Trim as
+ * well, since a value that is only whitespace is the same mistake with extra
+ * keystrokes.
+ */
+function isSet(name) {
+  return Boolean(String(process.env[name] || '').trim());
+}
+
 const start = async () => {
   // Presence-only startup summary: which integrations this deploy actually has,
   // without ever printing a secret. Makes a missing/typo'd env var obvious.
+  // `email=console` is the one to watch: every send "succeeds" and lands in this
+  // log instead of a real inbox, so verification links silently never arrive.
   logger.info(
     `startup: env=${process.env.NODE_ENV || 'development'} `
-    + `mongo=${process.env.MONGODB_URI ? 'configured' : 'MISSING'} `
+    + `mongo=${isSet('MONGODB_URI') ? 'configured' : 'MISSING'} `
     + `redis=${redis.isConfigured() ? 'configured' : 'off'} `
-    + `sentry=${process.env.SENTRY_DSN ? 'on' : 'off'} `
+    + `email=${emailService.transportStatus()} `
+    + `sentry=${isSet('SENTRY_DSN') ? 'on' : 'off'} `
     + `push=${pushConfig.isConfigured() ? 'on' : 'off'}`
   );
 

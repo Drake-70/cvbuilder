@@ -111,9 +111,29 @@ exports.register = async (req, res, next) => {
       if (!existingUser.emailVerified) {
         const token = issueVerificationToken(existingUser);
         await existingUser.save();
-        sendVerificationEmail({ email: existingUser.email, token, language: existingUser.preferredLanguage || 'en' }).catch(err => {
-          logger.error(`Verification email failed for ${existingUser.email}: ${err.message}`);
-        });
+        // This is the path a user reaches when the *first* verification email
+        // never arrived, so it is the recovery route when mail is broken. It
+        // still answers generically (`exists: true` is returned for any taken
+        // address, verified or not) to avoid confirming which addresses are
+        // registered; delivery failures are logged, not returned.
+        //
+        // Checked on the resolved value: `sendMail` resolves
+        // `{ success: false }` and never rejects, so `.catch()` never fired.
+        sendVerificationEmail({
+          email: existingUser.email,
+          token,
+          language: existingUser.preferredLanguage || 'en'
+        })
+          .then((result) => {
+            if (!result.success) {
+              logger.error(
+                `Re-verification email not delivered for ${existingUser.email}: ${result.error}`
+              );
+            }
+          })
+          .catch((err) => {
+            logger.error(`Verification email failed for ${existingUser.email}: ${err.message}`);
+          });
       }
       return res.json({ exists: true, message: 'If this email is available, a confirmation has been sent.' });
     }
@@ -138,14 +158,28 @@ exports.register = async (req, res, next) => {
     const { accessToken, refreshToken } = generateTokens(user._id);
     setTokenCookies(res, accessToken, refreshToken);
 
-    // Send verification email (non-blocking)
+    // Send verification email. Awaited, unlike most of the fire-and-forget calls
+    // in this handler, because the response is the only place the user learns
+    // whether to look at their inbox. `sendMail` signals failure by resolving
+    // `{ success: false }`, so a `.catch()` here can never fire — which is how a
+    // deploy with an unverified Brevo sender looks exactly like a working one:
+    // signup succeeds, and every new account waits for a mail that is never sent.
     const token = issueVerificationToken(user);
     await user.save();
-    sendVerificationEmail({ email: user.email, token, language: preferredLanguage || 'en' }).catch(err => {
+    const verification = await sendVerificationEmail({
+      email: user.email,
+      token,
+      language: preferredLanguage || 'en'
+    }).catch((err) => {
       logger.error(`Verification email failed for ${user.email}: ${err.message}`);
+      return { success: false, error: err.message };
     });
 
-    res.status(201).json({ user: userResponse(user) });
+    // The account is created either way: the address is now taken, so failing
+    // the request would tell the user to try a different one, and every retry
+    // would hit the "already exists" path. `emailSent: false` instead lets the
+    // UI say so while the account stays intact and a later resend can deliver.
+    res.status(201).json({ user: userResponse(user), emailSent: verification.success });
 
     posthog.identify(user._id.toString(), {
       name: user.name,
@@ -319,10 +353,25 @@ exports.forgotPassword = async (req, res, next) => {
     user.resetPasswordExpires = new Date(Date.now() + 60 * 60 * 1000);
     await user.save();
 
-    // Send reset email (non-blocking)
-    sendPasswordResetEmail(user.email, token, user.preferredLanguage || 'en').catch(err => {
-      logger.error(`Password reset email failed for ${user.email}: ${err.message}`);
-    });
+    // Stays fire-and-forget AND generic on purpose. Reporting a delivery
+    // failure to the caller would distinguish "this account exists but mail is
+    // broken" from "no such account" — precisely the oracle the identical
+    // message exists to prevent, and a usable account-enumeration probe. The
+    // reason goes to the log instead, tagged with the flow it happened in so a
+    // systematic mail outage is attributable.
+    //
+    // The result is inspected on the resolved value, not via `.catch()`:
+    // `sendMail` resolves `{ success: false }` on failure and never rejects, so
+    // the previous `.catch()` was dead code.
+    sendPasswordResetEmail(user.email, token, user.preferredLanguage || 'en')
+      .then((result) => {
+        if (!result.success) {
+          logger.error(`Password reset email not delivered for ${user.email}: ${result.error}`);
+        }
+      })
+      .catch((err) => {
+        logger.error(`Password reset email failed for ${user.email}: ${err.message}`);
+      });
 
     res.json({ message: 'If an account exists, a reset link has been sent' });
   } catch (err) {
@@ -389,11 +438,36 @@ exports.resendVerification = async (req, res, next) => {
     const token = issueVerificationToken(user);
     await user.save();
 
-    sendVerificationEmail({ email: user.email, token, language: user.preferredLanguage || 'en' }).catch(err => {
+    // Awaited, and checked on `success` rather than with `.catch()`.
+    //
+    // `sendMail` reports failure by *resolving* `{ success: false }` — it does
+    // not reject — so the `.catch()` this replaces could never fire, and the
+    // endpoint replied "Verification email sent" whether or not anything was
+    // delivered. The user who explicitly clicked Resend was told a message was
+    // on its way, and had no way to learn it had failed.
+    const result = await sendVerificationEmail({
+      email: user.email,
+      token,
+      language: user.preferredLanguage || 'en'
+    }).catch((err) => {
+      // Still needed: `sendMail` only guards the transport call, so a throw
+      // from building the transport would otherwise escape unhandled.
       logger.error(`Verification email failed for ${user.email}: ${err.message}`);
+      return { success: false, error: err.message };
     });
 
-    res.json({ message: 'Verification email sent' });
+    if (!result.success) {
+      // The caller here is the signed-in account itself, so naming the reason
+      // carries no account-enumeration risk — unlike forgot-password, which
+      // must stay generic. Both frontend call sites already surface
+      // `data.error`, so this reaches the user without a UI change.
+      return res.status(502).json({
+        error: `Could not send the verification email: ${result.error}`,
+        emailSent: false
+      });
+    }
+
+    res.json({ message: 'Verification email sent', emailSent: true });
   } catch (err) {
     next(err);
   }

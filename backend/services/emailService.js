@@ -346,4 +346,40 @@ async function sendJobAlertEmail({ email, language = 'en', jobs }) {
   });
 }
 
-module.exports = { sendMail, sendPasswordResetEmail, sendVerificationEmail, sendPaymentReceiptEmail, sendJobAlertEmail };
+/**
+ * Report which transport this deploy would use, without building one.
+ *
+ * A deploy with no mail configuration is silent: `sendMail` finds no
+ * transport, logs the message to the console and returns `{ success: true,
+ * consoleOnly: true }` — indistinguishable from a real send. That is how an
+ * entire broken mail setup can look healthy until someone waits for a
+ * verification link. The startup summary needs to be able to say so up front,
+ * the same way it already reports `redis=` and `push=`.
+ *
+ * Presence-only, so it is safe to call at boot and never touches a secret.
+ *
+ *   'brevo'  — real delivery over HTTPS (the only path Render's free tier allows)
+ *   'smtp'   — real delivery over SMTP, which Render free instances block
+ *   'console'— no delivery at all; messages are only written to the log
+ */
+function transportStatus() {
+  // Trims before testing: a whitespace-only value is a field that was cleared
+  // but not emptied, and it must read as unset here rather than configuring a
+  // transport that cannot authenticate.
+  const has = (name) => Boolean(String(process.env[name] || '').trim());
+
+  if (has('BREVO_API_KEY')) return 'brevo';
+  if (has('SMTP_HOST')) {
+    return has('SMTP_USER') && has('SMTP_PASS') ? 'smtp' : 'smtp-no-auth';
+  }
+  return 'console';
+}
+
+module.exports = {
+  sendMail,
+  sendPasswordResetEmail,
+  sendVerificationEmail,
+  sendPaymentReceiptEmail,
+  sendJobAlertEmail,
+  transportStatus
+};

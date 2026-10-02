@@ -61,7 +61,18 @@ export default function RegisterPage() {
         window.CMO?.identify?.(form.email);
         navigate('/login');
       } else {
-        toast.success(t('create_account'), 'Welcome to CVBoost! Your first download is free.');
+        // The backend awaited the verification send and reports whether it was
+        // actually delivered. Without this the user is told to go and check an
+        // inbox that will stay empty — with no clue that anything went wrong —
+        // and the only way to find out is to click Resend on the next screen.
+        if (data.emailSent === false) {
+          toast.error(
+            'Account created, but the verification email could not be sent',
+            'Please try again from the verification screen in a moment.'
+          );
+        } else {
+          toast.success(t('create_account'), 'Welcome to CVBoost! Your first download is free.');
+        }
         window.CMO?.startFunnel?.('signup');
         window.CMO?.stepFunnel?.('signup', 'submitted');
         window.CMO?.identify?.(form.email);
