@@ -79,9 +79,25 @@ in-process state:
 [error]: [redis] REDIS_URL could not be parsed (…) — cache, rate-limit counters and scrape lock stay in-process
 ```
 
-Confirm it is live with `[redis] connected` in the logs, or `redis=configured`
-on the `startup:` line plus `"mongo"` and the health body showing the cache
-backend as Redis rather than memory.
+Confirm it is live with `[redis] connected to <host>:6379 (TLS)` in the logs, or
+`redis=configured` on the `startup:` line plus `"mongo"` and the health body
+showing the cache backend as Redis rather than memory. If the endpoint never
+answers at all, the first failure says so explicitly rather than being folded
+into the once-a-minute warning:
+
+```
+[error]: [redis] never connected (read ECONNRESET) — check the host, the TLS scheme and the password.
+```
+
+The rate-limit store binds to Redis on **first use**, not at require time.
+`RedisStore.init()` issues a `SCRIPT LOAD` the moment the store exists, and
+`config/redis` runs with `enableOfflineQueue: false`, so a store built during
+boot has that script load rejected — and `init()` caches the rejected promise as
+`incrementScriptSha`, which every later `increment()` awaits. With
+`passOnStoreError` that silently disables rate limiting for the life of the
+process. Until Redis is ready the limiters count in memory instead, and a bind
+that fails is discarded rather than cached, so it is retried on the next
+request. See `backend/middleware/rateLimitStore.js`.
 
 ### 3. Run
 

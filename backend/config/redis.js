@@ -130,16 +130,35 @@ let configured = false;
 
 const ERROR_LOG_INTERVAL_MS = 60 * 1000;
 let lastErrorLogAt = 0;
+let everReady = false;
+let warnedNeverConnected = false;
 
 /**
  * Log at most one Redis failure a minute. A Redis outage produces one error per
  * attempted command; without this the log would be unusable and would itself
  * become the incident.
+ *
+ * The first failure is always logged, even inside the interval, and says whether
+ * the connection had ever come up. A client that has *never* reached `ready`
+ * after repeated errors is a connection or credential problem, while one that
+ * was ready and then dropped is an outage or a reset — and those need different
+ * fixes, so they must not be logged identically.
  */
 function noteError(err) {
   const now = Date.now();
-  if (now - lastErrorLogAt < ERROR_LOG_INTERVAL_MS) return;
+  const first = !lastErrorLogAt;
+  if (!first && now - lastErrorLogAt < ERROR_LOG_INTERVAL_MS) return;
   lastErrorLogAt = now;
+
+  if (!everReady && !warnedNeverConnected) {
+    warnedNeverConnected = true;
+    logger.error(
+      `[redis] never connected (${err.message}) — check the host, the TLS scheme and the password. `
+      + 'Cache, rate-limit counters and scrape lock stay in-process until it does.'
+    );
+    return;
+  }
+
   logger.warn(`[redis] unavailable, using in-process state: ${err.message}`);
 }
 
@@ -149,11 +168,32 @@ function noteError(err) {
  */
 function createClient(url) {
   const client = new Redis(url, {
+    // Fail fast rather than queue work behind a socket that may never open.
+    //
+    // The cost of `enableOfflineQueue: false` is that *any* command issued
+    // before the connection is established is rejected rather than deferred.
+    // Callers must therefore not touch Redis at require time -- see
+    // `limiterStore` in server.js, which binds on first use for exactly this
+    // reason.
     maxRetriesPerRequest: 1,
     enableOfflineQueue: false,
     connectTimeout: 5000,
+    // Capped backoff so a long outage does not turn into a reconnect storm.
     retryStrategy: (attempt) => Math.min(attempt * 500, 30000),
-    keepAlive: 10000
+    // Deliberately no `keepAlive`.
+    //
+    // It was set to 10s, and production then logged `read ECONNRESET` seconds
+    // after connecting. ioredis maps that option to TCP keepalive probes, and an
+    // intermediary that closes idle connections sees the probe as traffic on a
+    // socket it has already forgotten -- the classic reset. Upstash also
+    // documents against keepalive for serverless clients, which is what a
+    // Render instance is.
+    //
+    // The only cost of leaving it off is that idle sockets get dropped and
+    // reconnected, which retryStrategy already handles.
+    //
+    // TLS is left to ioredis, which derives it from the rediss:// scheme.
+    // Setting `tls` explicitly would force TLS even for a plain redis:// URL.
   });
   client.on('error', noteError);
   return client;
@@ -198,8 +238,14 @@ if (RAW_REDIS_URL) {
 
     client = createClient(url);
 
+    // Name the endpoint, never the credentials. "connected" on its own cannot
+    // distinguish a healthy Upstash from a TLS or auth failure that flaps, and
+    // the host is what makes the difference obvious in a log tail.
+    const endpoint = `${client.options.host}:${client.options.port}${client.options.tls ? ' (TLS)' : ''}`;
+
     client.on('ready', () => {
-      logger.info('[redis] connected');
+      everReady = true;
+      logger.info(`[redis] connected to ${endpoint}`);
     });
     configured = true;
   } catch (err) {
