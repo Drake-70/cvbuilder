@@ -171,20 +171,25 @@ if (RAW_REDIS_URL) {
     const { url, changed } = normalizeRedisUrl(RAW_REDIS_URL);
     if (changed) {
       // Never echo the value: it embeds the password.
-      // Name which repairs applied, so "whitespace" is never reported for what
-      // was actually a pasted redis-cli command. Detection runs on the RAW value
-      // because `url` is already the repaired result.
+      //
+      // Each repair is reported separately because naming the wrong one is worse
+      // than saying nothing — a pasted redis-cli command reported as "whitespace"
+      // sends the reader looking in entirely the wrong place. Detection runs on
+      // the RAW value, since `url` is already the repaired result.
       const repairs = [];
       if (/^redis-cli\b/i.test(trimmedRedisUrl(RAW_REDIS_URL))) {
         repairs.push('a pasted redis-cli command');
       }
-      if (/^['"]/.test(trimmedRedisUrl(RAW_REDIS_URL))) repairs.push('surrounding quotes');
+      if (/^['"]/.test(trimmedRedisUrl(RAW_REDIS_URL))) {
+        repairs.push('surrounding quotes');
+      }
       if (trimmedRedisUrl(trimmedRedisUrl(RAW_REDIS_URL)) !== RAW_REDIS_URL) {
         repairs.push('surrounding whitespace');
       }
+      if (repairs.length === 0) repairs.push('unrecognised formatting');
 
       logger.warn(
-        `[redis] REDIS_URL needed repair (${repairs.join(' + ') || 'unrecognised formatting'}); `
+        `[redis] REDIS_URL needed repair (${repairs.join(' + ')}); `
         + `using the corrected value (${RAW_REDIS_URL.length} -> ${url.length} chars)`
       );
     }
