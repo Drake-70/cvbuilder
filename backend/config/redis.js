@@ -139,11 +139,34 @@ function assertEncodedPassword(url) {
 
 let client = null;
 let configured = false;
+// Set when REDIS_URL was present but unusable. Tracked separately from
+// `configured` because `isConfigured()` must stay false in both cases -- it gates
+// whether anything is worth attempting at all -- while `status()` needs to tell
+// them apart, since the fix is different: set the variable, or correct it.
+let urlRejected = null;
 
 const ERROR_LOG_INTERVAL_MS = 60 * 1000;
 let lastErrorLogAt = 0;
 let everReady = false;
 let warnedNeverConnected = false;
+let lastError = null;
+
+/**
+ * Reduce an error to something safe to serve over HTTP.
+ *
+ * ioredis error messages normally quote only the reason (`NOAUTH Authentication
+ * required.`, `WRONGPASS ...`), but a URL-parse failure quotes the value it was
+ * given -- and that value is the connection string, password included. So the
+ * userinfo section is stripped from anything that looks like a URL, and the
+ * result is truncated, since a long error is an internal detail rather than a
+ * diagnostic one.
+ */
+function sanitizeError(err) {
+  const message = String((err && err.message) || err || 'unknown error');
+  return message
+    .replace(/([a-z][a-z0-9+.-]*:\/\/)[^/\s@]*@/gi, '$1***@')
+    .slice(0, 200);
+}
 
 /**
  * Log at most one Redis failure a minute. A Redis outage produces one error per
@@ -157,6 +180,12 @@ let warnedNeverConnected = false;
  * fixes, so they must not be logged identically.
  */
 function noteError(err) {
+  // Recorded before the interval check, so /api/health can report the reason
+  // even when the log stays quiet. A once-a-minute log and a live diagnostic
+  // serve different purposes: the log prevents spam, the health body prevents
+  // having to go looking for the one line that was written.
+  lastError = sanitizeError(err);
+
   const now = Date.now();
   const first = !lastErrorLogAt;
   if (!first && now - lastErrorLogAt < ERROR_LOG_INTERVAL_MS) return;
@@ -165,13 +194,17 @@ function noteError(err) {
   if (!everReady && !warnedNeverConnected) {
     warnedNeverConnected = true;
     logger.error(
-      `[redis] never connected (${err.message}) — check the host, the TLS scheme and the password. `
+      `[redis] never connected (${lastError}) — check the host, the TLS scheme and the password. `
       + 'Cache, rate-limit counters and scrape lock stay in-process until it does.'
     );
     return;
   }
 
-  logger.warn(`[redis] unavailable, using in-process state: ${err.message}`);
+  // `lastError`, not `err.message`: this is the first thing to throw if ioredis
+  // ever hands us something without a message, and it is reached from an error
+  // handler, where a throw becomes an unhandled exception — a Redis blip taking
+  // down the process that was supposed to degrade around it.
+  logger.warn(`[redis] unavailable, using in-process state: ${lastError}`);
 }
 
 /**
@@ -263,6 +296,7 @@ if (RAW_REDIS_URL) {
   } catch (err) {
     client = null;
     configured = false;
+    urlRejected = sanitizeError(err);
     logger.error(
       `[redis] REDIS_URL could not be parsed (${err.message}) — `
       + 'cache, rate-limit counters and scrape lock stay in-process'
@@ -292,6 +326,37 @@ function getClient() {
   return client;
 }
 
+/**
+ * Why Redis is not usable right now, for the health endpoint.
+ *
+ * Without this, "Redis is not connected" has to be diagnosed by tailing logs,
+ * which is exactly the situation the startup summary and `cache:` field were
+ * added to avoid -- and it is inconclusive, because `configured` only means the
+ * URL parsed. A socket that never opens, a rejected password and an outage all
+ * look identical from outside.
+ *
+ * Returns `ok: true` once the client has reached `ready`, and otherwise the
+ * ioredis connection state plus the last error seen, if any. The message is
+ * sanitised of credentials and truncated by `sanitizeError`.
+ */
+function status() {
+  // A rejected URL is checked before `configured`, because a parse failure sets
+  // configured = false. Testing it the other way round makes this branch
+  // unreachable, and a typo'd REDIS_URL reports itself as unset — sending the
+  // reader to the dashboard to check whether the variable exists at all, when it
+  // is there and simply wrong.
+  if (urlRejected) return { ok: false, state: 'invalid-url', error: urlRejected };
+  if (!configured) return { ok: false, state: 'not-configured' };
+  if (!client) return { ok: false, state: 'invalid-url' };
+  if (client.status === 'ready') return { ok: true, state: 'ready' };
+
+  return {
+    ok: false,
+    state: client.status,
+    ...(lastError ? { error: lastError } : {})
+  };
+}
+
 /** Whitespace-stripped view of a raw value, used only for the repair log line. */
 function trimmedRedisUrl(value) {
   return String(value).replace(/^[\s\u00a0\u3000\ufeff]+|[\s\u00a0\u3000\ufeff]+$/g, '');
@@ -302,6 +367,8 @@ module.exports = {
   isReady,
   getClient,
   noteError,
+  status,
+  sanitizeError,
   // Exported for tests: these are the parsing rules that decide whether a pasted
   // URL is usable, and they must be verifiable without a live Redis.
   normalizeRedisUrl,

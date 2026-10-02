@@ -3,6 +3,10 @@ const assert = require('node:assert/strict');
 
 const MODULE_PATH = require.resolve('../config/redis');
 
+// Required once for the pure helpers. `sanitizeError` has no module state, and
+// the redaction tests must hold regardless of what REDIS_URL happens to be.
+const redisModule = require('../config/redis');
+
 /** Load config/redis with a specific REDIS_URL, bypassing the require cache. */
 function loadWith(url) {
   const previous = process.env.REDIS_URL;
@@ -76,6 +80,140 @@ test('an unparseable REDIS_URL degrades instead of killing the process', () => {
   } finally {
     delete require.cache[MODULE_PATH];
   }
+});
+
+test('status explains why a configured Redis is not usable', () => {
+  // Production showed `redis=configured` with `cache: memory`, which says the URL
+  // parsed and nothing else — a socket that never opens, a rejected password and
+  // a mid-life outage are indistinguishable from outside. `status()` is what
+  // /api/health reports, so the distinction has to be recoverable without
+  // tailing logs.
+  const redis = loadWith('redis://127.0.0.1:1');
+  try {
+    assert.equal(redis.isConfigured(), true);
+    assert.equal(redis.isReady(), false);
+
+    const s = redis.status();
+    assert.equal(s.ok, false, 'not ready must not be reported as ok');
+    // ioredis states, not our own vocabulary: 'connecting', 'reconnecting',
+    // 'end', 'close'. Asserting a literal would break on an ioredis change
+    // without telling us anything useful.
+    assert.equal(typeof s.state, 'string');
+    assert.ok(s.state.length > 0, 'a state must always be reported');
+  } finally {
+    redis.getClient().disconnect();
+    delete require.cache[MODULE_PATH];
+  }
+});
+
+test('status reports not-configured when REDIS_URL is unset', () => {
+  const redis = loadWith(undefined);
+  assert.deepEqual(redis.status(), { ok: false, state: 'not-configured' });
+});
+
+test('status reports invalid-url when the URL cannot be parsed', () => {
+  // Distinct from not-configured, because the fix is different: one means "set
+  // the variable", the other means "fix the value you set".
+  const redis = loadWith('not a url');
+  try {
+    const s = redis.status();
+    assert.equal(s.ok, false);
+    assert.equal(s.state, 'invalid-url');
+    // The reason travels with the state, so /api/health explains a typo without
+    // the log being consulted.
+    assert.match(s.error, /expected a rediss/, 'a rejected URL must say why');
+    assert.equal(redis.isConfigured(), false, 'isConfigured stays false — nothing is attempted');
+  } finally {
+    delete require.cache[MODULE_PATH];
+  }
+});
+
+test('a rejected URL is not reported as merely unset', () => {
+  // The distinction that makes this worth reporting: "no REDIS_URL" and "REDIS_URL
+  // is wrong" need different fixes, and production hit both in a row while the
+  // health body could only say one of them.
+  const rejected = loadWith('not a url').status();
+  const unset = loadWith(undefined).status();
+
+  assert.notEqual(rejected.state, unset.state);
+  assert.equal(unset.state, 'not-configured');
+  delete require.cache[MODULE_PATH];
+});
+
+test('the reason Redis is down is recorded even when the log stays quiet', () => {
+  // noteError throttles to one line a minute, which is right for the log and
+  // wrong as the only record. Production can be mid-interval when you look, and
+  // then the one line that explains the outage is the one not written.
+  // A second, distinct error, so "last one wins" is actually asserted rather than
+  // assumed: both calls hit the same module instance, so the recorded reason must
+  // have been overwritten.
+  const redis = loadWith('redis://127.0.0.1:1');
+  try {
+    redis.noteError(new Error('WRONGPASS invalid username-password pair'));
+    assert.match(redis.status().error, /WRONGPASS/, 'the first failure is recorded');
+
+    redis.noteError(new Error('getaddrinfo ENOTFOUND some-host'));
+    assert.match(redis.status().error, /ENOTFOUND/, 'the most recent reason wins');
+  } finally {
+    redis.getClient().disconnect();
+    delete require.cache[MODULE_PATH];
+  }
+});
+
+test('noteError does not throw and still records when handed odd values', () => {
+  // Called from ioredis error handlers, so it cannot be allowed to throw, and it
+  // has to survive whatever shape an error arrives in.
+  const redis = loadWith('redis://127.0.0.1:1');
+  try {
+    assert.doesNotThrow(() => redis.noteError(undefined));
+    assert.doesNotThrow(() => redis.noteError('a bare string'));
+    assert.doesNotThrow(() => redis.noteError({ message: 'no message property' }));
+
+    const s = redis.status();
+    assert.equal(s.ok, false);
+    assert.ok(s.error, 'an unrecognised error shape must still be recorded');
+  } finally {
+    redis.getClient().disconnect();
+    delete require.cache[MODULE_PATH];
+  }
+});
+
+test('a Redis failure message never carries the password to /api/health', () => {
+  // status() is served over HTTP. An ioredis URL-parse error quotes the value it
+  // was handed, and that value is the connection string, password included — so
+  // this endpoint would leak credentials into a response that is public and
+  // cached by intermediaries. Redis errors are user-supplied-shaped, so they
+  // have to be scrubbed rather than trusted.
+  const withSecret = 'rediss://default:hunter2SUPERSECRET@my-db.upstash.io:6379';
+
+  for (const message of [
+    `Invalid URL: ${withSecret}`,
+    `connect ECONNREFUSED rediss://default:hunter2SUPERSECRET@my-db.upstash.io:6379`,
+    `WRONGPASS for user default (${withSecret})`
+  ]) {
+    const clean = redisModule.sanitizeError(new Error(message));
+    assert.ok(
+      !clean.includes('hunter2SUPERSECRET'),
+      `password leaked through: ${clean}`
+    );
+    assert.ok(clean.includes('***@'), `credentials should be masked, got: ${clean}`);
+  }
+});
+
+test('a Redis failure message cannot flood the health response', () => {
+  // The reason is a diagnostic, not an internal detail dump. ioredis errors are
+  // short, but nothing stops an unusual one from being enormous.
+  const huge = new Error(`NOAUTH ${'x'.repeat(5000)}`);
+  assert.ok(redisModule.sanitizeError(huge).length <= 200);
+});
+
+test('sanitizeError survives values that are not Errors at all', () => {
+  // ioredis emits real Errors, but this value ends up in a public HTTP response
+  // and a `String(undefined)` throwing here would turn a Redis blip into a 500
+  // on the health endpoint -- the opposite of a graceful fallback.
+  assert.equal(redisModule.sanitizeError(undefined), 'unknown error');
+  assert.equal(redisModule.sanitizeError(null), 'unknown error');
+  assert.equal(redisModule.sanitizeError('WRONGPASS'), 'WRONGPASS');
 });
 
 test('a pasted redis-cli command yields the URL it contains', () => {

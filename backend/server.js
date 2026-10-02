@@ -180,6 +180,12 @@ app.get('/api/health', cacheMiddleware(30, undefined, { memoryOnly: true }), (_r
     // after a deploy. `configured` is deliberately not reported: a URL that
     // parses but cannot connect is exactly the case worth catching here.
     cache: redis.isReady() ? 'redis' : 'memory',
+    // …and why not, when it isn't. `redis=configured` plus `cache: memory` on the
+    // startup line says the URL parsed and nothing else; a socket that never
+    // opens, a rejected password and an outage all look the same from outside.
+    // Reported only when Redis is configured, so an app that does not use Redis
+    // shows no Redis fields at all.
+    ...(redis.isConfigured() ? { redis: redis.status() } : {}),
     timestamp: new Date().toISOString(),
     env: process.env.NODE_ENV || 'development'
   });
