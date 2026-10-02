@@ -80,8 +80,10 @@ in-process state:
 ```
 
 Confirm it is live with `[redis] connected to <host>:6379 (TLS)` in the logs, or
-`redis=configured` on the `startup:` line plus `"mongo"` and the health body
-showing the cache backend as Redis rather than memory. If the endpoint never
+`redis=configured` on the `startup:` line plus `"cache":"redis"` in the
+`/api/health` body. The health body reports the *live* backend, not whether
+`REDIS_URL` parses — a URL that is accepted but cannot connect reports
+`"cache":"memory"`, which is the case worth catching. If the endpoint never
 answers at all, the first failure says so explicitly rather than being folded
 into the once-a-minute warning:
 

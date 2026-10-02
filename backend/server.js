@@ -176,6 +176,10 @@ app.get('/api/health', cacheMiddleware(30, undefined, { memoryOnly: true }), (_r
   res.json({
     status: 'ok',
     mongo: mongoReady ? 'connected' : (mongoEverReady ? 'reconnecting' : 'connecting'),
+    // The live cache backend, so Redis can be confirmed without tailing logs
+    // after a deploy. `configured` is deliberately not reported: a URL that
+    // parses but cannot connect is exactly the case worth catching here.
+    cache: redis.isReady() ? 'redis' : 'memory',
     timestamp: new Date().toISOString(),
     env: process.env.NODE_ENV || 'development'
   });
