@@ -263,6 +263,35 @@ Set `JOB_EXPIRY_DAYS=0` to turn the sweep off without a code change.
 All routes require an admin session (`requireAdmin`) and are exempt from the email
 verification gate, so an unverified admin can still fix verification problems.
 
+#### Getting in
+
+The dashboard is at **`/admin`**, and the header only shows an *Admin* link when
+the signed-in user has `role: 'admin'`. If there is no link, that account is not an
+admin.
+
+To see who the admins are, or to promote an account when there is no admin left to
+do it:
+
+```bash
+cd backend
+npm run promote:admin                              # list current admins
+npm run promote:admin -- you@example.com           # dry run: show what would change
+npm run promote:admin -- you@example.com --apply   # actually promote
+```
+
+It reads `MONGODB_URI` from `backend/.env`, so run it from `backend/` and check the
+host and database name it prints — the account has to already exist, and the script
+exits non-zero on a typo rather than appearing to succeed.
+
+This is the only way to create the first admin, and it is deliberately a script
+rather than an HTTP endpoint. `PATCH /api/admin/users/:id/role` is the supported
+way to change a role, but it sits behind `requireAdmin`, so a fresh database has no
+in-product path to its first admin. A `POST /api/admin/bootstrap` guarded by an env
+secret would fix that while leaving a standing unauthenticated write path in the
+production surface, with only the secrecy of one environment variable between an
+attacker and full admin. A script needs shell or database access, so it cannot be
+reached from the internet at all.
+
 - `GET /api/admin/dashboard` — counts, **revenue**, and the live system state
 - `GET /api/admin/users` — `page`, `limit`, `search`, `role`, `verified`, `subscription`
 - `PATCH /api/admin/users/:id/role` — promote / demote
