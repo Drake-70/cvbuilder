@@ -245,6 +245,54 @@ while still allowing edits to one they already made.
 
 Set `JOB_EXPIRY_DAYS=0` to turn the sweep off without a code change.
 
+### Admin
+
+All routes require an admin session (`requireAdmin`) and are exempt from the email
+verification gate, so an unverified admin can still fix verification problems.
+
+- `GET /api/admin/dashboard` — counts, **revenue**, and the live system state
+- `GET /api/admin/users` — `page`, `limit`, `search`, `role`, `verified`, `subscription`
+- `PATCH /api/admin/users/:id/role` — promote / demote
+- `PATCH /api/admin/users/:id/verified` — mark verified without sending mail
+- `GET /api/admin/payments` — `page`, `limit`, `status`, plus per-status totals
+- `GET /api/admin/contacts` — the inbox, with counts per status
+- `PATCH /api/admin/contacts/:id/status` — move a message through the workflow
+
+List endpoints share one envelope: `{ <key>, total, page, limit, pages, hasMore }`.
+`limit` is clamped to 100 (`backend/utils/paging.js`), so `?limit=1000000` degrades
+to a page instead of asking the driver to serialise the whole collection.
+
+Three properties the dashboard depends on:
+
+- **`passwordHash` is never returned.** The exclusion list lives in one place,
+  `USER_PRIVATE_FIELDS` in `adminController`, and is asserted against the selects
+  actually issued rather than against the constant.
+- **The last admin cannot be demoted**, and self-demotion is refused outright —
+  `409` for the former, `400` for the latter. Without it, one click on the role
+  toggle locks everyone out of the only route that can undo it.
+- **Revenue counts `success` only.** A pending payment is money that has not
+  arrived, and the totals are aggregated in the database rather than summed in JS.
+
+#### Contact workflow
+
+```
+new ──> read ──> replied
+ │        │         │
+ └────────┴─────────┴──> archived   (from any state, and back)
+```
+
+Rules live in `backend/services/contactWorkflow.js` and nowhere else; the
+controller validates with them and refuses an illegal move with `409` naming the
+current status and the allowed set. `replied` can be reopened because someone who
+replies and then receives a follow-up has genuinely unread mail. Reopening does
+**not** clear the stored reply or `repliedAt` — only an explicit `clearReply`
+does. `reply` records a reply composed elsewhere; nothing is emailed from here,
+so the app does not take on delivering it.
+
+`statusChangedBy` / `statusChangedAt` are stamped on every real change. A no-op
+does not restamp them, because an audit field that says a message was just handled
+when nothing happened is worse than a stale one.
+
 ## Testing
 
 ```bash

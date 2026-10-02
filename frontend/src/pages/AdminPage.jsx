@@ -1,345 +1,130 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import api from '../services/api';
+import { Skeleton } from '../components/Skeleton';
+import OverviewTab from '../components/admin/OverviewTab';
+import UsersTab from '../components/admin/UsersTab';
+import PaymentsTab from '../components/admin/PaymentsTab';
+import ContactsTab from '../components/admin/ContactsTab';
+import JobsTab from '../components/admin/JobsTab';
+
+/**
+ * Admin dashboard.
+ *
+ * A shell only: the four tabs load their own data. The previous version fetched
+ * users and payments here and re-derived them per tab, which meant a search in the
+ * users tab mutated the same array the overview tab rendered from.
+ */
+const TABS = [
+  { value: 'overview', label: 'Overview' },
+  { value: 'users', label: 'Users' },
+  { value: 'payments', label: 'Payments' },
+  { value: 'inbox', label: 'Inbox' },
+  { value: 'jobs', label: 'Jobs' }
+];
 
 export default function AdminPage() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const toastRef = useRef(toast);
+  toastRef.current = toast;
+
   const [tab, setTab] = useState('overview');
   const [dashboard, setDashboard] = useState(null);
-  const [users, setUsers] = useState([]);
-  const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [jobStats, setJobStats] = useState(null);
-  const [jobScrape, setJobScrape] = useState(null);
-  const [scraping, setScraping] = useState(false);
+  const [loadError, setLoadError] = useState(null);
 
   const isAdmin = user?.role === 'admin';
 
-  const loadJobStats = useCallback(async () => {
-    // Must mirror SOURCES in backend/services/jobScraper.js. This previously
-    // listed two sources that were removed after they started returning 403,
-    // so the dashboard always reported 0 for them and never counted Louma.
-    const sources = ['goafrica', 'louma'];
-    try {
-      const entries = await Promise.all(
-        sources.map(async (source) => {
-          try {
-            const res = await api.get('/jobs', { params: { source, limit: 1 } });
-            return { source, count: res.data.total };
-          } catch {
-            return { source, count: 0 };
-          }
-        })
-      );
-      const all = await api.get('/jobs', { params: { limit: 1 } });
-      setJobStats({ total: all.data.total, bySource: entries });
-    } catch { /* silent */ }
-  }, []);
-
   const loadDashboard = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const res = await api.get('/admin/dashboard');
       setDashboard(res.data);
-      setUsers(res.data.recentUsers || []);
-    } catch {
-      toast.error('Access Denied', 'Admin access required.');
+    } catch (err) {
+      // Surfaced in the page rather than only in a toast: a toast disappears, and
+      // an admin looking at an empty dashboard needs to know whether it is empty
+      // or broken.
+      const message = err.response?.data?.error || 'Could not load the dashboard.';
+      setLoadError(message);
+      toastRef.current.error('Admin dashboard', message);
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, []);
 
   useEffect(() => {
     if (!isAdmin) return;
     loadDashboard();
   }, [isAdmin, loadDashboard]);
 
-  const loadUsers = async (q = '') => {
-    try {
-      const res = await api.get(`/admin/users?search=${encodeURIComponent(q)}&limit=50`);
-      setUsers(res.data.users || []);
-    } catch { /* silent */ }
-  };
-
-  const loadPayments = async () => {
-    try {
-      const res = await api.get('/admin/payments?limit=50');
-      setPayments(res.data.payments || []);
-    } catch { /* silent */ }
-  };
-
-  const handleRoleChange = async (userId, newRole) => {
-    try {
-      await api.patch(`/admin/users/${userId}/role`, { role: newRole });
-      setUsers(prev => prev.map(u => u._id === userId ? { ...u, role: newRole } : u));
-      toast.success('Role Updated', `User is now ${newRole}`);
-    } catch {
-      toast.error('Failed', 'Could not update role');
-    }
-  };
-
-  const handleSearch = (val) => {
-    setSearch(val);
-    if (tab === 'users') loadUsers(val);
-  };
-
-  const handleTabChange = (newTab) => {
-    setTab(newTab);
-    if (newTab === 'payments' && payments.length === 0) loadPayments();
-    if (newTab === 'users' && users.length <= 10) loadUsers(search);
-    if (newTab === 'jobs' && !jobStats) loadJobStats();
-  };
-
-  const runScrape = async () => {
-    if (scraping) return;
-    setScraping(true);
-    setJobScrape(null);
-    try {
-      const res = await api.post('/jobs/scrape');
-      setJobScrape(res.data);
-      toast.success('Scrape Complete', 'Job listings have been refreshed.');
-      loadJobStats();
-    } catch (err) {
-      toast.error('Scrape Failed', err.response?.data?.error || 'Could not run the scrape.');
-    } finally {
-      setScraping(false);
-    }
-  };
-
   if (!isAdmin) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-12 text-center animate-slide-up">
         <div className="w-16 h-16 rounded-2xl bg-rose-50 dark:bg-rose-900/20 flex items-center justify-center mx-auto mb-4">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-rose-500">
-            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-rose-500" aria-hidden="true">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" />
           </svg>
         </div>
-        <h1 className="text-xl font-bold text-surface-900 dark:text-white mb-2">Admin Access Required</h1>
+        <h1 className="text-xl font-bold text-surface-900 dark:text-white mb-2">Admin access required</h1>
         <p className="text-surface-500 dark:text-surface-400">You don't have permission to view this page.</p>
       </div>
     );
   }
 
-  const formatDate = (d) => d ? new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '-';
-
   return (
     <div className="max-w-5xl mx-auto px-4 py-8 sm:py-12 animate-slide-up" role="main">
       <div className="flex items-center gap-3 mb-8">
         <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-rose-500 to-pink-600 flex items-center justify-center text-white shadow-sm">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
           </svg>
         </div>
         <div>
-          <h1 className="text-2xl font-bold text-surface-900 dark:text-white">Admin Dashboard</h1>
-          <p className="text-sm text-surface-500 dark:text-surface-400">Monitor users, payments, and activity</p>
+          <h1 className="text-2xl font-bold text-surface-900 dark:text-white">Admin dashboard</h1>
+          <p className="text-sm text-surface-500 dark:text-surface-400">Users, revenue, inbox, and job board</p>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 p-1 bg-surface-100 dark:bg-surface-800 rounded-xl mb-6">
-        {['overview', 'users', 'payments', 'jobs'].map(t => (
-          <button key={t} onClick={() => handleTabChange(t)} className={`flex-1 py-2.5 rounded-lg text-sm font-medium cursor-pointer transition-all ${tab === t ? 'bg-surface-0 dark:bg-surface-700 text-surface-900 dark:text-white shadow-sm' : 'text-surface-500 hover:text-surface-700 dark:hover:text-surface-300'}`}>
-            {t.charAt(0).toUpperCase() + t.slice(1)}
+      <div className="flex flex-wrap gap-1 p-1 bg-surface-100 dark:bg-surface-800 rounded-xl mb-6" role="tablist">
+        {TABS.map((t) => (
+          <button
+            key={t.value}
+            onClick={() => setTab(t.value)}
+            role="tab"
+            aria-selected={tab === t.value}
+            className={`flex-1 min-w-20 py-2.5 rounded-lg text-sm font-medium cursor-pointer transition-all ${
+              tab === t.value
+                ? 'bg-surface-0 dark:bg-surface-700 text-surface-900 dark:text-white shadow-sm'
+                : 'text-surface-500 hover:text-surface-700 dark:hover:text-surface-300'
+            }`}
+          >
+            {t.label}
           </button>
         ))}
       </div>
 
       {loading ? (
         <div className="space-y-3">
-          {[1,2,3].map(i => <div key={i} className="card p-4"><div className="animate-shimmer h-4 w-48 rounded mb-2" /><div className="animate-shimmer h-3 w-32 rounded" /></div>)}
+          {[1, 2, 3].map((i) => <Skeleton key={i} className="h-20 rounded-2xl" />)}
+        </div>
+      ) : loadError ? (
+        <div className="card p-6 text-center">
+          <p className="text-sm font-semibold text-rose-600 dark:text-rose-400 mb-1">Could not load the dashboard</p>
+          <p className="text-xs text-surface-500 dark:text-surface-400 mb-4">{loadError}</p>
+          <button onClick={loadDashboard} className="btn-secondary text-sm cursor-pointer">
+            Try again
+          </button>
         </div>
       ) : (
         <>
-          {/* Overview */}
-          {tab === 'overview' && dashboard && (
-            <div className="space-y-6 animate-fade-in">
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {[
-                  { label: 'Total Users', value: dashboard.stats.totalUsers, color: 'brand' },
-                  { label: 'Active Subs', value: dashboard.stats.activeSubscriptions, color: 'emerald' },
-                  { label: 'Documents', value: dashboard.stats.totalDocuments, color: 'blue' },
-                  { label: 'Saved CVs', value: dashboard.stats.totalCVs, color: 'amber' },
-                  // Makes the expiry sweep observable: a runaway or
-                  // misconfigured JOB_EXPIRY_DAYS empties the board, and this
-                  // is where that shows up.
-                  { label: 'Live Jobs', value: dashboard.stats.activeJobs, color: 'emerald' },
-                  { label: 'Expired Jobs', value: dashboard.stats.expiredJobs, color: 'slate' }
-                ].map(s => {
-                  const colorMap = { brand: 'text-brand-600 dark:text-brand-400', emerald: 'text-emerald-600 dark:text-emerald-400', blue: 'text-blue-600 dark:text-blue-400', amber: 'text-amber-600 dark:text-amber-400', slate: 'text-surface-500 dark:text-surface-400' };
-                  return (
-                    <div key={s.label} className="card p-4 text-center">
-                      <p className={'text-2xl font-bold ' + (colorMap[s.color] || 'text-surface-600')}>{s.value}</p>
-                      <p className="text-xs text-surface-500 dark:text-surface-400 mt-0.5">{s.label}</p>
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div className="card p-5">
-                <h3 className="text-sm font-bold text-surface-900 dark:text-white mb-3">Recent Users</h3>
-                <div className="space-y-2">
-                  {dashboard.recentUsers?.map(u => (
-                    <div key={u._id} className="flex items-center gap-3 py-2">
-                      <div className="w-7 h-7 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center text-brand-600 dark:text-brand-400 text-xs font-semibold">
-                        {u.name?.charAt(0)?.toUpperCase()}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-surface-900 dark:text-white truncate">{u.name}</p>
-                        <p className="text-xs text-surface-400">{u.email}</p>
-                      </div>
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${u.subscriptionStatus === 'active' ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400' : 'bg-surface-100 text-surface-500 dark:bg-surface-800'}`}>
-                        {u.subscriptionStatus === 'active' ? 'Pro' : 'Free'}
-                      </span>
-                      <span className="text-xs text-surface-400">{formatDate(u.createdAt)}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Users */}
-          {tab === 'users' && (
-            <div className="animate-fade-in">
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => handleSearch(e.target.value)}
-                placeholder="Search by name or email..."
-                className="input-field mb-4"
-              />
-              <div className="space-y-2">
-                {users.map(u => (
-                  <div key={u._id} className="card p-4 flex items-center gap-4">
-                    <div className="w-8 h-8 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center text-brand-600 dark:text-brand-400 text-xs font-semibold flex-shrink-0">
-                      {u.name?.charAt(0)?.toUpperCase()}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-surface-900 dark:text-white truncate">{u.name}</p>
-                      <p className="text-xs text-surface-400">{u.email}</p>
-                    </div>
-                    <button
-                      onClick={() => handleRoleChange(u._id, u.role === 'admin' ? 'user' : 'admin')}
-                      className={`text-xs px-2 py-0.5 rounded-full cursor-pointer transition-colors ${
-                        u.role === 'admin'
-                          ? 'bg-rose-50 text-rose-600 dark:bg-rose-900/20 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/30'
-                          : 'bg-surface-100 text-surface-500 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700'
-                      }`}
-                      title={u.role === 'admin' ? 'Click to demote to user' : 'Click to promote to admin'}
-                    >
-                      {u.role || 'user'}
-                    </button>
-                    <span className="text-xs text-surface-400">{formatDate(u.createdAt)}</span>
-                  </div>
-                ))}
-                {users.length === 0 && <p className="text-center text-surface-400 py-8">No users found.</p>}
-              </div>
-            </div>
-          )}
-
-          {/* Payments */}
-          {tab === 'payments' && (
-            <div className="animate-fade-in">
-              <div className="space-y-2">
-                {payments.map(p => (
-                  <div key={p._id} className="card p-4 flex items-center gap-4">
-                    <div className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center flex-shrink-0">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-600 dark:text-emerald-400">
-                        <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
-                      </svg>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-surface-900 dark:text-white">{p.userId?.name || 'Unknown'} — {p.amount} XAF</p>
-                      <p className="text-xs text-surface-400">{p.method || 'N/A'} &middot; {p.status}</p>
-                    </div>
-                    <span className="text-xs text-surface-400">{formatDate(p.createdAt)}</span>
-                  </div>
-                ))}
-                {payments.length === 0 && <p className="text-center text-surface-400 py-8">No payments yet.</p>}
-              </div>
-            </div>
-          )}
-
-          {/* Jobs */}
-          {tab === 'jobs' && (
-            <div className="space-y-6 animate-fade-in">
-              <div className="card p-5">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
-                  <div>
-                    <h3 className="text-sm font-bold text-surface-900 dark:text-white">Job Listings</h3>
-                    <p className="text-xs text-surface-500 dark:text-surface-400 mt-0.5">
-                      {jobStats
-                        ? `${jobStats.total} active listings on the board.${dashboard?.stats?.expiredJobs ? ` ${dashboard.stats.expiredJobs} aged out and hidden.` : ''}`
-                        : 'Loading job stats...'}
-                    </p>
-                  </div>
-                  <button
-                    onClick={runScrape}
-                    disabled={scraping}
-                    className="btn-primary text-sm justify-center cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed flex-shrink-0"
-                  >
-                    {scraping ? (
-                      <span className="inline-flex items-center gap-2">
-                        <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                        </svg>
-                        Scraping...
-                      </span>
-                    ) : (
-                      'Run Scrape Now'
-                    )}
-                  </button>
-                </div>
-                <p className="text-xs text-surface-400">
-                  Scheduler runs automatically every 6 hours. This button triggers a manual refresh of all sources.
-                </p>
-              </div>
-
-              {jobStats && (
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <div className="card p-4 text-center">
-                    <p className="text-2xl font-bold text-brand-600 dark:text-brand-400">{jobStats.total}</p>
-                    <p className="text-xs text-surface-500 dark:text-surface-400 mt-0.5">Total Jobs</p>
-                  </div>
-                  {jobStats.bySource.map(s => (
-                    <div key={s.source} className="card p-4 text-center">
-                      <p className="text-2xl font-bold text-surface-600 dark:text-surface-300">{s.count}</p>
-                      <p className="text-xs text-surface-500 dark:text-surface-400 mt-0.5 capitalize">{s.source}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {jobScrape && (
-                <div className="card p-5">
-                  <h3 className="text-sm font-bold text-surface-900 dark:text-white mb-3">Last Scrape Result</h3>
-                  <div className="space-y-2">
-                    {(jobScrape.results || []).map((r) => (
-                      <div key={r.source} className="flex items-center gap-3 text-sm">
-                        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${r.status === 'ok' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
-                        <span className="capitalize w-24 text-surface-600 dark:text-surface-300">{r.source}</span>
-                        <span className="text-xs text-surface-400">
-                          {r.status === 'ok'
-                            ? `${r.added} new · ${r.updated} updated`
-                            : `failed: ${r.error}`}
-                        </span>
-                      </div>
-                    ))}
-                    {jobScrape.matched && (
-                      <p className="text-xs text-surface-400 pt-2 border-t border-surface-100 dark:border-surface-700">
-                        Alerts matched: {jobScrape.matched.notifications} notification(s) · {jobScrape.matched.emails} email(s)
-                      </p>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
+          {tab === 'overview' && dashboard && <OverviewTab dashboard={dashboard} />}
+          {tab === 'users' && <UsersTab currentUserId={user?._id} />}
+          {tab === 'payments' && <PaymentsTab />}
+          {tab === 'inbox' && <ContactsTab />}
+          {tab === 'jobs' && <JobsTab expiredJobs={dashboard?.stats?.expiredJobs} />}
         </>
       )}
     </div>

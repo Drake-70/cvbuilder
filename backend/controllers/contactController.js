@@ -29,16 +29,12 @@ exports.submit = async (req, res, next) => {
   }
 };
 
-exports.list = async (req, res, next) => {
-  try {
-    const { page = 1, limit = 20 } = req.query;
-    const skip = (parseInt(page) - 1) * parseInt(limit);
-    const [messages, total] = await Promise.all([
-      Contact.find().sort({ createdAt: -1 }).skip(skip).limit(parseInt(limit)).lean(),
-      Contact.countDocuments()
-    ]);
-    res.json({ messages, total, page: parseInt(page), pages: Math.ceil(total / parseInt(limit)) });
-  } catch (err) {
-    next(err);
-  }
-};
+/**
+ * Listing moved to `adminController.listContacts`.
+ *
+ * It used to live here and was mounted at `/api/admin/contacts`. Two list
+ * implementations for one inbox is how the two drift, and the version here had
+ * none of what the dashboard needs: no status filter, no per-status counts, no
+ * search, and unbounded `limit` straight from the query string. The admin
+ * controller has all of that and shares the workflow module.
+ */
