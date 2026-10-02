@@ -67,8 +67,21 @@ without echoing the password:
 
 Repairs applied: a pasted `redis-cli` invocation, surrounding whitespace
 (including a leading tab, newline or non-breaking space, which Node's URL parser
-would otherwise turn into a hostname of `rediss`), and surrounding quotes. A
-password containing `/`, `?`, `#`, `[`, `]` or a bare `%` must be percent-encoded
+would otherwise turn into a hostname of `rediss`), surrounding quotes, and a
+plaintext `redis://` scheme against an Upstash host. Each repair is named
+individually, because naming the wrong one is worse than naming none.
+
+That last repair is worth its own note. Upstash will not speak plaintext on
+6379, and ioredis only enables TLS for `rediss://`, so a `redis://` value opens a
+plain socket that is dropped with no handshake, no error and no `ready`. The
+symptom is a health body reporting `"cache":"memory"` alongside a startup line
+saying `redis=configured`, and nothing in the log to act on. Verified against a
+live instance: `redis://` fails with `Connection is closed`, while the same
+credentials over `rediss://` return `PONG`. The rewrite is scoped to `*.upstash.io`
+and `*.upstash-redis.com`; a plain `redis://` against any other host is left alone,
+because that is legitimate for a local or self-hosted Redis.
+
+A password containing `/`, `?`, `#`, `[`, `]` or a bare `%` must be percent-encoded
 and is **not** auto-corrected — it is reported, because as written those
 characters end the host part of the URL.
 

@@ -305,7 +305,128 @@ test('a well-formed REDIS_URL is left byte-for-byte alone', () => {
   const { normalizeRedisUrl } = loadWith(undefined);
   const good = 'rediss://default:PW@my-db.upstash.io:6379';
 
-  assert.deepEqual(normalizeRedisUrl(good), { url: good, changed: false });
+  assert.deepEqual(normalizeRedisUrl(good), { url: good, changed: false, repairs: [] });
+});
+
+test('a plaintext redis:// URL is upgraded to TLS for an Upstash host', () => {
+  // Verified against a live Upstash instance: `redis://` fails with "Connection is
+  // closed" while the same credentials over `rediss://` return PONG. ioredis only
+  // enables TLS for `rediss://`, so the wrong scheme opens a plain socket the
+  // server drops — no handshake, no error, no `ready`, and therefore nothing in
+  // the log to act on. That silence is why this is repaired rather than merely
+  // documented.
+  const { normalizeRedisUrl } = loadWith(undefined);
+
+  const { url, changed } = normalizeRedisUrl(
+    'redis://default:PW@my-db.upstash.io:6379'
+  );
+
+  assert.equal(url, 'rediss://default:PW@my-db.upstash.io:6379');
+  assert.equal(changed, true, 'the rewrite has to be visible in the startup log');
+});
+
+test('the TLS upgrade covers the older Upstash domain too', () => {
+  const { normalizeRedisUrl } = loadWith(undefined);
+
+  assert.equal(
+    normalizeRedisUrl('redis://default:PW@my-db.upstash-redis.com:6379').url,
+    'rediss://default:PW@my-db.upstash-redis.com:6379'
+  );
+});
+
+test('a plaintext redis:// URL for any other host is left alone', () => {
+  // Plain Redis is legitimate everywhere else. Rewriting it would break a working
+  // local or self-hosted setup in order to fix a broken Upstash one.
+  const { normalizeRedisUrl } = loadWith(undefined);
+
+  for (const raw of [
+    'redis://localhost:6379',
+    'redis://:secret@10.0.0.5:6379',
+    'redis://cache.internal:6379/0'
+  ]) {
+    assert.deepEqual(
+      normalizeRedisUrl(raw),
+      { url: raw, changed: false, repairs: [] },
+      `${raw} must not be rewritten`
+    );
+  }
+});
+
+test('the repair list names what was actually repaired', () => {
+  // This list is what the startup log prints, so it has to be the truth rather
+  // than a re-derivation. A TLS-scheme fix reported as "whitespace" sends the
+  // reader looking in the wrong place, which is the failure this replaced.
+  const { normalizeRedisUrl } = loadWith(undefined);
+
+  assert.deepEqual(
+    normalizeRedisUrl('  "rediss://default:PW@my-db.upstash.io:6379"  ').repairs,
+    ['surrounding whitespace', 'surrounding quotes']
+  );
+
+  assert.deepEqual(
+    normalizeRedisUrl('redis://default:PW@my-db.upstash.io:6379').repairs,
+    ['a plaintext redis:// scheme against Upstash, which requires TLS']
+  );
+
+  assert.deepEqual(
+    normalizeRedisUrl('redis-cli -u redis://default:PW@my-db.upstash.io:6379').repairs,
+    ['a pasted redis-cli command', 'a plaintext redis:// scheme against Upstash, which requires TLS'],
+    'both repairs are named when both apply'
+  );
+});
+
+test('the repair list never contains the credential', () => {
+  // The list is logged verbatim, so a password appearing in it would be a leak on
+  // the one path that exists to report a broken URL.
+  const { normalizeRedisUrl } = loadWith(undefined);
+
+  const { repairs } = normalizeRedisUrl(
+    '  redis-cli -u "redis://default:hunter2@my-db.upstash.io:6379"  '
+  );
+
+  for (const entry of repairs) {
+    assert.ok(!entry.includes('hunter2'), `repair text leaked the password: ${entry}`);
+  }
+});
+
+test('the TLS upgrade needs a host, so a bare redis:// is not upgraded', () => {
+  // With no authority there is nothing to match against the Upstash host list, and
+  // guessing would produce `rediss://` pointed at a local socket.
+  const { normalizeRedisUrl } = loadWith(undefined);
+
+  assert.deepEqual(normalizeRedisUrl('redis://'), { url: 'redis://', changed: false, repairs: [] });
+});
+
+test('a host that merely contains "upstash" is not upgraded', () => {
+  // Suffixed matching, not substring matching: `notupstash.io` is somebody else's
+  // host and must be left to fail or succeed on its own terms.
+  const { normalizeRedisUrl } = loadWith(undefined);
+
+  const raw = 'redis://default:PW@notupstash.io:6379';
+  assert.deepEqual(normalizeRedisUrl(raw), { url: raw, changed: false, repairs: [] });
+});
+
+test('the TLS upgrade applies after a redis-cli paste is unwrapped', () => {
+  // The two repairs compose: a pasted command whose URL uses the wrong scheme.
+  const { normalizeRedisUrl } = loadWith(undefined);
+
+  const { url } = normalizeRedisUrl(
+    'redis-cli -u redis://default:PW@my-db.upstash.io:6379'
+  );
+  assert.equal(url, 'rediss://default:PW@my-db.upstash.io:6379');
+});
+
+test('a password containing a slash does not hide the host from the rewrite', () => {
+  // The host is read from the authority, which ends at the first `/` after the
+  // `userinfo@`. A percent-encoded password has no `/` so this holds; an
+  // *unencoded* one is rejected later by `assertEncodedPassword`, which is the
+  // better place for it.
+  const { normalizeRedisUrl } = loadWith(undefined);
+
+  assert.equal(
+    normalizeRedisUrl('redis://default:p%2Fass@my-db.upstash.io:6379').url,
+    'rediss://default:p%2Fass@my-db.upstash.io:6379'
+  );
 });
 
 test('the Upstash REST URL is rejected with an explanation', () => {

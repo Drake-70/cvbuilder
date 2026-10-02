@@ -22,9 +22,18 @@ const logger = require('../utils/logger');
  */
 
 /**
+ * Hosts known to require TLS and no longer accept a plaintext connection.
+ *
+ * `upstash-redis.com` is the older Upstash domain; `upstash.io` is the current
+ * one. Both are matched on a suffix rather than a substring so a host merely
+ * *containing* the name cannot pull itself into the rewrite.
+ */
+const UPSHASH_HOSTS = [/\.upstash\.io$/i, /\.upstash-redis\.com$/i];
+
+/**
  * Clean up a pasted REDIS_URL.
  *
- * Three things go wrong when a URL is copied out of a dashboard rather than
+ * Four things go wrong when a URL is copied out of a dashboard rather than
  * generated, all verified against ioredis 6.
  *
  * 1. The Upstash console's main "connect" snippet is a whole command:
@@ -40,17 +49,28 @@ const logger = require('../utils/logger');
  *    parser treats `rediss` as the host, so the client silently points at a host
  *    named "rediss" and every command fails with no explanation of why.
  *
- * Returns the cleaned URL plus whether anything was changed, so a value that
- * needed fixing is visible in the log rather than being quietly corrected.
+ * 4. A `redis://` scheme against Upstash, which only speaks TLS. See the inline
+ *    comment below.
+ *
+ * Returns the cleaned URL, whether anything was changed, and the list of repairs
+ * that were applied. The list is what the startup log names, and it is produced
+ * here rather than re-derived from the raw string at the call site because this
+ * function is the only place that knows which repairs it actually performed —
+ * guessing after the fact is how a TLS-scheme fix gets reported as "whitespace",
+ * which sends the reader looking in the wrong place.
  */
 function normalizeRedisUrl(value) {
   const raw = String(value);
+  const repairs = [];
+
   // Strip all leading/trailing whitespace, including the Unicode kinds a
   // browser dashboard or spreadsheet can introduce (\u00a0, \u3000, \ufeff).
   const trimmed = raw.replace(/^[\s\u00a0\u3000\ufeff]+|[\s\u00a0\u3000\ufeff]+$/g, '');
+  if (trimmed !== raw) repairs.push('surrounding whitespace');
 
   // Quotes are sometimes carried along from copying out of a table cell.
   let cleaned = /^(['"])(.*)\1$/.test(trimmed) ? trimmed.slice(1, -1) : trimmed;
+  if (cleaned !== trimmed) repairs.push('surrounding quotes');
 
   // A pasted redis-cli invocation, with or without flags. The URL always appears
   // as the -u/--url argument (Upstash and Upstash-compatible providers both show
@@ -61,10 +81,33 @@ function normalizeRedisUrl(value) {
     const withFlag = /(?:-u|--url)\s+["']?(rediss?:\/\/\S+?)["']?(?:\s|$)/i.exec(cleaned);
     const anyToken = /(rediss?:\/\/\S+)/i.exec(cleaned);
     const extracted = (withFlag && withFlag[1]) || (anyToken && anyToken[1]);
-    if (extracted) cleaned = extracted;
+    if (extracted) {
+      cleaned = extracted;
+      repairs.push('a pasted redis-cli command');
+    }
   }
 
-  return { url: cleaned, changed: cleaned !== raw };
+  // 4. Upstash refuses plaintext. ioredis only enables TLS for `rediss://`, so a
+  //    `redis://` URL against an Upstash host opens a plain socket the server
+  //    drops: no handshake, no error, no `ready`. That is exactly the silence that
+  //    cost a deploy cycle here — `redis=configured` in the health body, no
+  //    `[redis] connected` line, and nothing in the log to act on. Verified
+  //    against a live Upstash instance: `redis://` fails with "Connection is
+  //    closed", while the same credentials over `rediss://` return PONG and a
+  //    write/read round trip succeeds.
+  //
+  //    Scoped to Upstash hostnames deliberately. A plain `redis://` is legitimate
+  //    everywhere else — a local Redis, or a managed one with no certificate —
+  //    and rewriting it there would break a working setup to fix a broken one.
+  if (/^redis:\/\//i.test(cleaned)) {
+    const host = /^redis:\/\/[^@/]*@([^/?#:]+)/i.exec(cleaned);
+    if (host && UPSHASH_HOSTS.some((pattern) => pattern.test(host[1]))) {
+      cleaned = cleaned.replace(/^redis:\/\//i, 'rediss://');
+      repairs.push('a plaintext redis:// scheme against Upstash, which requires TLS');
+    }
+  }
+
+  return { url: cleaned, changed: cleaned !== raw, repairs };
 }
 
 /**
@@ -253,28 +296,13 @@ if (RAW_REDIS_URL) {
   // any log line, and took the whole process down — the exact opposite of the
   // "Redis is strictly optional" contract above.
   try {
-    const { url, changed } = normalizeRedisUrl(RAW_REDIS_URL);
+    const { url, changed, repairs } = normalizeRedisUrl(RAW_REDIS_URL);
     if (changed) {
-      // Never echo the value: it embeds the password.
-      //
-      // Each repair is reported separately because naming the wrong one is worse
-      // than saying nothing — a pasted redis-cli command reported as "whitespace"
-      // sends the reader looking in entirely the wrong place. Detection runs on
-      // the RAW value, since `url` is already the repaired result.
-      const repairs = [];
-      if (/^redis-cli\b/i.test(trimmedRedisUrl(RAW_REDIS_URL))) {
-        repairs.push('a pasted redis-cli command');
-      }
-      if (/^['"]/.test(trimmedRedisUrl(RAW_REDIS_URL))) {
-        repairs.push('surrounding quotes');
-      }
-      if (trimmedRedisUrl(trimmedRedisUrl(RAW_REDIS_URL)) !== RAW_REDIS_URL) {
-        repairs.push('surrounding whitespace');
-      }
-      if (repairs.length === 0) repairs.push('unrecognised formatting');
-
+      // Never echo the value: it embeds the password. Only the length changes are
+      // reported, which is enough to confirm the repair landed without disclosing
+      // anything about the credential.
       logger.warn(
-        `[redis] REDIS_URL needed repair (${repairs.join(' + ')}); `
+        `[redis] REDIS_URL needed repair (${repairs.join(' + ') || 'unrecognised formatting'}); `
         + `using the corrected value (${RAW_REDIS_URL.length} -> ${url.length} chars)`
       );
     }
@@ -355,11 +383,6 @@ function status() {
     state: client.status,
     ...(lastError ? { error: lastError } : {})
   };
-}
-
-/** Whitespace-stripped view of a raw value, used only for the repair log line. */
-function trimmedRedisUrl(value) {
-  return String(value).replace(/^[\s\u00a0\u3000\ufeff]+|[\s\u00a0\u3000\ufeff]+$/g, '');
 }
 
 module.exports = {
