@@ -89,6 +89,18 @@ function assertRedisScheme(url) {
       );
     }
 
+    // Named separately because the Upstash console shows this endpoint right
+    // above the connection string, and it is the single most common wrong paste.
+    // "expected a rediss:// connection string" points at the scheme; saying
+    // "you pasted the REST endpoint" points at the row to copy instead.
+    if (/^https?:\/\//i.test(url)) {
+      throw new Error(
+        'this is the Upstash HTTP REST endpoint, not a Redis connection string. '
+        + 'Use the rediss:// string from the same dashboard page, e.g. '
+        + 'rediss://default:<password>@<host>:6379'
+      );
+    }
+
     throw new Error(
       `expected a rediss:// or redis:// connection string, got something starting "${shown}"`
     );

@@ -175,12 +175,23 @@ test('the Upstash REST URL is rejected with an explanation', () => {
   // without complaint and treats the literal string "https" as the hostname,
   // producing a client that can never connect and never says why. A well-formed
   // rediss:// string must be accepted by the same check.
+  //
+  // The message must name the REST endpoint specifically, not merely complain
+  // about the scheme: the wrong paste happens because the REST endpoint sits
+  // directly above the connection string on the same page, and a reader told
+  // only "expected rediss://" still has to work out which of the two rows to
+  // copy. Both assertions are the behaviour, not the wording.
   const { assertRedisScheme } = loadWith(undefined);
 
   assert.throws(
     () => assertRedisScheme('https://my-db.upstash.io'),
-    /rediss:\/\/ or redis:\/\//,
-    'an HTTP REST endpoint is not a Redis connection string'
+    /REST endpoint/,
+    'the message must name the REST endpoint, not just the wrong scheme'
+  );
+  assert.throws(
+    () => assertRedisScheme('https://my-db.upstash.io'),
+    /rediss:\/\/default/,
+    'the message must show the shape of the value to use instead'
   );
   assert.doesNotThrow(() => assertRedisScheme('rediss://default:PW@my-db.upstash.io:6379'));
   assert.doesNotThrow(() => assertRedisScheme('redis://localhost:6379'));
