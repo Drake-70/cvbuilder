@@ -170,5 +170,10 @@
   "certification_placeholder": "Certification",
   "issuer": "Organisme",
   "year": "Année",
-  "build_failed": "Échec de la création du CV."
+  "build_failed": "Échec de la création du CV.",
+  "draft_found_title": "Vous avez un brouillon inachevé",
+  "draft_saved_at": "Enregistré le {{date}}",
+  "draft_resume": "Reprendre le brouillon",
+  "draft_discard": "Supprimer le brouillon",
+  "draft_unavailable": "Votre brouillon n’a pas pu être chargé ou enregistré. Ce que vous taperez maintenant risque d’être perdu si vous fermez cet onglet."
 }

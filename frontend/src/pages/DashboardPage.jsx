@@ -9,9 +9,11 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import ErrorState from '../components/ErrorState';
 import { useCache, invalidateCacheKey } from '../hooks/useCache';
 import { useToast } from '../contexts/ToastContext';
+import { describeDraft } from '../utils/draftResume';
+import analytics from '../utils/analytics';
 
 export default function DashboardPage() {
-  const { t } = useTranslation('common');
+  const { t, i18n } = useTranslation('common');
   const { t: tTailor } = useTranslation('tailor');
   const { t: tJobs } = useTranslation('jobs');
   const { user } = useAuth();
@@ -27,6 +29,29 @@ export default function DashboardPage() {
 
   const { data: appsData } = useCache('/jobs/applications', { enabled: !!user });
   const applications = appsData?.applications || [];
+
+  // An unfinished tailor draft. The server decides what counts as one — a draft
+  // that only names a step is not offered here, which is why the resume card
+  // cannot lead back into an empty questionnaire.
+  const { data: draftData, mutate: setDraft, refetch: refetchDraft } = useCache('/drafts', { enabled: !!user });
+  const draft = draftData?.resumable ? draftData : null;
+  const [discardingDraft, setDiscardingDraft] = useState(false);
+
+  const handleDiscardDraft = async () => {
+    if (!draft) return;
+    setDiscardingDraft(true);
+    try {
+      await api.delete('/drafts');
+      setDraft({ exists: false, resumable: false });
+      invalidateCacheKey('/drafts');
+      analytics.track('draft_discarded', { step: draft.step });
+    } catch (err) {
+      toast.error(t('error'), err.response?.data?.error || 'Could not discard the draft.');
+    } finally {
+      setDiscardingDraft(false);
+      refetchDraft?.();
+    }
+  };
 
   const isSubscribed = user?.subscriptionStatus === 'active';
 
@@ -207,6 +232,36 @@ export default function DashboardPage() {
                 </div>
               </Link>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Unfinished tailor draft */}
+      {draft && (
+        <div className="card border-brand-200 dark:border-brand-800 bg-brand-50/40 dark:bg-brand-950/30 p-5 mb-8 animate-slide-up">
+          <div className="flex items-start gap-3">
+            <span className="shrink-0 w-9 h-9 rounded-xl bg-brand-100 dark:bg-brand-900 text-brand-700 dark:text-brand-300 flex items-center justify-center">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+            </span>
+            <div className="flex-1 min-w-0">
+              <h3 className="font-bold text-surface-900 dark:text-white">{tTailor('draft_found_title')}</h3>
+              <p className="text-sm text-surface-600 dark:text-surface-300 mt-0.5">
+                {describeDraft(draft, i18n.language?.startsWith('fr') ? 'fr' : 'en')}
+                {draft.updatedAt && (
+                  <span className="text-surface-400 dark:text-surface-500">
+                    {' · '}{tTailor('draft_saved_at', { date: formatDate(draft.updatedAt) })}
+                  </span>
+                )}
+              </p>
+              <div className="flex flex-wrap gap-2 mt-4">
+                <Link to="/tailor?resume=1" className="btn-primary no-underline">{tTailor('draft_resume')}</Link>
+                <button onClick={handleDiscardDraft} disabled={discardingDraft} className="btn-secondary">
+                  {discardingDraft ? t('loading') : tTailor('draft_discard')}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

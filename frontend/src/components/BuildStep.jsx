@@ -3,15 +3,69 @@ import { useTranslation } from 'react-i18next';
 import api from '../services/api';
 import SectionGuidance from './SectionGuidance';
 import cvToText from '../utils/cvToText';
+import { isPlainObject } from '../utils/draftResume';
 
-export default function BuildStep({ onComplete, onBack, language, user }) {
+const TOTAL_SUB_STEPS = 5;
+
+const EMPTY_PERSONAL_INFO = {
+  name: '',
+  email: '',
+  phone: '',
+  location: '',
+  targetRole: '',
+  summary: '',
+  linkedin: '',
+  website: ''
+};
+
+const EMPTY_LISTS = {
+  education: [],
+  experience: [],
+  nonTraditional: [],
+  certifications: [],
+  selectedSkills: []
+};
+
+// The snapshot keys are fixed and ordered, because it is compared as a string to
+// decide whether anything the user actually did is in there.
+const snapshotOf = (state) => ({
+  subStep: state.subStep,
+  personalInfo: state.personalInfo,
+  education: state.education,
+  experience: state.experience,
+  nonTraditional: state.nonTraditional,
+  certifications: state.certifications,
+  selectedSkills: state.selectedSkills,
+  noEducation: state.noEducation,
+  noExperience: state.noExperience
+});
+
+// The questionnaire's answers live here, in this component, and used to live
+// here and nowhere else. Nothing was reported upward, so nothing was ever
+// autosaved, so a build-path draft held a step name and no content. That is why
+// drafts could not be opened: there was nothing in them to open.
+//
+// `restoredState` seeds this component from the draft, `onStateChange` reports
+// every change so the parent can autosave it, and `draftReady` holds reporting
+// back until the parent has finished loading the draft — otherwise the initial
+// empty render would be reported and would overwrite a real draft on the way in.
+export default function BuildStep({
+  onComplete,
+  onBack,
+  language,
+  user,
+  restoredState = null,
+  onStateChange,
+  draftReady = true
+}) {
   const { t } = useTranslation('tailor');
   const { t: tCommon } = useTranslation('common');
   const lang = language || 'en';
   const [subStep, setSubStep] = useState(0);
   const [loading, setLoading] = useState(false);
 
-  const [personalInfo, setPersonalInfo] = useState({
+  const [personalInfo, setPersonalInfo] = useState(() => ({
+    ...EMPTY_PERSONAL_INFO,
     name: user?.name || '',
     email: user?.email || '',
     phone: user?.phone || '',
@@ -20,7 +74,7 @@ export default function BuildStep({ onComplete, onBack, language, user }) {
     summary: user?.summary || '',
     linkedin: user?.linkedin || '',
     website: user?.website || ''
-  });
+  }));
   const [education, setEducation] = useState([]);
   const [experience, setExperience] = useState([]);
   const [nonTraditional, setNonTraditional] = useState([]);
@@ -34,6 +88,102 @@ export default function BuildStep({ onComplete, onBack, language, user }) {
   const [savedSkills, setSavedSkills] = useState([]);
   const [savedSkillsLoaded, setSavedSkillsLoaded] = useState(false);
   const skillsInitialized = useRef(false);
+  const appliedRestore = useRef(undefined);
+  const editedSinceMount = useRef(false);
+
+  // How the questionnaire looked the moment it was opened: the account profile
+  // pre-filled, every list empty, first sub-step.
+  //
+  // Compared against to decide whether the questionnaire holds anything the user
+  // did. Without this, clicking "Start building" and walking away would save a
+  // draft whose entire content was the name already on the account — which is
+  // what reintroduces the "you have a draft" card for something empty. A restored
+  // draft differs from this baseline, so a resumed questionnaire always counts.
+  const initialSnapshot = useRef(null);
+  if (initialSnapshot.current === null) {
+    initialSnapshot.current = JSON.stringify(
+      snapshotOf({
+        subStep: 0,
+        personalInfo,
+        education: EMPTY_LISTS.education,
+        experience: EMPTY_LISTS.experience,
+        nonTraditional: EMPTY_LISTS.nonTraditional,
+        certifications: EMPTY_LISTS.certifications,
+        selectedSkills: EMPTY_LISTS.selectedSkills,
+        noEducation: false,
+        noExperience: false
+      })
+    );
+  }
+
+  // Seed from a restored draft.
+  //
+  // This has to be an effect rather than a `useState` initialiser because the
+  // parent always mounts this component (every step is rendered and hidden with
+  // CSS), so the draft arrives after mount and there is no first render left to
+  // initialise. It applies once per distinct snapshot, never before the parent
+  // has finished loading the draft, and never over a state the user has already
+  // edited into — so neither a slow draft load nor a stale snapshot can discard
+  // what someone just typed.
+  useEffect(() => {
+    if (!draftReady) return;
+    if (!isPlainObject(restoredState)) return;
+    if (editedSinceMount.current) return;
+    if (appliedRestore.current === restoredState) return;
+    appliedRestore.current = restoredState;
+
+    const personal = isPlainObject(restoredState.personalInfo) ? restoredState.personalInfo : null;
+    if (personal) {
+      setPersonalInfo({ ...EMPTY_PERSONAL_INFO, ...personal });
+    }
+    if (Array.isArray(restoredState.education)) setEducation(restoredState.education);
+    if (Array.isArray(restoredState.experience)) setExperience(restoredState.experience);
+    if (Array.isArray(restoredState.nonTraditional)) setNonTraditional(restoredState.nonTraditional);
+    if (Array.isArray(restoredState.certifications)) setCertifications(restoredState.certifications);
+    if (Array.isArray(restoredState.selectedSkills)) setSelectedSkills(restoredState.selectedSkills);
+    setNoEducation(Boolean(restoredState.noEducation));
+    setNoExperience(Boolean(restoredState.noExperience));
+
+    const restoredSubStep = Number(restoredState.subStep);
+    if (Number.isInteger(restoredSubStep) && restoredSubStep > 0) {
+      setSubStep(Math.min(restoredSubStep, TOTAL_SUB_STEPS - 1));
+    }
+  }, [restoredState, draftReady]);
+
+  // Report the questionnaire upward so it can be autosaved.
+  //
+  // The second argument says whether the questionnaire holds anything the user
+  // did. Only the fields worth resuming are reported: `customSkillInput` is a
+  // half-typed text box, `skillOptions` and `savedSkills` are fetched rather than
+  // answered, and none of them belong in a draft.
+  useEffect(() => {
+    if (!draftReady || !onStateChange) return;
+    editedSinceMount.current = true;
+    const snapshot = snapshotOf({
+      subStep,
+      personalInfo,
+      education,
+      experience,
+      nonTraditional,
+      certifications,
+      selectedSkills,
+      noEducation,
+      noExperience
+    });
+    onStateChange(snapshot, JSON.stringify(snapshot) !== initialSnapshot.current);
+  }, [
+    draftReady,
+    onStateChange,
+    subStep,
+    personalInfo,
+    education,
+    experience,
+    nonTraditional,
+    certifications,
+    selectedSkills,
+    noEducation,
+    noExperience
+  ]);
 
   useEffect(() => {
     let active = true;

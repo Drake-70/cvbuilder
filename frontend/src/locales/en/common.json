@@ -520,5 +520,6 @@
     "email": "Email",
     "phone": "Phone",
     "location": "Location"
-  }
+  },
+  "dismiss": "Dismiss"
 }

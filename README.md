@@ -249,6 +249,27 @@ different abuse from mail-bombing.
 ### Tailoring
 - `POST /api/tailor` — Tailor CV to job description
 
+#### Drafts
+One draft per user, autosaved by the tailor wizard. `step` is validated against an
+allow-list (`choose`, `upload`, `build`, `job` — `result` is excluded because it
+cannot be restored into) and a `build` step must carry its `buildState`, which is
+what makes a questionnaire draft resumable rather than an empty shell.
+
+- `GET /api/drafts` — Read the draft. Always returns `resumable`, the server's own
+  verdict on whether the draft holds anything worth reopening.
+- `PUT /api/drafts` — Upsert. Fields are optional; absent ones are left untouched.
+- `DELETE /api/drafts` — Discard
+
+`resumable` is true when the draft holds CV text, a job description, a saved CV or
+document, a non-empty parsed CV, or a `buildState` containing a typed field, an
+added list row, a `subStep` past the first, or a "no education"/"no experience"
+answer. A draft that only names a step is never offered as a draft — that is the
+case the wizard used to create and then present as something to continue.
+
+The client keeps a mirrored copy of this rule in `frontend/src/utils/draftResume.js`;
+`backend/tests/draftController.test.js` asserts the two agree, so the two cannot
+drift apart silently.
+
 ### Documents
 - `POST /api/document/generate` — Generate .docx (preview)
 - `POST /api/document/save` — Save tailored document
@@ -395,6 +416,12 @@ npx playwright test
 CI (`.github/workflows/ci.yml`) runs the backend tests, frontend lint + build,
 the Playwright specs, and a `deploy-readiness` job that builds the Docker image
 and asserts the container reports healthy.
+
+There is no frontend test runner. Behaviour that has to hold on both sides of the
+wire — the draft allow-list, the resumability rule, the locale keys the draft UI
+asks for — is asserted from the backend suite against the real frontend source
+(see `backend/tests/draftController.test.js`), so a frontend change that breaks
+the contract fails `npm test` rather than shipping.
 
 ## Deployment
 

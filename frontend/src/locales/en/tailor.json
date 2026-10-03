@@ -170,5 +170,10 @@
   "certification_placeholder": "Certification",
   "issuer": "Issuer",
   "year": "Year",
-  "build_failed": "Failed to build CV."
+  "build_failed": "Failed to build CV.",
+  "draft_found_title": "You have an unfinished draft",
+  "draft_saved_at": "Saved {{date}}",
+  "draft_resume": "Continue draft",
+  "draft_discard": "Discard draft",
+  "draft_unavailable": "Your draft could not be loaded or saved. Anything you type now may be lost if you close this tab."
 }
