@@ -4,5 +4,6 @@ const scoreController = require('../controllers/scoreController');
 const requireAuth = require('../middleware/requireAuth');
 
 router.post('/', requireAuth, scoreController.getScore);
+router.post('/resume', requireAuth, scoreController.getResumeScore);
 
 module.exports = router;

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import InterviewPrep from './InterviewPrep';
 import ATSScoreCard from './ATSScoreCard';
+import ResumeScoreCard from './ResumeScoreCard';
 import LinkedInGenerator from './LinkedInGenerator';
 import CVPreview from './CVPreview';
 import BeforeAfterGaps from './BeforeAfterGaps';
@@ -320,6 +321,14 @@ export default function ResultStep({ result, onDownload, onReset, loading, onCov
         )}
         {tab === 'gaps' && (
           <div className="space-y-5">
+            {/* Resume quality needs no job description, so it is shown
+                unconditionally. ATSScoreCard below renders nothing when the job
+                description was skipped -- previously that left this tab with no
+                score of any kind. */}
+            <ResumeScoreCard
+              cvText={result.originalCVText || result.cvText}
+              tailoredCV={cv}
+            />
             <ATSScoreCard
               cvText={result.originalCVText || result.cvText}
               jobDescription={result.jobDescription}

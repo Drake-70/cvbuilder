@@ -175,5 +175,63 @@
   "draft_saved_at": "Saved {{date}}",
   "draft_resume": "Continue draft",
   "draft_discard": "Discard draft",
-  "draft_unavailable": "Your draft could not be loaded or saved. Anything you type now may be lost if you close this tab."
+  "draft_unavailable": "Your draft could not be loaded or saved. Anything you type now may be lost if you close this tab.",
+  "resumeScore": {
+    "title": "Resume quality",
+    "subtitle": "How your CV reads on its own, before any job description. No job description needed.",
+    "calculating": "Scoring...",
+    "rescore": "Recalculate",
+    "failed": "Could not score this CV.",
+    "generic_finding": "A suggestion could not be displayed.",
+    "outOf": "{{score}} out of 100",
+    "noFindings": "Nothing to flag. This reads well.",
+    "findingsTitle": "{{count}} things to improve",
+    "findingsTitle_one": "1 thing to improve",
+    "findingsTitle_other": "{{count}} things to improve",
+    "categories": {
+      "contact": "Contact details",
+      "structure": "Structure",
+      "impact": "Measurable impact",
+      "verbs": "Action verbs",
+      "brevity": "Length",
+      "language": "Readability"
+    },
+    "points": "{{score}}/{{max}}",
+    "findings": {
+      "contact": {
+        "missing_email": "Add an email address. Recruiters contact almost everyone they reject.",
+        "missing_phone": "Add a phone number. Many employers in Cameroon call before they email.",
+        "missing_location": "Add your city and country.",
+        "missing_linkedin": "Add a LinkedIn link if you have one. It is often the first thing an agency checks."
+      },
+      "structure": {
+        "missing_summary": "Add a short summary at the top. It is the only part some recruiters read in full.",
+        "missing_experience": "Add an experience section, or rename an equivalent one if you use a different heading.",
+        "thin_bullets": "Your most recent role has very few bullet points. One or two lines read like a job description rather than achievements.",
+        "missing_education": "Add your education, even if briefly.",
+        "missing_skills": "Add a skills section with at least three skills."
+      },
+      "impact": {
+        "no_bullets": "No achievement bullets were found. Check that your experience entries are written as bullet points.",
+        "none_quantified": "None of your {{total}} bullets include a number. Results are what get remembered: teams, percentages, money, time saved.",
+        "few_quantified": "Only {{count}} of your {{total}} bullets include a number. Aim for most of them."
+      },
+      "verbs": {
+        "no_bullets": "No achievement bullets were found to check for action verbs.",
+        "weak_openers": "{{count}} of your {{total}} bullets start with a weak word such as \"responsible for\" or \"helped\". Start with the verb instead.",
+        "few_strong": "Only {{count}} of your {{total}} bullets start with a strong action verb such as \"led\", \"built\" or \"reduced\"."
+      },
+      "brevity": {
+        "empty": "There is no text to measure yet.",
+        "too_short": "This CV is {{words}} words. Under {{target}} it is hard to show what you have done.",
+        "over_target": "This CV is {{words}} words. Over {{target}} it usually spills past one page.",
+        "too_long": "This CV is {{words}} words, well past the one-page mark. Cut the oldest roles back to one line each."
+      },
+      "language": {
+        "no_sentences": "There is no text to read yet.",
+        "long_sentences": "Your sentences average {{avg}} words. Keep them under 25 so a skimming reader can follow them.",
+        "mostly_long": "{{count}} of your {{total}} sentences run past 35 words. Split them in two."
+      }
+    }
+  }
 }

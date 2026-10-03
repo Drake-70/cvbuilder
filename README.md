@@ -179,6 +179,7 @@ cvbuilder/
 - **CV Build** — Guided questionnaire for users without an existing CV
 - **AI Tailoring** — Groq-powered CV rewriting + cover letter generation
 - **Gap Analysis** — Missing keywords/skills identified from job posting
+- **Resume Quality Score** — Six-category report on a bare CV, no job description needed
 - **.docx Download** — ATS-friendly Word documents (FR + EN templates)
 - **Payment Gate** — CamPay (MTN MoMo / Orange Money) for downloads
 - **Subscription** — Monthly unlimited tier
@@ -281,6 +282,49 @@ drift apart silently.
 - `POST /api/payments/initiate` — Start payment
 - `GET /api/payments/status/:id` — Check payment status
 - `POST /api/payments/webhook` — CamPay callback
+
+### Scoring
+- `POST /api/score` — Job-match score. **Requires** `jobDescription`
+- `POST /api/score/resume` — Resume-quality score. Needs no job description
+
+#### Two scores, not one
+
+`/api/score` and `/api/score/resume` are deliberately separate endpoints with
+separate response shapes (`breakdown` vs `categories`), because they answer
+different questions and are only reachable on different paths.
+
+`/api/score` measures the distance between two documents — keywords, skills,
+gaps, structure. All four sub-scores are job-relative, so it has nothing to say
+without a job description and returns `400` without one. On the tailor flow that
+meant a user who took *Skip job description* got no score at all.
+
+`/api/score/resume` judges a CV on its own, across six categories that are
+mostly job-independent: `contact` (10), `structure` (25), `impact` (25),
+`verbs` (15), `brevity` (15), `language` (10). It makes **no AI call**, so it is
+free and cannot fail for reasons unrelated to the user's CV.
+
+Findings are returned as **codes**, never as sentences:
+
+```jsonc
+{ "code": "impact.few_quantified", "params": { "count": 2, "total": 7 }, "points": 12 }
+```
+
+The scorer has no idea which language the UI is in, so any prose it emitted
+would be permanently untranslated. `resumeScoreContract.test.js` asserts against
+the real `en/tailor.json` and `fr/tailor.json` that every code it can emit exists
+in both, that the two languages interpolate the same variables, and that every
+variable a translation uses is one the finding actually sends.
+
+Two constraints worth preserving when editing this service:
+
+- **Bullets are found by section, not by length.** Only achievement sections
+  count. An earlier length heuristic swept in the contact line, the summary,
+  every job title and the education entry, putting 8 lines in the denominator
+  where 3 were real bullets — so 3 fully quantified achievements scored 25%.
+- **Contact patterns have bounded quantifiers.** Unbounded
+  `[a-z0-9._%+-]+@` took 5.6 seconds on 50KB of letters (quadratic backtracking
+  with no `@` present), which is exactly what a pasted CV paragraph looks like.
+  `resumeScore.test.js` asserts both structurally and by timing.
 
 ### Interview
 - `POST /api/interview-prep` — Generate questions (subscribers)

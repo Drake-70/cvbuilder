@@ -175,5 +175,63 @@
   "draft_saved_at": "Enregistré le {{date}}",
   "draft_resume": "Reprendre le brouillon",
   "draft_discard": "Supprimer le brouillon",
-  "draft_unavailable": "Votre brouillon n’a pas pu être chargé ou enregistré. Ce que vous taperez maintenant risque d’être perdu si vous fermez cet onglet."
+  "draft_unavailable": "Votre brouillon n’a pas pu être chargé ou enregistré. Ce que vous taperez maintenant risque d’être perdu si vous fermez cet onglet.",
+  "resumeScore": {
+    "title": "Qualité du CV",
+    "subtitle": "Comment votre CV se lit seul, avant toute offre d’emploi. Aucune description de poste n’est nécessaire.",
+    "calculating": "Analyse en cours...",
+    "rescore": "Recalculer",
+    "failed": "Impossible d’analyser ce CV.",
+    "generic_finding": "Une suggestion n’a pas pu être affichée.",
+    "outOf": "{{score}} sur 100",
+    "noFindings": "Rien à signaler. Votre CV se lit bien.",
+    "findingsTitle": "{{count}} points à améliorer",
+    "findingsTitle_one": "1 point à améliorer",
+    "findingsTitle_other": "{{count}} points à améliorer",
+    "categories": {
+      "contact": "Coordonnées",
+      "structure": "Structure",
+      "impact": "Résultats mesurables",
+      "verbs": "Verbes d’action",
+      "brevity": "Longueur",
+      "language": "Lisibilité"
+    },
+    "points": "{{score}}/{{max}}",
+    "findings": {
+      "contact": {
+        "missing_email": "Ajoutez une adresse e-mail. Les recruteurs contactent presque toutes les personnes qu’ils refusent.",
+        "missing_phone": "Ajoutez un numéro de téléphone. En Cameroun, beaucoup d’employeurs appellent avant d’écrire.",
+        "missing_location": "Indiquez votre ville et votre pays.",
+        "missing_linkedin": "Ajoutez un lien LinkedIn si vous en avez un. C’est souvent la première chose que vérifie une agence."
+      },
+      "structure": {
+        "missing_summary": "Ajoutez un court résumé en haut. C’est la seule partie que certains recruteurs lisent en entier.",
+        "missing_experience": "Ajoutez une rubrique expérience, ou renommez une rubrique équivalente si vous utilisez un autre titre.",
+        "thin_bullets": "Votre poste le plus récent ne contient que peu de puces. Une ou deux lignes ressemblent à une fiche de poste plutôt qu’à des réalisations.",
+        "missing_education": "Ajoutez votre formation, même brièvement.",
+        "missing_skills": "Ajoutez une rubrique compétences avec au moins trois compétences."
+      },
+      "impact": {
+        "no_bullets": "Aucune puce de réalisation n’a été trouvée. Vérifiez que vos expériences sont bien écrites sous forme de puces.",
+        "none_quantified": "Aucune de vos {{total}} puces ne contient de chiffre. Ce sont les résultats qui restent en mémoire : équipes, pourcentages, montants, temps gagné.",
+        "few_quantified": "Seules {{count}} de vos {{total}} puces contiennent un chiffre. Visez-en la plupart."
+      },
+      "verbs": {
+        "no_bullets": "Aucune puce de réalisation n’a été trouvée pour vérifier les verbes d’action.",
+        "weak_openers": "{{count}} de vos {{total}} puces commencent par un mot faible comme « responsable de » ou « participé à ». Commencez par le verbe.",
+        "few_strong": "Seules {{count}} de vos {{total}} puces commencent par un verbe d’action fort comme « dirigé », « conçu » ou « réduit »."
+      },
+      "brevity": {
+        "empty": "Il n’y a pas encore de texte à mesurer.",
+        "too_short": "Ce CV compte {{words}} mots. En dessous de {{target}}, il est difficile de montrer ce que vous avez fait.",
+        "over_target": "Ce CV compte {{words}} mots. Au-delà de {{target}}, il dépasse généralement une page.",
+        "too_long": "Ce CV compte {{words}} mots, bien au-delà d’une page. Réduisez vos postes les plus anciens à une ligne chacun."
+      },
+      "language": {
+        "no_sentences": "Il n’y a pas encore de texte à lire.",
+        "long_sentences": "Vos phrases font {{avg}} mots en moyenne. Restez sous 25 mots pour qu’un lecteur pressé puisse vous suivre.",
+        "mostly_long": "{{count}} de vos {{total}} phrases dépassent 35 mots. Divisez-les en deux."
+      }
+    }
+  }
 }
