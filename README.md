@@ -335,6 +335,49 @@ drift apart silently.
 - `POST /api/document/save` — Save tailored document
 - `GET /api/document/list` — List documents
 - `GET /api/document/:id/download` — Download .docx (payment-gated)
+- `PATCH /api/document/:id/status` — Application status, company, next action, follow-up date
+
+#### Next action and follow-up date
+
+`TailoredDocument` carries `nextAction` (free text, ≤200 chars) and `followUpDate`
+(`Date | null`), both editable through `PATCH /:id/status`. The dashboard's
+`ApplicationTracker` sets and displays them, and the follow-up prompt is driven by
+`followUpDate` when present and by the old 7-day-elapsed rule when it is not — so
+every existing document keeps prompting as it did.
+
+Four decisions worth knowing before editing this:
+
+- **The next action is the user's, never the model's.** A generated action would be
+  either generic or invented, and the user cannot tell which. It is free text
+  rather than an enum because the dashboard aggregates on `followUpDate`, which is
+  the actionable axis.
+- **`appliedAt` is stamped once.** It used to be overwritten on *every* save while
+  the status was `applied` — the default status, and the most common one — so
+  correcting the company field restarted "7 days since you applied" at zero and the
+  nudge could never fire for a user who kept tidying their own data. It is now set
+  by a second conditional update matching `appliedAt: null`, so no read is needed
+  and two concurrent saves cannot both stamp it. This depends on the field
+  defaulting to `null`; a `Date.now` default would break the match.
+- **Overdue, due-today and elapsed are three distinct states.** Collapsing them
+  loses the difference between something the user missed and something they
+  planned. Comparisons are between calendar dates, not instants: a date set for
+  today is due from the moment it is written. `toDateInput` formats the local
+  calendar date rather than `toISOString().slice(0, 10)`, which would shift the day
+  for anyone west of UTC.
+- **A rejected or withdrawn application is never prompted, but its date is kept.**
+  Erasing it would destroy something the user wrote; the prompt is suppressed, not
+  the data.
+
+An unparseable `followUpDate` is a `400`, not a silent `null` — storing null would
+look like the user had cleared a date they had set. An empty string or explicit
+`null` does clear it. A patch with no recognised field is a `400` rather than a
+no-op write.
+
+`ApplicationTracker` also had an empty `catch`, so a failed save closed the editor
+and discarded the change while looking exactly like a success; and it called
+`useTranslation()` with no namespace, so every `tailor.*` label in the editor fell
+back to its inline English default and the whole editor was English-only in a
+French UI. Both fixed.
 
 ### Payments
 - `GET /api/payments/pricing` — Get pricing info

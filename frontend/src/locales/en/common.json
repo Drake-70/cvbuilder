@@ -163,7 +163,17 @@
   "tracker": {
     "followUpHint": "It's been {{days}} days since you applied. A polite follow-up can boost your chances.",
     "followUpWhatsApp": "Send follow-up",
-    "whatsappFollowUp": "Hello! I applied for the position at {{company}} on {{date}} and wanted to follow up on the status of my application. I'm really excited about the opportunity and happy to provide any additional information. Thank you!"
+    "whatsappFollowUp": "Hello! I applied for the position at {{company}} on {{date}} and wanted to follow up on the status of my application. I'm really excited about the opportunity and happy to provide any additional information. Thank you!",
+    "opportunity": "this opportunity",
+    "nextAction": "Next action",
+    "nextActionPlaceholder": "e.g. Call Mme Ngo about the interview slot",
+    "nextActionLabel": "Next:",
+    "followUpOn": "Follow up on {{date}}",
+    "followUpHelp": "Leave empty and we will suggest a follow-up 7 days after applying.",
+    "overdueDays_one": "Your follow-up is {{count}} day overdue.",
+    "overdueDays_other": "Your follow-up is {{count}} days overdue.",
+    "dueToday": "Follow up today.",
+    "saveFailed": "Could not save. Please try again."
   },
   "delete": "Delete",
   "delete_confirm_title": "Delete this document?",

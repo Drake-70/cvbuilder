@@ -163,7 +163,17 @@
   "tracker": {
     "followUpHint": "Cela fait {{days}} jours que vous avez postulé. Une relance polie peut augmenter vos chances.",
     "followUpWhatsApp": "Envoyer une relance",
-    "whatsappFollowUp": "Bonjour ! J'ai postulé pour le poste chez {{company}} le {{date}} et je souhaitais prendre des nouvelles de ma candidature. Je suis très enthousiaste à propos de cette opportunité et je suis disponible pour fournir toute information supplémentaire. Merci !"
+    "whatsappFollowUp": "Bonjour ! J'ai postulé pour le poste chez {{company}} le {{date}} et je souhaitais prendre des nouvelles de ma candidature. Je suis très enthousiaste à propos de cette opportunité et je suis disponible pour fournir toute information supplémentaire. Merci !",
+    "opportunity": "cette opportunité",
+    "nextAction": "Prochaine action",
+    "nextActionPlaceholder": "ex. Appeler Mme Ngo au sujet du créneau d'entretien",
+    "nextActionLabel": "Prochaine :",
+    "followUpOn": "Relancer le {{date}}",
+    "followUpHelp": "Laissez vide et nous vous proposerons une relance 7 jours après la candidature.",
+    "overdueDays_one": "Votre relance est en retard de {{count}} jour.",
+    "overdueDays_other": "Votre relance est en retard de {{count}} jours.",
+    "dueToday": "Relancer aujourd'hui.",
+    "saveFailed": "Enregistrement impossible. Veuillez réessayer."
   },
   "delete": "Supprimer",
   "delete_confirm_title": "Supprimer ce document ?",

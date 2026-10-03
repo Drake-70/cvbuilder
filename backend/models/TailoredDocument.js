@@ -55,6 +55,26 @@ const tailoredDocumentSchema = new mongoose.Schema({
     type: Date,
     default: null
   },
+  // The one thing still to do on this application, and when.
+  //
+  // Deliberately not the AI's suggestion. The tracker already guesses a follow-up
+  // from elapsed time, and a generated action would either be generic ("follow up
+  // on your application") or invented -- and the user cannot tell which. This is a
+  // field they write, because "email Mme Ngo about the interview slot" is the
+  // useful answer and no model knows it.
+  //
+  // Free text rather than an enum: the dashboard aggregates on `followUpDate`,
+  // which is the actionable axis. Classifying the action itself would only matter
+  // if something could usefully filter by it, and nothing can.
+  nextAction: {
+    type: String,
+    default: '',
+    trim: true
+  },
+  followUpDate: {
+    type: Date,
+    default: null
+  },
   template: {
     type: String,
     enum: ['modern', 'classic', 'creative', 'professional', 'minimal', 'bold'],
@@ -77,5 +97,8 @@ const tailoredDocumentSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 tailoredDocumentSchema.index({ userId: 1, createdAt: -1 });
+// Supports "what needs my attention", which filters on a date within a window
+// rather than sorting the whole list.
+tailoredDocumentSchema.index({ userId: 1, followUpDate: 1 });
 
 module.exports = mongoose.model('TailoredDocument', tailoredDocumentSchema);

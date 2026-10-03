@@ -10,6 +10,10 @@ const crypto = require('crypto');
 
 const FORMATS = { docx: true, pdf: true };
 
+// Long enough for "call Mme Ngo on Thursday about the interview slot", short enough
+// that a next action stays an action rather than becoming a second notes field.
+const NEXT_ACTION_MAX = 200;
+
 function normalizeFormat(format) {
   return FORMATS[format] ? format : 'docx';
 }
@@ -196,13 +200,34 @@ exports.downloadDocument = async (req, res, next) => {
 
 exports.updateApplicationStatus = async (req, res, next) => {
   try {
-    const { applicationStatus, companyApplied } = req.body;
+    const { applicationStatus, companyApplied, nextAction, followUpDate } = req.body;
     const updates = {};
 
     if (applicationStatus) updates.applicationStatus = applicationStatus;
     if (companyApplied !== undefined) updates.companyApplied = companyApplied;
-    if (applicationStatus === 'applied' && !req.body.preserveAppliedAt) {
-      updates.appliedAt = new Date();
+
+    // Trimmed here rather than by the schema's maxlength, which would reject the
+    // whole request and surface as a 500 for what is really an over-long field.
+    if (nextAction !== undefined) {
+      updates.nextAction = String(nextAction).slice(0, NEXT_ACTION_MAX);
+    }
+
+    if (followUpDate !== undefined) {
+      // Explicit null or empty clears it. An unparseable string is a client error:
+      // silently storing null would drop a date the user set without telling them.
+      if (followUpDate === null || followUpDate === '') {
+        updates.followUpDate = null;
+      } else {
+        const parsed = new Date(followUpDate);
+        if (Number.isNaN(parsed.getTime())) {
+          return res.status(400).json({ error: 'followUpDate must be a valid date' });
+        }
+        updates.followUpDate = parsed;
+      }
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ error: 'No content to update' });
     }
 
     const doc = await TailoredDocument.findOneAndUpdate(
@@ -213,6 +238,21 @@ exports.updateApplicationStatus = async (req, res, next) => {
     if (!doc) {
       return res.status(404).json({ error: 'Document not found' });
     }
+
+    // appliedAt is the record of when the application was actually sent, so it is
+    // stamped once. This used to reset on every save while the status was
+    // "applied" -- which is the default status and the most common one -- so every
+    // edit of the company field restarted "7 days since you applied" at zero, and
+    // the follow-up nudge could never fire for a user who kept correcting
+    // their own data. Conditional on the field still being null, so no read is
+    // needed and two concurrent saves cannot both stamp it.
+    if (applicationStatus === 'applied' && !req.body.preserveAppliedAt) {
+      TailoredDocument.updateOne(
+        { _id: doc._id, appliedAt: null },
+        { $set: { appliedAt: new Date() } }
+      ).catch(() => {});
+    }
+
     res.json(doc);
 
     posthog.captureFor(req, 'application_status_updated', { applicationStatus: applicationStatus || null });
