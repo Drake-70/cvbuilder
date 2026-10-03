@@ -391,8 +391,50 @@ Two constraints worth preserving when editing this service:
 ### Jobs
 - `GET /api/jobs` — List scraped jobs (filter by `source`, `category`, `q`, `page`)
 - `GET /api/jobs/:id` — Single job
+- `POST /api/jobs/match` — Match one saved CV against up to 50 postings
 - `POST /api/jobs/scrape` — Run a scrape cycle (admin session **or** `x-scrape-key` header)
 - `GET /api/jobs/alerts` / `POST /api/jobs/alerts` — Job alert subscriptions
+
+#### The match badge, and what it refuses to say
+
+`POST /api/jobs/match` takes `{ jobIds, cvId? }` and returns a map of
+`computeJobMatchScore` results. It is a batch endpoint rather than one request per
+posting because a board page is up to 50 jobs, and the detail page calls the same
+endpoint with a single id — one scorer, one shape, so the badge on a card and the
+panel on the detail page cannot disagree.
+
+It is **not** `computeATSScore`. Two of that function's four sub-scores cannot be
+known here: `structure` reads a tailored CV object and `gaps` reads a gap analysis,
+and on the board neither exists. Passing nulls scores structure 0 and gaps 100 for
+every user, so the badge would have measured the fact that the board is not the
+tailoring flow rather than the fit. This scores the one thing both documents can
+answer — whether they talk about the same things — at keywords 60 / skills 40.
+
+Four cases where it declines to produce a number:
+
+- **Too thin a posting.** Below 12 distinct keywords the ratio is noise: at 5, one
+  match is worth 20% and the figure turns on how the ad was typed. The response
+  carries `score: null` and `insufficient: true` and the UI renders nothing. A
+  badge that sometimes means "poor fit" and sometimes means "we could not tell" is
+  worse than silence.
+- **No named skills.** When the posting names none, skills are dropped from the
+  score rather than defaulted to a constant. `breakdown.skills` is `null`, and the
+  UI omits that row instead of printing a placeholder measurement.
+- **No CV.** `404` with `code: 'no_cv'`, distinguishable by the client from any
+  other failure.
+- **Which CV.** Resolved from `cvId` or the most recent, and returned in the
+  response. It changes the number, so it is never chosen silently.
+
+`extractKeywords` excludes job-ad boilerplate — `hiring`, `join`, `team`,
+`salary`, `negotiable`, `skills`, `experience` and the rest. Every posting says
+them and no CV does, so counting them made an excellent match read as 49%: a
+number describing the advertisement rather than the candidate. Terms that
+discriminate (`kubernetes`, `mentor`, `optimisation`) are still measured.
+
+Known limitation, asserted in `jobMatchScore.test.js` so it stays visible:
+matching is whole-word, so a CV saying "Optimised queries" does not satisfy
+"query optimisation". Closing that needs stemming, which trades false positives
+("manage" / "manager") for these near-misses — not a change to make silently.
 
 `POST /api/jobs/scrape` returns `409` when a cycle is already in flight, so an
 external scheduler can treat both `200` and `409` as success. See

@@ -1,4 +1,5 @@
 const Job = require('../models/Job');
+const mongoose = require('mongoose');
 const JobAlert = require('../models/JobAlert');
 const Notification = require('../models/Notification');
 const Application = require('../models/Application');
@@ -7,6 +8,7 @@ const TailoredDocument = require('../models/TailoredDocument');
 const User = require('../models/User');
 const { tailorCV } = require('../services/aiService');
 const { runScrapeCycle } = require('../services/jobService');
+const { computeJobMatchScore } = require('../services/scoreService');
 const { notifyUser } = require('../services/pushService');
 const posthog = require('../config/posthog');
 
@@ -15,6 +17,10 @@ const JOB_CATEGORIES = [
   'Healthcare', 'Education', 'Administration & HR', 'Logistics & Transport',
   'Hospitality & Tourism', 'Management', 'Other'
 ];
+
+// A board page is at most 50 jobs (the `limit` cap in listJobs), so this covers
+// a full page without letting the endpoint be used to score the whole board.
+const MAX_MATCH_JOBS = 50;
 
 exports.listJobs = async (req, res, next) => {
   try {
@@ -171,6 +177,55 @@ exports.createApplication = async (req, res, next) => {
     if (err.message && err.message.includes('JSON')) {
       return res.status(502).json({ error: 'AI returned an invalid response. Please try again.' });
     }
+    next(err);
+  }
+};
+
+exports.matchJobs = async (req, res, next) => {
+  try {
+    const { jobIds, cvId } = req.body;
+    if (!Array.isArray(jobIds) || jobIds.length === 0) {
+      return res.status(400).json({ error: 'jobIds array is required' });
+    }
+    const ids = [...new Set(jobIds.filter(id => typeof id === 'string' && mongoose.Types.ObjectId.isValid(id)))];
+    if (!ids.length) {
+      return res.status(400).json({ error: 'jobIds array is required' });
+    }
+    // One board page is 20-50 jobs. Anything beyond a page is a batch job, not
+    // a badge, and the response would carry every keyword of every posting.
+    if (ids.length > MAX_MATCH_JOBS) {
+      return res.status(400).json({ error: `At most ${MAX_MATCH_JOBS} jobs can be scored at once` });
+    }
+
+    // Which CV is being scored is a decision that changes the number, so it is
+    // made explicitly and returned. Silently taking the newest would make the
+    // badge change under the user with no explanation.
+    const cv = cvId
+      ? await CV.findOne({ _id: cvId, userId: req.user._id }).lean()
+      : await CV.findOne({ userId: req.user._id }).sort({ createdAt: -1 }).lean();
+
+    if (!cv) {
+      return res.status(404).json({
+        error: 'No CV saved yet. Upload or paste a CV to see how well you match each job.',
+        code: 'no_cv'
+      });
+    }
+
+    const jobs = await Job.find({ _id: { $in: ids } }).select('title description').lean();
+
+    const matches = {};
+    jobs.forEach(job => {
+      matches[String(job._id)] = {
+        title: job.title,
+        ...computeJobMatchScore(cv.originalText, job.description)
+      };
+    });
+
+    res.json({
+      cv: { id: String(cv._id), label: cv.label || 'My CV', updatedAt: cv.updatedAt },
+      matches
+    });
+  } catch (err) {
     next(err);
   }
 };

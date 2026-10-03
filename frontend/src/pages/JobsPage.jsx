@@ -49,6 +49,36 @@ export default function JobsPage() {
   const applications = appsData?.applications || [];
   const appliedJobIds = new Set(applications.filter((a) => a.jobId).map((a) => a.jobId._id || a.jobId));
 
+  // Match badges for the visible page, in one request. Per-job requests would be
+  // 12-50 round trips plus 12-50 CV lookups to draw one screen of badges.
+  //
+  // Keyed on the joined ids rather than the array so paging or a filter change
+  // refetches while a re-render with the same jobs does not.
+  const jobKey = jobs.map((j) => j._id).join(',');
+  const [matches, setMatches] = useState(null);
+  const [matchCv, setMatchCv] = useState(null);
+
+  useEffect(() => {
+    if (!user || !jobKey) {
+      setMatches(null);
+      return;
+    }
+    let cancelled = false;
+    api.post('/jobs/match', { jobIds: jobKey.split(',') })
+      .then((res) => {
+        if (cancelled) return;
+        setMatches(res.data?.matches || {});
+        setMatchCv(res.data?.cv || null);
+      })
+      .catch(() => {
+        // Absent is the right failure here. The badge is an extra, and a signed
+        // out user's board is identical to a failed one -- so there is nothing
+        // to report and no state to recover.
+        if (!cancelled) setMatches(null);
+      });
+    return () => { cancelled = true; };
+  }, [user, jobKey]);
+
   const { data: alertsData, mutate: setAlerts, isLoading: alertsLoading, error: alertsError, refetch: refetchAlerts } = useCache('/jobs/alerts', { enabled: !!user });
   const alerts = alertsData?.alerts || [];
   const [deleteAlertId, setDeleteAlertId] = useState(null);
@@ -248,7 +278,14 @@ export default function JobsPage() {
               <p className="text-xs text-surface-400 mb-4">{t('found_jobs', { count: total })}</p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {jobs.map((job, i) => (
-                  <JobCard key={job._id} job={job} applied={appliedJobIds.has(job._id)} index={i} />
+                  <JobCard
+                    key={job._id}
+                    job={job}
+                    applied={appliedJobIds.has(job._id)}
+                    index={i}
+                    match={matches?.[job._id]}
+                    cvLabel={matchCv?.label}
+                  />
                 ))}
               </div>
               {pages > 1 && (

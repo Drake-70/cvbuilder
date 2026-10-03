@@ -15,6 +15,10 @@ router.get('/notifications', requireAuth, jobController.listNotifications);
 router.get('/notifications/unread-count', requireAuth, jobController.unreadCount);
 router.post('/notifications/read', requireAuth, jobController.markNotificationsRead);
 router.post('/apply', requireAuth, jobController.createApplication);
+// Batch, not per-job: a board page is up to 50 listings, and one request each
+// would mean 50 round trips plus 50 CV lookups to render one page of badges.
+// The job detail page calls this with a single id.
+router.post('/match', requireAuth, jobController.matchJobs);
 // Two callers are supported: the Admin UI (session cookie) and the external
 // cron in .github/workflows/jobs-scrape.yml (`x-scrape-key` header, no cookie).
 // optionalAuth populates req.user when a cookie is present without demanding

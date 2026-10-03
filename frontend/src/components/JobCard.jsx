@@ -1,8 +1,9 @@
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { relativeTime } from '../utils/relativeTime';
+import MatchBadge from './MatchBadge';
 
-export default function JobCard({ job, applied = false, index = 0 }) {
+export default function JobCard({ job, applied = false, index = 0, match, cvLabel }) {
   const { t } = useTranslation('jobs');
 
   return (
@@ -20,13 +21,18 @@ export default function JobCard({ job, applied = false, index = 0 }) {
             <p className="text-xs text-surface-500 dark:text-surface-400 mt-1">{job.company}</p>
           )}
         </div>
-        {applied && (
-          <span className="flex-shrink-0 inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 dark:text-emerald-400 rounded-full px-2 py-0.5">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22,4 12,14.01 9,11.01"/>
-            </svg>
-            {t('applied')}
-          </span>
+        {(applied || match) && (
+          <div className="flex-shrink-0 flex flex-col items-end gap-1">
+            {applied && (
+              <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 dark:text-emerald-400 rounded-full px-2 py-0.5">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22,4 12,14.01 9,11.01"/>
+                </svg>
+                {t('applied')}
+              </span>
+            )}
+            <MatchBadge match={match} cvLabel={cvLabel} />
+          </div>
         )}
       </div>
 

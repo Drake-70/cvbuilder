@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import { useCache } from '../hooks/useCache';
 import ApplyModal from '../components/ApplyModal';
+import MatchBadge from '../components/MatchBadge';
 import { relativeTime } from '../utils/relativeTime';
+import api from '../services/api';
 
 const SOURCE_LABELS = {
   goafrica: 'Go Africa Online',
@@ -31,6 +33,27 @@ export default function JobDetailPage() {
 
   const { data: appsData } = useCache('/jobs/applications', { enabled: !!user });
   const alreadyApplied = (appsData?.applications || []).some((a) => (a.jobId?._id || a.jobId) === id);
+
+  // Same endpoint the board uses, with a single id. One scorer, one shape -- the
+  // detail page does not reimplement the calculation or reformat the numbers.
+  const [match, setMatch] = useState(null);
+  const [matchCv, setMatchCv] = useState(null);
+
+  useEffect(() => {
+    if (!user || !id) {
+      setMatch(null);
+      return;
+    }
+    let cancelled = false;
+    api.post('/jobs/match', { jobIds: [id] })
+      .then((res) => {
+        if (cancelled) return;
+        setMatch(res.data?.matches?.[id] || null);
+        setMatchCv(res.data?.cv || null);
+      })
+      .catch(() => { if (!cancelled) setMatch(null); });
+    return () => { cancelled = true; };
+  }, [user, id]);
 
   const handleApplied = () => setApplied(true);
 
@@ -198,6 +221,11 @@ export default function JobDetailPage() {
         {/* Description */}
         <div>
           <h2 className="text-sm font-bold text-surface-900 dark:text-white uppercase tracking-wide mb-3">{t('about_role')}</h2>
+          {match && (
+            <div className="mb-3">
+              <MatchBadge match={match} cvLabel={matchCv?.label} detailed />
+            </div>
+          )}
           {job.description ? (
             <div className="text-sm text-surface-600 dark:text-surface-300 leading-relaxed whitespace-pre-wrap">
               {job.description}
