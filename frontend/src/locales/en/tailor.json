@@ -176,6 +176,19 @@
   "draft_resume": "Continue draft",
   "draft_discard": "Discard draft",
   "draft_unavailable": "Your draft could not be loaded or saved. Anything you type now may be lost if you close this tab.",
+  "expand_failed": "Could not rewrite your lines. Please try again.",
+  "bulletReview": {
+    "title": "Review the rewrites",
+    "subtitle": "Your wording is kept unless you accept a rewrite.",
+    "use_this": "Use this rewrite",
+    "accepted": "Accepted",
+    "left_as_written": "Kept as you wrote it",
+    "skipped_note_one": "1 line could not be rewritten and was left alone.",
+    "skipped_note_other": "{{count}} lines could not be rewritten and were left alone.",
+    "accept_all": "Accept all",
+    "discard": "Discard all",
+    "apply": "Apply accepted"
+  },
   "reviewChanges": {
     "tab": "Review",
     "title": "What changed",

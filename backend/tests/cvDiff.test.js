@@ -12,10 +12,14 @@ const {
   tokenSimilarity,
   normalizeText,
   tokenize,
+  classifyProposal,
+  applyProposals,
   KEPT,
   REWORDED,
   ADDED,
-  REMOVED
+  REMOVED,
+  EXPANDED,
+  SKIPPED
 } = require('../../frontend/src/utils/cvDiff.js');
 
 const rows = (result) => result.map(r => r.status);
@@ -230,4 +234,68 @@ test('every status the UI renders is one the module emits', () => {
     assert.ok([KEPT, REWORDED, ADDED, REMOVED].includes(s), `unknown status ${s}`);
     assert.strictEqual(s, s.toLowerCase());
   });
+});
+
+// --- proposal approval (bullet-level expansion) --------------------------
+//
+// The pairing itself is server-side and asserted in bulletExpansion.test.js.
+// What is asserted here is what the client does with the result: deciding what to
+// call a proposal, and writing only the approved ones back into the form.
+
+test('a proposal the model declined is skipped, not reported as a removal', () => {
+  // "This line is gone" is a different and wrong claim from "your wording is
+  // still your wording".
+  assert.strictEqual(classifyProposal('helped at a cafe', null), SKIPPED);
+  assert.strictEqual(classifyProposal('helped at a cafe', ''), SKIPPED);
+  assert.notStrictEqual(classifyProposal('helped at a cafe', null), REMOVED);
+});
+
+test('an expansion identical to the input is not counted as an improvement', () => {
+  // Case and trailing punctuation must not make the model's echo look like work.
+  assert.strictEqual(classifyProposal('Helped at a cafe.', 'helped at a cafe'), KEPT);
+  assert.strictEqual(classifyProposal('helped at a cafe', 'Managed daily cafe operations'), EXPANDED);
+});
+
+test('only accepted proposals are written back', () => {
+  const rows = ['one', 'two', 'three'];
+  const proposals = [
+    { index: 0, before: 'one', after: 'ONE' },
+    { index: 1, before: 'two', after: 'TWO' },
+    { index: 2, before: 'three', after: 'THREE' }
+  ];
+  assert.deepStrictEqual(applyProposals(rows, proposals, new Set([1])), ['one', 'TWO', 'three']);
+  assert.deepStrictEqual(applyProposals(rows, proposals, new Set()), rows, 'accepting nothing changes nothing');
+  assert.deepStrictEqual(applyProposals(rows, proposals, [0, 2]), ['ONE', 'two', 'THREE'], 'an array works too');
+});
+
+test('an unexpanded proposal cannot be accepted into the form', () => {
+  // Even if the UI state says so, a null `after` has no text to write.
+  const rows = ['one', 'two'];
+  const proposals = [
+    { index: 0, before: 'one', after: null },
+    { index: 1, before: 'two', after: 'TWO' }
+  ];
+  assert.deepStrictEqual(applyProposals(rows, proposals, new Set([0, 1])), ['one', 'TWO']);
+});
+
+test('blank placeholder rows do not shift the proposals', () => {
+  // The form keeps empty rows to type into; the request filters them out, so the
+  // proposals are indexed against filled rows only. Getting this wrong silently
+  // rewrites the wrong line and the user only notices after submitting.
+  const rows = ['', 'first', '   ', 'second'];
+  const proposals = [
+    { index: 0, before: 'first', after: 'FIRST' },
+    { index: 1, before: 'second', after: 'SECOND' }
+  ];
+  assert.deepStrictEqual(applyProposals(rows, proposals, new Set([0, 1])), ['', 'FIRST', '   ', 'SECOND']);
+});
+
+test('applying is total: no input can make it lose a row', () => {
+  const rows = ['a', '', 'b'];
+  [null, undefined, [], 'x', 42, [{}], [{ after: '' }]].forEach(proposals => {
+    const out = applyProposals(rows, proposals, new Set([0, 1, 2, 3, 4]));
+    assert.strictEqual(out.length, rows.length, `row count for ${JSON.stringify(proposals)}`);
+    out.forEach((v, i) => assert.strictEqual(typeof v, 'string', `row ${i} must stay a string`));
+  });
+  assert.deepStrictEqual(applyProposals(null, [], new Set()), []);
 });

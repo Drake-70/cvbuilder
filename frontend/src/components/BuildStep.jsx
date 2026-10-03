@@ -4,6 +4,8 @@ import api from '../services/api';
 import SectionGuidance from './SectionGuidance';
 import cvToText from '../utils/cvToText';
 import { isPlainObject } from '../utils/draftResume';
+import BulletApproval from './BulletApproval';
+import { classifyProposal, applyProposals, EXPANDED } from '../utils/cvDiff';
 
 const TOTAL_SUB_STEPS = 5;
 
@@ -85,6 +87,9 @@ export default function BuildStep({
   const [noEducation, setNoEducation] = useState(false);
   const [noExperience, setNoExperience] = useState(false);
   const [expandingBullets, setExpandingBullets] = useState(false);
+  const [bulletProposals, setBulletProposals] = useState(null);
+  const [acceptedBullets, setAcceptedBullets] = useState(() => new Set());
+  const [expandError, setExpandError] = useState('');
   const [savedSkills, setSavedSkills] = useState([]);
   const [savedSkillsLoaded, setSavedSkillsLoaded] = useState(false);
   const skillsInitialized = useRef(false);
@@ -266,16 +271,58 @@ export default function BuildStep({
     const items = nonTraditional.filter(n => n.trim());
     if (items.length === 0) return;
     setExpandingBullets(true);
+    setExpandError('');
     try {
       const res = await api.post('/cv/expand-bullets', { items, language: lang });
-      if (res.data?.nonTraditionalExperience) {
-        setNonTraditional(res.data.nonTraditionalExperience);
+      const proposals = res.data?.proposals;
+      if (!Array.isArray(proposals)) {
+        setExpandError(t('expand_failed'));
+        return;
       }
-    } catch {
-      // silent — user can retry
+      setBulletProposals(proposals);
+      // Accepted by default. The user pressed "expand", so an all-rejected panel
+      // would read as a button that did nothing -- and every row is one click to
+      // undo.
+      setAcceptedBullets(new Set(
+        proposals
+          .map((p, i) => (classifyProposal(p.before, p.after) === EXPANDED ? i : -1))
+          .filter(i => i >= 0)
+      ));
+    } catch (err) {
+      // Previously swallowed with "silent — user can retry". A failed expansion
+      // with no message is indistinguishable from a button that does nothing.
+      setExpandError(err.response?.data?.error || t('expand_failed'));
     } finally {
       setExpandingBullets(false);
     }
+  };
+
+  const handleApplyBullets = () => {
+    setNonTraditional(applyProposals(nonTraditional, bulletProposals, acceptedBullets));
+    setBulletProposals(null);
+    setAcceptedBullets(new Set());
+  };
+
+  const handleDiscardBullets = () => {
+    setBulletProposals(null);
+    setAcceptedBullets(new Set());
+  };
+
+  const toggleBullet = (position) => {
+    setAcceptedBullets(prev => {
+      const next = new Set(prev);
+      if (next.has(position)) next.delete(position);
+      else next.add(position);
+      return next;
+    });
+  };
+
+  const acceptAllBullets = () => {
+    setAcceptedBullets(new Set(
+      (bulletProposals || [])
+        .map((p, i) => (classifyProposal(p.before, p.after) === EXPANDED ? i : -1))
+        .filter(i => i >= 0)
+    ));
   };
 
   const addCustomSkill = () => {
@@ -533,6 +580,30 @@ export default function BuildStep({
                   </>
                 )}
               </button>
+            )}
+
+            {expandError && !bulletProposals && (
+              <div className="flex items-start justify-between gap-3 rounded-xl border border-rose-200 bg-rose-50/60 p-3">
+                <p className="text-xs text-rose-700">{expandError}</p>
+                <button
+                  onClick={() => setExpandError('')}
+                  className="text-xs text-rose-600 underline cursor-pointer flex-shrink-0"
+                >
+                  {tCommon('dismiss')}
+                </button>
+              </div>
+            )}
+
+            {bulletProposals && (
+              <BulletApproval
+                proposals={bulletProposals}
+                accepted={acceptedBullets}
+                onToggle={toggleBullet}
+                onAcceptAll={acceptAllBullets}
+                onApply={handleApplyBullets}
+                onDiscard={handleDiscardBullets}
+                error={expandError}
+              />
             )}
           </div>
         )}

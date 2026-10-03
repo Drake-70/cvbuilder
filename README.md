@@ -244,11 +244,70 @@ different abuse from mail-bombing.
 - `POST /api/cv/upload` — Upload file (PDF/DOCX/TXT)
 - `POST /api/cv/paste` — Paste CV text
 - `POST /api/cv/build` — Build from questionnaire
+- `POST /api/cv/expand-bullets` — Propose professional rewrites for typed lines
 - `POST /api/cv/save` — Save base CV
 - `GET /api/cv/list` — List saved CVs
 
+#### A rewrite proposal is not a rewrite
+
+`/expand-bullets` returns **proposals**, not a replacement CV:
+
+```jsonc
+{ "proposals": [ { "index": 0, "before": "helped at my mum's cafe", "after": "Managed daily cafe operations" },
+                 { "index": 1, "before": "did python in class",    "after": null } ],
+  "expandedCount": 1 }
+```
+
+Nothing is written. `BulletApproval.jsx` shows each line beside its rewrite,
+accepted by default and individually reversible, and only touches the form on Apply.
+
+- **The pairing is explicit and server-side.** The model is asked to echo an
+  `index`, and `bulletExpansionService.pairExpansions` reconciles it. Zipping
+  request and response by array position would let a reordered or dropped item
+  rewrite the wrong line — and that failure is invisible, because the CV still
+  looks plausible. The index base is inferred rather than assumed: models return
+  0-based indices often enough that hard-coding either convention shifts every
+  rewrite by one line.
+- **The response is always aligned to the request**, same length, same order. A line
+  the model declined comes back as `after: null` rather than being dropped, so the
+  client never reconciles two lists. `null` means "your wording is still your
+  wording" — it is displayed as such, never as a removal.
+- **A proposal longer than a bullet is discarded.** One sentence was requested; a
+  paragraph is drift, and writing it into a CV the user is about to submit is worse
+  than leaving their own line alone.
+- **An echoed input is not offered.** If the model returns the input back, the panel
+  reports it as `kept` rather than counting it as work the AI did. For the same
+  reason `original` is not an accepted response field.
+- **A failure is no longer silent.** The old handler caught the error and returned
+  nothing, making a failure indistinguishable from a button that does nothing.
+
 ### Tailoring
 - `POST /api/tailor` — Tailor CV to job description
+
+#### Nothing is saved until the user approves it
+
+`POST /api/tailor` performs no persistence at all; the controller writes nothing.
+The client used to save the document immediately afterwards and swallowed the save
+error as "Non-critical", which made review decorative — by the time a user read the
+result, the CV was already in their library, and a failed write left them believing
+it was not.
+
+`frontend/src/components/ChangeReview.jsx` is now the first tab of the result step
+and the only place the save button lives.
+
+- `frontend/src/utils/cvDiff.js` pairs original and tailored bullets by token
+  similarity and labels each `kept` / `reworded` / `added` / `removed`. Punctuation
+  and casing do not make a bullet look changed. Below 0.5 similarity a line is
+  reported as removed-plus-added, which is the honest reading: the AI replaced that
+  line rather than rewording it.
+- A CV pasted as plain text has no structured original, so `summarizeDiff` reports
+  `incomparable`. The panel says exactly that instead of falling through to "nothing
+  changed", a claim it has no evidence for.
+- Downloads do not depend on having saved. `generateDocument` resolves access
+  against `documentId || null`, so gating the write costs the user nothing.
+- `/cv/save` (the *original* CV) stays best-effort. `baseCvId` is optional and
+  losing it degrades a linkage rather than a document, so surfacing that error
+  would be noise. `changeReview.test.js` scopes its assertions to that distinction.
 
 #### Drafts
 One draft per user, autosaved by the tailor wizard. `step` is validated against an
@@ -466,6 +525,11 @@ wire — the draft allow-list, the resumability rule, the locale keys the draft 
 asks for — is asserted from the backend suite against the real frontend source
 (see `backend/tests/draftController.test.js`), so a frontend change that breaks
 the contract fails `npm test` rather than shipping.
+
+Two frontend modules are pure enough to be asserted directly from the backend
+suite, which is worth doing for anything that decides what a user is told about
+the AI's work: `frontend/src/utils/cvDiff.js` (`cvDiff.test.js`) and the review
+panels' wire contracts (`changeReview.test.js`, `bulletReviewContract.test.js`).
 
 ## Deployment
 

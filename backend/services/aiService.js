@@ -1,5 +1,6 @@
 const Groq = require('groq-sdk');
 const logger = require('../utils/logger');
+const { pairExpansions } = require('./bulletExpansionService');
 
 const AI_MODEL = process.env.AI_MODEL || 'openai/gpt-oss-120b';
 
@@ -259,6 +260,42 @@ Return JSON with keys: name, headline, email, phone, location, linkedin, website
   if (!Array.isArray(cv.certifications)) cv.certifications = [];
   if (!Array.isArray(cv.nonTraditionalExperience)) cv.nonTraditionalExperience = [];
   return cv;
+};
+
+const BULLET_EXPANSION_SYSTEM_PROMPT = `You are a CV writing assistant helping first-time job seekers in Cameroon.
+The user has written short, informal notes about activities they did. Rewrite each one as a single professional CV bullet point.
+
+CRITICAL RULES:
+- NEVER fabricate information. Only rephrase what the user wrote.
+- NEVER add quantified outcomes (numbers, percentages, revenue), named tools, team sizes, employers, titles, or results the user did not mention.
+- If a note is too vague to be professionalised honestly, keep it modest rather than inventing detail. A weak true bullet beats a strong invented one.
+- Preserve the meaning of the note. Do not upgrade it into a different achievement.
+
+FORMAT RULES:
+- Return exactly one bullet per note, using the same number you were given.
+- Do not reorder, merge, split, or drop notes.
+- One sentence, beginning with a past-tense action verb, no bullet glyph, no leading dash.
+- Write in the language named in the user message.
+
+Return JSON: { "expansions": [ { "index": 1, "expanded": "..." } ] }`;
+
+exports.proposeBulletExpansions = async (items, language = 'en') => {
+  const notes = (Array.isArray(items) ? items : [])
+    .map(v => (typeof v === 'string' ? v.trim() : ''))
+    .filter(Boolean);
+
+  if (!notes.length) return [];
+
+  const lang = language === 'fr' ? 'French' : 'English';
+  const userMsg = `Write the expanded bullets in ${lang}.
+
+Notes to expand:
+${notes.map((note, i) => `${i + 1}. ${note}`).join('\n')}
+
+Return one entry per note, with "index" set to the number exactly as shown above.`;
+
+  const parsed = await callGroqJSON(BULLET_EXPANSION_SYSTEM_PROMPT, userMsg, 0.6);
+  return pairExpansions(notes, parsed);
 };
 
 exports.generateInterviewQuestions = async (jobDescription, tailoredCV, language) => {

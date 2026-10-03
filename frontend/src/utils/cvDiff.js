@@ -18,6 +18,14 @@ export const REWORDED = 'reworded';
 export const ADDED = 'added';
 export const REMOVED = 'removed';
 
+// Proposal statuses, used by the bullet-expansion review. That feature gets an
+// explicit pairing from the server (see bulletExpansionService), so it does not
+// need to infer one the way diffBullets does -- but it does describe the same
+// two outcomes, so it borrows KEPT rather than inventing a fifth word for "the
+// model gave my own sentence back".
+export const EXPANDED = 'expanded';
+export const SKIPPED = 'skipped';
+
 // Similarity at or above which two bullets are treated as the same line
 // rewritten, rather than one removed and another invented.
 //
@@ -230,4 +238,52 @@ export function summarizeDiff(originalCV, tailoredCV) {
     // paste-a-block-of-text path. The UI must not claim "nothing changed".
     incomparable: !originalCV || !Array.isArray(originalCV.experience)
   };
+}
+
+/**
+ * Classify one expansion proposal against the line it came from.
+ *
+ * Three outcomes, and the third matters as much as the first two: a proposal the
+ * model declined to make is not a removal and must not be presented as one. It
+ * means the user's own wording is still the wording, which is a valid result --
+ * the request was an offer, not an instruction.
+ */
+export function classifyProposal(before, after) {
+  if (!after) return SKIPPED;
+  // An expansion that is the input back is not an improvement, and listing it as
+  // one would overstate what the AI did.
+  return tokenSimilarity(before, after) >= 1 ? KEPT : EXPANDED;
+}
+
+/**
+ * Apply approved proposals back into the rows they came from.
+ *
+ * `rows` is the full editable list, which contains blank placeholder rows the
+ * request filtered out. Proposals are indexed against the *non-blank* lines, so
+ * this walks the rows consuming an index for each filled one and leaving the
+ * blanks exactly where they were -- otherwise approving an expansion would shift
+ * every line below it, which is the sort of thing a user only notices after
+ * submitting the CV.
+ *
+ * An unapproved proposal leaves its row untouched, so rejecting everything is
+ * equivalent to never having expanded.
+ *
+ * @param {string[]} rows full editable list
+ * @param {Array<{after:string|null}>} proposals in request order
+ * @param {Set<number>|number[]} accepted indices into `proposals`
+ */
+export function applyProposals(rows, proposals, accepted) {
+  const approved = accepted instanceof Set ? accepted : new Set(accepted || []);
+  const list = Array.isArray(rows) ? rows : [];
+  const offered = Array.isArray(proposals) ? proposals : [];
+
+  let filled = 0;
+  return list.map(row => {
+    if (!clean(row)) return row;
+    const proposal = offered[filled];
+    const index = filled;
+    filled += 1;
+    if (!proposal || !approved.has(index) || !proposal.after) return row;
+    return proposal.after;
+  });
 }

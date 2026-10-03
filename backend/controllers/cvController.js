@@ -2,7 +2,8 @@ const multer = require('multer');
 const { PDFParse } = require('pdf-parse');
 const mammoth = require('mammoth');
 const CV = require('../models/CV');
-const { expandQuestionnaireInput } = require('../services/aiService');
+const { expandQuestionnaireInput, proposeBulletExpansions } = require('../services/aiService');
+const { MAX_BULLETS_PER_REQUEST } = require('../services/bulletExpansionService');
 const { parseCVText } = require('../services/cvParser');
 const posthog = require('../config/posthog');
 
@@ -102,23 +103,35 @@ exports.buildFromScratch = async (req, res, next) => {
   }
 };
 
+// Proposes expansions; it does not write them anywhere.
+//
+// The response is a list of proposals paired to the lines that were sent, each
+// with the text as the user wrote it alongside the model's rewrite. The caller
+// applies the ones the user approves. Nothing is persisted here and no state
+// changes: approving an expansion is a client-side decision about what goes into
+// the draft, which the user then submits like any other edit.
 exports.expandBullets = async (req, res, next) => {
   try {
     const { items, language } = req.body;
-    if (!items || !Array.isArray(items) || items.length === 0) {
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ error: 'Items array is required' });
+    }
+    if (items.length > MAX_BULLETS_PER_REQUEST) {
+      return res.status(400).json({
+        error: `Too many items. Expand at most ${MAX_BULLETS_PER_REQUEST} at a time.`
+      });
+    }
+    const hasContent = items.some(i => typeof i === 'string' && i.trim());
+    if (!hasContent) {
       return res.status(400).json({ error: 'Items array is required' });
     }
 
-    const expanded = await expandQuestionnaireInput({
-      personalInfo: {},
-      education: [],
-      experience: [],
-      nonTraditionalExperience: items,
-      skills: [],
-      language: language || 'en'
-    });
+    const proposals = await proposeBulletExpansions(items, language || 'en');
 
-    res.json(expanded);
+    res.json({
+      proposals: proposals.map(p => ({ index: p.index, before: p.original, after: p.expanded })),
+      expandedCount: proposals.filter(p => p.expanded).length
+    });
   } catch (err) {
     next(err);
   }

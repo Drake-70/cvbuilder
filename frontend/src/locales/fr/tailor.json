@@ -176,6 +176,19 @@
   "draft_resume": "Reprendre le brouillon",
   "draft_discard": "Supprimer le brouillon",
   "draft_unavailable": "Votre brouillon n’a pas pu être chargé ou enregistré. Ce que vous taperez maintenant risque d’être perdu si vous fermez cet onglet.",
+  "expand_failed": "Impossible de reformuler vos lignes. Veuillez réessayer.",
+  "bulletReview": {
+    "title": "Vérifiez les reformulations",
+    "subtitle": "Votre formulation est conservée sauf si vous acceptez une réécriture.",
+    "use_this": "Utiliser cette reformulation",
+    "accepted": "Acceptée",
+    "left_as_written": "Conservée telle que vous l’avez écrite",
+    "skipped_note_one": "1 ligne n’a pas pu être reformulée et a été laissée telle quelle.",
+    "skipped_note_other": "{{count}} lignes n’ont pas pu être reformulées et ont été laissées telles quelles.",
+    "accept_all": "Tout accepter",
+    "discard": "Tout abandonner",
+    "apply": "Appliquer la sélection"
+  },
   "reviewChanges": {
     "tab": "Révision",
     "title": "Ce qui a changé",
