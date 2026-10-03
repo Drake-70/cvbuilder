@@ -144,6 +144,130 @@ test('transportStatus names the real delivery paths', () => {
 });
 
 // ---------------------------------------------------------------------------
+// The verification email must carry both routes.
+// ---------------------------------------------------------------------------
+
+/**
+ * Capture the message that would actually go out.
+ *
+ * Not by mocking `sendMail`: `sendVerificationEmail` calls it as a module-local
+ * binding, so replacing the property on the exports object has no effect and the
+ * real `sendMail` runs — the capture stays null and the test fails for a reason
+ * that looks like a missing code in the template.
+ *
+ * Instead the Brevo path is taken with `axios.post` intercepted. That is the
+ * stronger seam anyway: it asserts on the payload as it crosses the wire, HTML and
+ * text parts included, rather than on an intermediate value. The console-only
+ * fallback is not usable for this — it logs the body but reduces a real send to the
+ * same shape.
+ */
+async function captureMessage(language = 'en', ...codeArg) {
+  const axios = require('axios');
+  const saved = { key: process.env.BREVO_API_KEY, from: process.env.SMTP_FROM };
+  process.env.BREVO_API_KEY = 'test-key';
+  process.env.SMTP_FROM = 'CVBoost <verified@example.com>';
+
+  const email = loadEmail();
+  let message = null;
+  mock.method(axios, 'post', async (_url, payload) => {
+    message = { html: payload.htmlContent, text: payload.textContent, subject: payload.subject };
+    return { data: {}, headers: {} };
+  });
+
+  try {
+    await email.sendVerificationEmail({
+      email: 'a@b.com',
+      token: 'linktoken123',
+      // Rest spread rather than a default parameter: the "no code" case needs to
+      // send `code: undefined`, and a default would substitute a real code and
+      // make that test assert the opposite of what it says.
+      code: codeArg.length ? codeArg[0] : '314159',
+      language
+    });
+  } finally {
+    if (saved.key === undefined) delete process.env.BREVO_API_KEY;
+    else process.env.BREVO_API_KEY = saved.key;
+    if (saved.from === undefined) delete process.env.SMTP_FROM;
+    else process.env.SMTP_FROM = saved.from;
+  }
+
+  assert.ok(message, 'the message must reach the transport');
+  return message;
+}
+
+test('the verification email carries both the code and the link', async () => {
+  // Neither is the fallback for the other. The link works on a phone with no way
+  // to retype digits; the code works on a desktop where a click would lose the
+  // user's place. Dropping either one removes a real path for someone.
+  const message = await captureMessage('en');
+
+  assert.match(message.html, /314159/, 'the code must be in the HTML');
+  assert.match(message.html, /verify-email\?token=linktoken123/, 'the link must survive');
+});
+
+test('the code is in the plain-text alternative too', async () => {
+  // Plenty of users read mail in a client that renders text. A code that exists
+  // only in the HTML part is invisible to them — they would find the link and
+  // never know a code had been sent.
+  const message = await captureMessage('en');
+
+  assert.match(message.text, /314159/);
+  assert.match(message.text, /linktoken123/);
+});
+
+test('the French template carries the code as well as the link', async () => {
+  const message = await captureMessage('fr');
+
+  assert.match(message.html, /314159/);
+  assert.match(message.html, /verify-email\?token=linktoken123/);
+});
+
+test('the code block is rendered for both languages without a branch', () => {
+  // A language-conditional code block is one more place for the two templates to
+  // drift, and a drift here is invisible until someone reads an email in the
+  // language that lost it. So the rendered output is compared directly: the French
+  // and English bodies must each contain the code, rather than trusting that
+  // whoever wrote the second one remembered to add it.
+  return Promise.all([captureMessage('en'), captureMessage('fr')]).then(([en, fr]) => {
+    assert.match(en.html, /word-break:break-all/, 'the code block must render for English');
+    assert.match(fr.html, /word-break:break-all/, 'the code block must render for French');
+  });
+});
+
+test('the email states the code expiry and the attempt limit', async () => {
+  // The page shows a countdown and an attempts-left count. A user reading only the
+  // email deserves the same two numbers, since a code that fails after five tries
+  // is otherwise indistinguishable from a wrong one.
+  const message = await captureMessage('en');
+
+  assert.match(message.html, /10 minutes/);
+  assert.match(message.html, /5 attempts/);
+});
+
+test('a code block is not rendered when there is no code to show', async () => {
+  // The link-only shape has to stay valid. An empty bordered box reading as a
+  // broken page is worse than no code block at all.
+  const message = await captureMessage('en', undefined);
+
+  assert.equal(/word-break:break-all/.test(message.html), false);
+  assert.match(message.html, /verify-email\?token=linktoken123/);
+});
+
+test('the code block escapes markup rather than interpolating it raw', () => {
+  // The code comes from a CSPRNG restricted to digits, so there is nothing to
+  // escape in practice. Asserting the escape is present anyway: a template that
+  // relies on that staying true is one refactor away from an injection point, and
+  // the test costs nothing while the escaping does.
+  const source = require('node:fs').readFileSync(
+    require.resolve('../services/emailService'),
+    'utf8'
+  );
+  const block = source.match(/function verificationCodeBlock\(code\) \{[\s\S]*?\n\}/);
+  assert.ok(block, 'the code block helper must exist');
+  assert.match(block[0], /escapeHtml/);
+});
+
+// ---------------------------------------------------------------------------
 // resendVerification: the endpoint that used to lie.
 // ---------------------------------------------------------------------------
 

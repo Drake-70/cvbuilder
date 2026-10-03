@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const multer = require('multer');
 const User = require('../models/User');
 const { sendPasswordResetEmail, sendVerificationEmail } = require('../services/emailService');
+const verificationCode = require('../services/verificationCode');
 const logger = require('../utils/logger');
 const posthog = require('../config/posthog');
 
@@ -73,6 +74,28 @@ function issueVerificationToken(user) {
   return token;
 }
 
+/**
+ * Attach a fresh six-digit code to a user, in place.
+ *
+ * Returns the plaintext because it has to go into an email; nothing persists it.
+ * The hashing happens here rather than at the call site so there is no path that
+ * can accidentally save a raw code onto the document.
+ */
+async function issueVerificationCode(user) {
+  const code = verificationCode.generateCode();
+  const issue = await verificationCode.buildCodeIssue(code);
+  user.emailVerificationCodeHash = issue.emailVerificationCodeHash;
+  user.emailVerificationCodeExpires = issue.emailVerificationCodeExpires;
+  user.emailVerificationCodeAttempts = issue.emailVerificationCodeAttempts;
+  user.emailVerificationCodeSentAt = issue.emailVerificationCodeSentAt;
+  return code;
+}
+
+/** Drop every trace of an outstanding code, called whenever verification succeeds. */
+function clearVerificationCode(user) {
+  Object.assign(user, verificationCode.clearCodeFields());
+}
+
 function setTokenCookies(res, accessToken, refreshToken) {
   const isProduction = process.env.NODE_ENV === 'production';
 
@@ -110,6 +133,7 @@ exports.register = async (req, res, next) => {
     if (existingUser) {
       if (!existingUser.emailVerified) {
         const token = issueVerificationToken(existingUser);
+        const code = await issueVerificationCode(existingUser);
         await existingUser.save();
         // This is the path a user reaches when the *first* verification email
         // never arrived, so it is the recovery route when mail is broken. It
@@ -122,6 +146,7 @@ exports.register = async (req, res, next) => {
         sendVerificationEmail({
           email: existingUser.email,
           token,
+          code,
           language: existingUser.preferredLanguage || 'en'
         })
           .then((result) => {
@@ -165,10 +190,12 @@ exports.register = async (req, res, next) => {
     // deploy with an unverified Brevo sender looks exactly like a working one:
     // signup succeeds, and every new account waits for a mail that is never sent.
     const token = issueVerificationToken(user);
+    const code = await issueVerificationCode(user);
     await user.save();
     const verification = await sendVerificationEmail({
       email: user.email,
       token,
+      code,
       language: preferredLanguage || 'en'
     }).catch((err) => {
       logger.error(`Verification email failed for ${user.email}: ${err.message}`);
@@ -421,6 +448,11 @@ exports.verifyEmail = async (req, res, next) => {
     user.emailVerified = true;
     user.emailVerificationToken = undefined;
     user.emailVerificationExpires = undefined;
+    // The code goes too. Verification is satisfied by whichever route the user
+    // took, so leaving an outstanding six-digit code on a verified account would
+    // hand anyone who later reads that mail a valid-looking (if inert) credential
+    // and would keep the attempt counter occupied if it were ever needed again.
+    clearVerificationCode(user);
     await user.save();
 
     res.json({ message: 'Email verified successfully' });
@@ -436,6 +468,7 @@ exports.resendVerification = async (req, res, next) => {
     if (user.emailVerified) return res.json({ message: 'Email already verified' });
 
     const token = issueVerificationToken(user);
+    const code = await issueVerificationCode(user);
     await user.save();
 
     // Awaited, and checked on `success` rather than with `.catch()`.
@@ -448,6 +481,7 @@ exports.resendVerification = async (req, res, next) => {
     const result = await sendVerificationEmail({
       email: user.email,
       token,
+      code,
       language: user.preferredLanguage || 'en'
     }).catch((err) => {
       // Still needed: `sendMail` only guards the transport call, so a throw
@@ -467,7 +501,118 @@ exports.resendVerification = async (req, res, next) => {
       });
     }
 
-    res.json({ message: 'Verification email sent', emailSent: true });
+    res.json({
+      message: 'Verification email sent',
+      emailSent: true,
+      // The page runs a countdown from this rather than guessing a cooldown of its
+      // own, so the server stays the single source of truth for when another send
+      // is allowed. It is echoed from the value just written, not recomputed.
+      resendAvailableInSeconds: verificationCode.RESEND_COOLDOWN_SECONDS
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * What the verification page needs to render itself.
+ *
+ * A dedicated endpoint rather than extra fields on `userResponse`, because this is
+ * only meaningful to one page and only while unverified — and because
+ * `emailVerificationCodeHash` must never reach a client at all. The response
+ * carries the shape of the code's state, never the code.
+ */
+exports.verificationStatus = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user._id).select(
+      'emailVerified emailVerificationCodeExpires emailVerificationCodeAttempts emailVerificationCodeSentAt'
+    );
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const attemptsUsed = user.emailVerificationCodeAttempts || 0;
+    const expiresAt = user.emailVerificationCodeExpires
+      ? new Date(user.emailVerificationCodeExpires).getTime()
+      : 0;
+
+    res.json({
+      emailVerified: !!user.emailVerified,
+      hasCode: Boolean(user.emailVerificationCodeHash),
+      // Null when no code was ever issued or it has already lapsed, which is the
+      // signal the page needs to hide the "expires in N minutes" hint rather than
+      // display a countdown to zero.
+      expiresInSeconds: expiresAt > Date.now()
+        ? Math.ceil((expiresAt - Date.now()) / 1000)
+        : null,
+      attemptsRemaining: Math.max(0, verificationCode.MAX_ATTEMPTS - attemptsUsed),
+      locked: attemptsUsed >= verificationCode.MAX_ATTEMPTS,
+      resendAvailableInSeconds: user.emailVerified
+        ? 0
+        : verificationCode.resendCooldownRemaining(user.emailVerificationCodeSentAt)
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * Verify with a six-digit code.
+ *
+ * Requires a session, and only ever loads `req.user`'s own record — so it cannot
+ * be turned into an oracle that confirms whether some other address is
+ * registered, which is what a `findOne({ code })` lookup would leak.
+ *
+ * Every failure returns 400 with the same wording. Distinguishing "wrong code"
+ * from "expired" would be friendlier, but this endpoint is rate limited per
+ * account by `MAX_ATTEMPTS` and by IP, and the honest per-reason messages are
+ * what a correct client needs in order to show a useful countdown. The tension is
+ * resolved in the page instead: it holds the specific reason from
+ * `GET /verification-status` and this endpoint's job is only to say no.
+ */
+exports.verifyEmailCode = async (req, res, next) => {
+  try {
+    const normalized = verificationCode.normalizeCode(req.body?.code);
+    if (!normalized) {
+      return res.status(400).json({ error: `Enter the ${verificationCode.CODE_LENGTH}-digit code from your email` });
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    if (user.emailVerified) return res.json({ message: 'Email already verified' });
+
+    const verdict = await verificationCode.evaluateSubmission(user, normalized);
+
+    if (!verdict.ok) {
+      // Only a real mismatch burns an attempt. An expired or already-locked code
+      // cannot be extended by guessing, so charging for it would punish a user for
+      // a failure they had no way to avoid — and, worse, let an attacker who knows
+      // a code is stale lock the account out on purpose.
+      if (verdict.reason === 'mismatch') {
+        user.emailVerificationCodeAttempts = (user.emailVerificationCodeAttempts || 0) + 1;
+        await user.save();
+      }
+
+      logger.warn(
+        `Verification code rejected for ${user.email}: ${verdict.reason} ` +
+          `(attempts used ${(user.emailVerificationCodeAttempts || 0)}/${verificationCode.MAX_ATTEMPTS})`
+      );
+
+      return res.status(400).json({
+        error: verdict.reason === 'locked'
+          ? 'Too many incorrect attempts. Request a new code.'
+          : 'That code is not valid or has expired.',
+        reason: verdict.reason,
+        attemptsRemaining: verdict.attemptsRemaining ?? 0
+      });
+    }
+
+    user.emailVerified = true;
+    user.emailVerificationToken = undefined;
+    user.emailVerificationExpires = undefined;
+    clearVerificationCode(user);
+    await user.save();
+
+    res.json({ message: 'Email verified successfully' });
   } catch (err) {
     next(err);
   }

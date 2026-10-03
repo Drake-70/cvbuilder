@@ -1,8 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import api from '../services/api';
+import VerificationCodeInput from '../components/VerificationCodeInput';
+
+const CODE_LENGTH = 6;
 
 export default function VerifyEmailPage() {
   // authLoading matters: `user` is null until the session fetch resolves, and
@@ -19,6 +22,31 @@ export default function VerifyEmailPage() {
   const [state, setState] = useState('loading');
   const [resending, setResending] = useState(false);
 
+  // Six-digit code flow. `code` is the whole string; the input component splits it.
+  const [code, setCode] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [codeError, setCodeError] = useState(null);
+
+  // Server-reported status: whether a live code exists, how long it has left, how
+  // many attempts remain, and when a resend is allowed. The server owns all of
+  // this — the page counts down from these values rather than keeping its own copy
+  // of the rules, so a change to the expiry or the cooldown needs no frontend edit.
+  const [status, setStatus] = useState(null);
+  const [resendIn, setResendIn] = useState(0);
+
+  const loadStatus = useCallback(async () => {
+    try {
+      const res = await api.get('/auth/verification-status');
+      setStatus(res.data);
+      setResendIn(res.data.resendAvailableInSeconds || 0);
+    } catch {
+      // A failed status read is not worth an error state of its own. The code box
+      // still works, and resend still works — the page just cannot pre-count.
+      setStatus(null);
+      setResendIn(0);
+    }
+  }, []);
+
   // No token means ProtectedRoute sent the user here. Split from the verify
   // effect below so that refetching the user after a successful verify cannot
   // re-trigger the verification request.
@@ -27,7 +55,8 @@ export default function VerifyEmailPage() {
     // Still resolving the session: stay on the spinner rather than guessing.
     if (authLoading) return;
     setState(user ? 'pending' : 'error');
-  }, [token, user, authLoading]);
+    if (user) loadStatus();
+  }, [token, user, authLoading, loadStatus]);
 
   useEffect(() => {
     if (!token) return;
@@ -46,15 +75,59 @@ export default function VerifyEmailPage() {
     return () => { cancelled = true; };
   }, [token, fetchUser]);
 
+  // The resend countdown. Driven by a single interval rather than one timeout per
+  // second: a resend can be re-triggered from the success path too, and chained
+  // timeouts would leave two countdowns running against each other.
+  useEffect(() => {
+    if (resendIn <= 0) return undefined;
+    const id = setInterval(() => {
+      setResendIn((current) => (current > 0 ? current - 1 : 0));
+    }, 1000);
+    return () => clearInterval(id);
+  }, [resendIn]);
+
+  const handleVerifyCode = async (event) => {
+    if (event) event.preventDefault();
+    if (code.length !== CODE_LENGTH || submitting) return;
+
+    setSubmitting(true);
+    setCodeError(null);
+    try {
+      await api.post('/auth/verify-email-code', { code });
+      setState('success');
+      // The cached session user still says emailVerified: false, which would
+      // bounce the user straight back to this page on the dashboard redirect.
+      await fetchUser();
+    } catch (err) {
+      const data = err.response?.data || {};
+      setCodeError(data.error || 'That code is not valid.');
+      // Clear on a real rejection, but not on a throttle — a 429 means the code may
+      // well be correct and the user should not have to retype it.
+      if (err.response?.status === 400) {
+        setCode('');
+        // Clearing the value pulls focus back to the first empty box, so a retry
+        // starts where the user expects instead of needing a click first.
+        loadStatus();
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleResend = async () => {
     setResending(true);
     try {
-      await resendVerification();
-      toast.success('Email Sent', 'A new verification link has been sent to your inbox.');
+      const data = await resendVerification();
+      toast.success('Email sent', 'A new verification code is on its way.');
+      setCodeError(null);
+      // The response carries the cooldown the server applied, so the button does
+      // not sit there inviting a second send that the limiter will reject.
+      setResendIn(data.resendAvailableInSeconds || 60);
+      loadStatus();
       setState('pending');
     } catch (err) {
       const msg = err.response?.data?.error || 'Could not resend the verification email';
-      toast.error('Resend Failed', msg);
+      toast.error('Resend failed', msg);
     } finally {
       setResending(false);
     }
@@ -77,6 +150,13 @@ export default function VerifyEmailPage() {
     </svg>
   );
 
+  const MailIcon = (
+    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--color-brand-500)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="2" y="4" width="20" height="16" rx="2"/>
+      <polyline points="22,6 12,13 2,6"/>
+    </svg>
+  );
+
   const content = {
     loading: {
       icon: Spinner,
@@ -84,27 +164,11 @@ export default function VerifyEmailPage() {
       body: 'Please wait a moment.'
     },
     pending: {
-      icon: (
-        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--color-brand-500)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="2" y="4" width="20" height="16" rx="2"/>
-          <polyline points="22,6 12,13 2,6"/>
-        </svg>
-      ),
+      icon: MailIcon,
       title: 'Check your inbox',
       body: user
-        ? `We sent a confirmation link to ${user.email}. Open it to finish setting up your account.`
-        : 'We sent a confirmation link to your email. Open it to finish setting up your account.',
-      action: (
-        <button type="button" onClick={handleResend} disabled={resending} className="btn-primary w-full flex items-center justify-center gap-2">
-          {resending && (
-            <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-            </svg>
-          )}
-          {resending ? 'Sending…' : 'Resend verification email'}
-        </button>
-      )
+        ? `We sent a six-digit code to ${user.email}. Enter it below, or open the link in the same email.`
+        : 'We sent a six-digit code to your email. Enter it below, or open the link in the same email.'
     },
     success: {
       icon: (
@@ -114,12 +178,7 @@ export default function VerifyEmailPage() {
         </svg>
       ),
       title: 'Email verified!',
-      body: 'Your CVBoost account is confirmed. You can now use all features.',
-      action: (
-        <Link to="/dashboard" className="btn-primary inline-block no-underline">
-          Go to Dashboard
-        </Link>
-      )
+      body: 'Your CVBoost account is confirmed. You can now use all features.'
     },
     error: {
       icon: (
@@ -128,7 +187,7 @@ export default function VerifyEmailPage() {
         </svg>
       ),
       title: 'Verification link invalid or expired',
-      body: 'Request a new link below or try signing in again.'
+      body: 'Request a new email below, or sign in again.'
     }
   }[state];
 
@@ -139,6 +198,27 @@ export default function VerifyEmailPage() {
         ? 'bg-rose-50 dark:bg-rose-900/20'
         : 'bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400';
 
+  const canSubmit = code.length === CODE_LENGTH && !submitting;
+  const resendDisabled = resending || resendIn > 0;
+
+  const resendLabel = resending
+    ? 'Sending…'
+    : resendIn > 0
+      ? `Resend available in ${resendIn}s`
+      : 'Resend email';
+
+  // Live code hints, straight from the server's view of the account. Each is
+  // suppressed when unknown rather than guessed — a wrong "expires in 0s" is worse
+  // than no hint.
+  const hint = codeError
+    || (status?.locked
+      ? 'Too many incorrect attempts. Request a new code to continue.'
+      : status?.expiresInSeconds === 0
+        ? 'That code has expired. Request a new one.'
+        : status?.expiresInSeconds
+          ? `Code expires in ${Math.ceil(status.expiresInSeconds / 60)} minute(s) · ${status.attemptsRemaining} attempt(s) left`
+          : '');
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-surface-50 dark:bg-surface-900 px-4">
       <div className="w-full max-w-md text-center animate-slide-up">
@@ -146,20 +226,60 @@ export default function VerifyEmailPage() {
           {content.icon}
         </div>
         <h1 className="text-2xl font-bold text-surface-900 dark:text-white mb-2">{content.title}</h1>
-        <p className="text-surface-500 dark:text-surface-400 mb-6">{content.body}</p>
+        <p className="text-surface-500 dark:text-surface-400">{content.body}</p>
 
-        <div className="space-y-3">
-          {content.action}
+        {/* The code box is offered only to a signed-in unverified user. Without a
+            session the endpoint would reject the code anyway, and showing an input
+            that cannot possibly succeed is worse than the sign-in prompt. */}
+        {state === 'pending' && user && (
+          <form onSubmit={handleVerifyCode} className="mt-2">
+            <VerificationCodeInput
+              value={code}
+              onChange={(next) => { setCode(next); if (codeError) setCodeError(null); }}
+              disabled={submitting || status?.locked}
+              invalid={Boolean(codeError)}
+            />
+            <p
+              id="verification-code-hint"
+              className={`text-sm min-h-5 ${codeError || status?.locked ? 'text-rose-600 dark:text-rose-400' : 'text-surface-400'}`}
+            >
+              {hint}
+            </p>
+            <button
+              type="submit"
+              disabled={!canSubmit}
+              className="btn-primary w-full flex items-center justify-center gap-2 mt-3"
+            >
+              {submitting && (
+                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                </svg>
+              )}
+              {submitting ? 'Verifying…' : 'Verify email'}
+            </button>
+          </form>
+        )}
 
-          {state === 'error' && user && (
-            <button type="button" onClick={handleResend} disabled={resending} className="btn-primary w-full flex items-center justify-center gap-2">
+        <div className="space-y-3 mt-4">
+          {state === 'success' && (
+            <Link to="/dashboard" className="btn-primary inline-block no-underline">
+              Go to Dashboard
+            </Link>
+          )}
+
+          {/* One resend control for both entry paths. It used to exist twice in this
+              file — once in the pending state and again in the error state — with the
+              countdown rendered in only one of them. */}
+          {(state === 'pending' || (state === 'error' && user)) && (
+            <button type="button" onClick={handleResend} disabled={resendDisabled} className="btn-ghost w-full flex items-center justify-center gap-2">
               {resending && (
                 <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
                 </svg>
               )}
-              Resend Verification Email
+              {resendLabel}
             </button>
           )}
 
@@ -170,7 +290,7 @@ export default function VerifyEmailPage() {
           )}
 
           {state === 'pending' && user && (
-            <button type="button" onClick={handleSignOut} className="btn-ghost w-full">
+            <button type="button" onClick={handleSignOut} className="block w-full text-sm font-medium text-brand-600 hover:text-brand-700 cursor-pointer">
               Use a different account
             </button>
           )}

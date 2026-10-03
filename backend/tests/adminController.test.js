@@ -130,7 +130,14 @@ test('the deny-list covers every secret on the User schema', () => {
     'resetPasswordToken',
     'resetPasswordExpires',
     'emailVerificationToken',
-    'emailVerificationExpires'
+    'emailVerificationExpires',
+    // The six-digit code and its bookkeeping. The hash matters most — a million
+    // values is small enough that shipping one hash is materially closer to
+    // shipping the code than shipping a 256-bit link token is.
+    'emailVerificationCodeHash',
+    'emailVerificationCodeExpires',
+    'emailVerificationCodeAttempts',
+    'emailVerificationCodeSentAt'
   ]) {
     assert.ok(excluded.includes(`-${secret}`), `${secret} must be excluded`);
   }

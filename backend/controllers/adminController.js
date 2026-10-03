@@ -21,9 +21,17 @@ const workflow = require('../services/contactWorkflow');
  * `passwordHash` is the one that matters — it is the credential store. A bcrypt
  * hash leaving the process is not a disclosure anyone can undo by changing a
  * password later in the incident.
+ *
+ * The verification code fields are excluded for the same reason. A code is only a
+ * million values, so leaking `emailVerificationCodeHash` is materially closer to
+ * leaking the code itself than leaking a link token is: it hands the attacker a
+ * value that is already one bcrypt round from the plaintext, and the per-account
+ * attempt cap is spent on the way.
  */
 const USER_PRIVATE_FIELDS = '-passwordHash -resetPasswordToken -resetPasswordExpires '
-  + '-emailVerificationToken -emailVerificationExpires';
+  + '-emailVerificationToken -emailVerificationExpires '
+  + '-emailVerificationCodeHash -emailVerificationCodeExpires '
+  + '-emailVerificationCodeAttempts -emailVerificationCodeSentAt';
 
 exports.USER_PRIVATE_FIELDS = USER_PRIVATE_FIELDS;
 

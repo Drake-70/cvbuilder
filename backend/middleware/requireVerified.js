@@ -28,6 +28,12 @@ const BYPASS_PATHS = new Set([
   // Completing verification, and asking for a new link.
   '/api/auth/verify-email',
   '/api/auth/resend-verification',
+  // The code route and the status it reads from. Same category as the two above:
+  // without them the six-digit flow would be unreachable for exactly the accounts
+  // that need it, and the status endpoint is what stops the page guessing whether
+  // a code is still live.
+  '/api/auth/verify-email-code',
+  '/api/auth/verification-status',
   // Password recovery must work on an unverified account. Someone stuck here is
   // stuck precisely because they cannot read mail; without this a lost password
   // would make the account unrecoverable with no support path.

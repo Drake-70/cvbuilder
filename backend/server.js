@@ -139,6 +139,35 @@ const authLimiter = rateLimit({
   passOnStoreError: true
 });
 
+// Email-verification limiters, tighter than authLimiter's 50/15min.
+//
+// A six-digit code is a million possibilities, so the account-level cap of five
+// attempts (`MAX_ATTEMPTS`) is the real control — but it resets on every resend,
+// and a resend was previously bounded only by authLimiter. That combination let
+// one IP pull 50 fresh codes in 15 minutes and spend five guesses on each, which
+// is 250 attempts per quarter hour against one account. These two close the loop:
+// resends are rationed per hour, and guesses are rationed separately so that
+// hammering the code endpoint cannot be disguised as legitimate resends.
+const verificationResendLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: isProd ? 6 : 100,
+  message: { error: 'Too many verification emails requested. Try again in an hour.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: limiterStore('cvboost:rl:verify-resend:'),
+  passOnStoreError: true
+});
+
+const verificationCodeLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: isProd ? 20 : 200,
+  message: { error: 'Too many code attempts. Wait a few minutes before trying again.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: limiterStore('cvboost:rl:verify-code:'),
+  passOnStoreError: true
+});
+
 const contactLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 5,
@@ -210,6 +239,12 @@ app.use(morgan('combined', {
 }));
 
 // Routes
+// Verification endpoints carry their own tighter limiters, mounted by path rather
+// than declared inside the auth router so every limiter stays visible in one
+// place. `app.use` rather than `app.post` so the limiter sees the request and then
+// lets it fall through to the router that owns the handler.
+app.use('/api/auth/resend-verification', verificationResendLimiter);
+app.use('/api/auth/verify-email-code', verificationCodeLimiter);
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/cv', cvRoutes);
 app.use('/api/tailor', aiLimiter, tailorRoutes);

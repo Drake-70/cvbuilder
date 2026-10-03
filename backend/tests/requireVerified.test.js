@@ -95,7 +95,11 @@ const ESCAPE_ROUTES = [
   '/api/auth/reset-password',
   '/api/auth/account',
   '/api/jobs/scrape',
-  '/api/config'
+  '/api/config',
+  // The six-digit flow. Both must stay reachable, or the accounts that need
+  // verification most are exactly the ones that cannot get through it.
+  '/api/auth/verify-email-code',
+  '/api/auth/verification-status'
 ];
 
 for (const route of ESCAPE_ROUTES) {

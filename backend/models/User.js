@@ -49,6 +49,20 @@ const userSchema = new mongoose.Schema({
   emailVerified: { type: Boolean, default: false },
   emailVerificationToken: { type: String, sparse: true, index: true },
   emailVerificationExpires: { type: Date },
+  // Six-digit code fields, alongside the link rather than replacing it. A code is
+  // only a million possibilities, so the hash MUST be bcrypt (see
+  // services/verificationCode.js for why SHA-256 here is equivalent to storing
+  // plaintext), and `emailVerificationCodeAttempts` exists to ration the guesses
+  // rather than relying on the per-IP limiter alone.
+  //
+  // Deliberately not `index: true`. Verification looks a user up by `_id` (the
+  // session identifies them) and then compares a hash in process — there is no
+  // query by code value anywhere, and a sparse index on a high-cardinality field
+  // that is never searched is pure write cost.
+  emailVerificationCodeHash: { type: String, default: null },
+  emailVerificationCodeExpires: { type: Date, default: null },
+  emailVerificationCodeAttempts: { type: Number, default: 0 },
+  emailVerificationCodeSentAt: { type: Date, default: null },
   role: {
     type: String,
     enum: ['user', 'admin'],

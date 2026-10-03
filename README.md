@@ -185,6 +185,7 @@ cvbuilder/
 - **Interview Prep** — AI-generated STAR-method questions (subscribers)
 - **Job Board** — Auto-scraped Cameroonian listings (Go Africa, Louma, MyJobMag, Emploi) with category filters and email alerts
 - **Bilingual** — Full French/English with browser auto-detection
+- **Email Verification** — Six-digit code *and* a 24-hour link in one message
 
 ## API Endpoints
 
@@ -194,6 +195,49 @@ cvbuilder/
 - `POST /api/auth/refresh` — Refresh token
 - `POST /api/auth/logout` — Logout
 - `GET /api/auth/me` — Current user
+- `POST /api/auth/verify-email-code` — Verify with a six-digit code
+- `GET /api/auth/verification-status` — Code expiry, attempts left, resend cooldown
+- `POST /api/auth/resend-verification` — Send a fresh code and link
+
+#### Email verification
+
+One email carries **both** a six-digit code and the existing 24-hour link, as
+GitHub does. The link works on a phone with no way to retype digits; the code works
+on a desktop where clicking a link would abandon whatever the user was doing.
+Neither route is a fallback for the other — each is a first-class way through, and
+either one marks the account verified and invalidates the other credential.
+
+The rules live in `backend/services/verificationCode.js` so they can be tested
+without a database and cannot be changed from two places at once. Three properties
+are worth stating, because a six-digit code is a different security problem from a
+256-bit token:
+
+- **The code is stored as a bcrypt hash, never a digest.** A link token can be
+  SHA-256'd because brute-forcing 2^256 values is impossible; hashing a million-value
+  code the same way produces a value that is reversible from a stolen database in
+  microseconds. That would be storing the plaintext with extra steps.
+- **Five attempts per issued code, then it is dead**, with the attempt counter
+  living on the user document rather than in Redis — so the cap survives a Redis
+  outage and cannot be reset by clearing a cache. Issuing a new code resets the
+  counter, which is the one case where that is correct rather than dangerous: the
+  previous code is gone, so its spent attempts no longer say anything about the new
+  one.
+- **The endpoint requires a session and only ever loads that user's own record.**
+  A `findOne({ code })` lookup would make the response an oracle confirming which
+  addresses are registered. Looking up `req.user._id` cannot, and the test asserts
+  that `findOne` is never called.
+
+The code lives 10 minutes against the link's 24 hours — a code is typed by someone
+who just signed up, and a long window only widens the exposure of a code read over
+a shoulder or left in a screenshot. `GET /auth/verification-status` exists so the
+page counts down from the server's view of that expiry, attempt count and resend
+cooldown instead of keeping its own copy of the rules; it returns the *shape* of
+the code's state and never the hash or the code.
+
+Resends and guesses are rate limited separately: six resends per hour and twenty
+guesses per fifteen minutes, mounted ahead of the auth router in `server.js`. One
+shared budget would let a resend storm starve the code box, and guessing is a
+different abuse from mail-bombing.
 
 ### CV
 - `POST /api/cv/upload` — Upload file (PDF/DOCX/TXT)
