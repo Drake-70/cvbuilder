@@ -243,25 +243,14 @@ export default function TailorPage() {
       const tailored = { ...res.data, cvText, originalCVText: cvText, originalCV, jobDescription: jd, language };
       setResult(tailored);
 
-      // Save tailored document
-      try {
-        const jobTitle = res.data.tailoredCV?.experience?.[0]?.title || '';
-        const saveRes = await api.post('/document/save', {
-          baseCvId: savedCvId,
-          jobTitle,
-          jobDescription: jd,
-          tailoredContent: res.data.tailoredCV,
-          coverLetter: res.data.coverLetter,
-          gapAnalysis: res.data.gapAnalysis,
-          language
-        });
-        setSavedDocId(saveRes.data._id);
-      } catch {
-        // Non-critical
-      }
+      // Deliberately not saved here. The old flow wrote the document immediately
+      // and marked a failure "Non-critical", so a user could leave believing their
+      // CV was filed when the write had in fact failed. Persistence is now gated on
+      // the user reviewing the diff in ChangeReview and pressing save.
+      setSavedDocId(null);
 
       setStep('result');
-      toast.success('CV Tailored', 'Your CV and cover letter are ready to preview.');
+      toast.success('CV Tailored', 'Review the changes, then save when you are happy with it.');
       analytics.track('tailor_completed', { language, hasJob: Boolean(jd) });
 
       setDraft(null);
@@ -272,6 +261,25 @@ export default function TailorPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Called only from the review step. Rejects on failure so ChangeReview can show
+  // it -- a failed save must be visible, not swallowed.
+  const handleSaveDocument = async () => {
+    if (!result) throw new Error('No tailored CV available.');
+    const jobTitle = result.tailoredCV?.experience?.[0]?.title || '';
+    const saveRes = await api.post('/document/save', {
+      baseCvId: savedCvId,
+      jobTitle,
+      jobDescription: result.jobDescription || '',
+      tailoredContent: result.tailoredCV,
+      coverLetter: result.coverLetter,
+      gapAnalysis: result.gapAnalysis,
+      language
+    });
+    setSavedDocId(saveRes.data._id);
+    toast.success('Saved', 'Your tailored CV is now in your documents.');
+    return saveRes.data;
   };
 
   const handleDownload = async (template = 'modern', format = 'docx') => {
@@ -445,7 +453,7 @@ export default function TailorPage() {
           />
         </div>
         <div className={step === 'result' && result ? '' : 'hidden'} aria-hidden={step !== 'result'}>
-          {result && <ResultStep result={result} onDownload={handleDownload} onReset={handleReset} loading={loading} documentId={savedDocId} onCoverLetterSelect={handleCoverLetterSelect} />}
+          {result && <ResultStep result={result} onDownload={handleDownload} onReset={handleReset} loading={loading} documentId={savedDocId} onSave={handleSaveDocument} onCoverLetterSelect={handleCoverLetterSelect} />}
         </div>
       </div>
     </div>

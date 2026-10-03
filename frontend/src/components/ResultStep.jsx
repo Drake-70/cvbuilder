@@ -4,17 +4,22 @@ import { useAuth } from '../contexts/AuthContext';
 import InterviewPrep from './InterviewPrep';
 import ATSScoreCard from './ATSScoreCard';
 import ResumeScoreCard from './ResumeScoreCard';
+import ChangeReview from './ChangeReview';
 import LinkedInGenerator from './LinkedInGenerator';
 import CVPreview from './CVPreview';
 import BeforeAfterGaps from './BeforeAfterGaps';
 import api from '../services/api';
 import analytics from '../utils/analytics';
 
-export default function ResultStep({ result, onDownload, onReset, loading, onCoverLetterSelect }) {
+export default function ResultStep({ result, onDownload, onReset, loading, onCoverLetterSelect, onSave }) {
   const { t } = useTranslation('tailor');
   const { t: tCommon } = useTranslation('common');
   const { user } = useAuth();
-  const [tab, setTab] = useState('cv');
+  // Review first, by default. The document is no longer written until the user
+  // approves it, so the review is the first thing to read rather than an optional
+  // extra buried behind a tab. Falls back to 'cv' when no save handler is wired,
+  // so an absent review tab can never leave the step with nothing selected.
+  const [tab, setTab] = useState(onSave ? 'review' : 'cv');
   const [view, setView] = useState('preview');
   const [template, setTemplate] = useState('modern');
   const [format, setFormat] = useState('docx');
@@ -31,6 +36,7 @@ export default function ResultStep({ result, onDownload, onReset, loading, onCov
   const gaps = result.gapAnalysis || [];
 
   const tabs = [
+    ...(onSave ? [{ id: 'review', label: t('reviewChanges.tab', 'Review') }] : []),
     { id: 'cv', label: t('tailored_cv') },
     ...(coverLetter ? [{ id: 'cover', label: t('cover_letter') }] : []),
     ...(gaps.length > 0 ? [{ id: 'gaps', label: t('gap_analysis') }] : [])
@@ -123,6 +129,14 @@ export default function ResultStep({ result, onDownload, onReset, loading, onCov
           </button>
         ))}
       </div>
+
+      {tab === 'review' && onSave && (
+        <ChangeReview
+          originalCV={result.originalCV || null}
+          tailoredCV={cv}
+          onSave={onSave}
+        />
+      )}
 
       {/* View Toggle (CV tab only) */}
       {tab === 'cv' && (
