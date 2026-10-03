@@ -3,7 +3,7 @@ const User = require('../models/User');
 const Notification = require('../models/Notification');
 const ShareView = require('../models/ShareView');
 const { generateDocx } = require('../services/documentService');
-const { generatePdf } = require('../services/pdfService');
+const { generatePdf, availablePdfTemplates, isTemplateValidFor } = require('../services/pdfService');
 const { notifyUser } = require('../services/pushService');
 const posthog = require('../config/posthog');
 const crypto = require('crypto');
@@ -27,6 +27,20 @@ function contentTypeFor(format) {
   return format === 'pdf'
     ? 'application/pdf'
     : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+}
+
+// The template actually used for a render.
+//
+// A template that is invalid for the requested format is refused rather than
+// replaced, because the two failure modes look identical to the user and only one
+// of them is a bug. A LaTeX template asked for as .docx means the client and the
+// server disagree about what .docx can render, and quietly producing the default
+// .docx would ship someone a document they never chose. An absent template is not
+// an error at all: it is a document saved before the picker had a choice to make.
+function resolveTemplate(format, requested, stored) {
+  if (requested && isTemplateValidFor(format, requested)) return requested;
+  if (stored && isTemplateValidFor(format, stored)) return stored;
+  return 'modern';
 }
 
 async function resolveAccess(userId, documentId) {
@@ -75,9 +89,10 @@ exports.generateDocument = async (req, res, next) => {
     const outFormat = normalizeFormat(format);
     const lang = language || 'en';
     const watermark = watermarked ? watermarkTextFor(lang) : null;
+    const tpl = resolveTemplate(outFormat, template, template);
     const buffer = outFormat === 'pdf'
-      ? await generatePdf(enrichedCV, coverLetter || '', lang, template || 'modern', watermark)
-      : await generateDocx(enrichedCV, coverLetter || '', lang, template || 'modern', watermark);
+      ? await generatePdf(enrichedCV, coverLetter || '', lang, tpl, watermark)
+      : await generateDocx(enrichedCV, coverLetter || '', lang, tpl, watermark);
 
     res.setHeader('Content-Type', contentTypeFor(outFormat));
     res.setHeader('Content-Disposition', `attachment; filename="${filenameFor(outFormat, lang)}"`);
@@ -181,9 +196,10 @@ exports.downloadDocument = async (req, res, next) => {
     };
     const outFormat = normalizeFormat(req.query.format);
     const watermark = watermarked ? watermarkTextFor(doc.language) : null;
+    const tpl = resolveTemplate(outFormat, req.query.template, doc.template);
     const buffer = outFormat === 'pdf'
-      ? await generatePdf(enrichedCV, doc.coverLetter, doc.language, doc.template || 'modern', watermark)
-      : await generateDocx(enrichedCV, doc.coverLetter, doc.language, doc.template || 'modern', watermark);
+      ? await generatePdf(enrichedCV, doc.coverLetter, doc.language, tpl, watermark)
+      : await generateDocx(enrichedCV, doc.coverLetter, doc.language, tpl, watermark);
     const filename = filenameFor(outFormat, doc.language);
 
     res.setHeader('Content-Type', contentTypeFor(outFormat));
@@ -191,7 +207,7 @@ exports.downloadDocument = async (req, res, next) => {
     res.setHeader('X-Watermarked', watermarked ? 'true' : 'false');
     res.send(Buffer.from(buffer));
 
-    posthog.captureFor(req, 'document_downloaded', { format: outFormat, template: doc.template || 'modern', watermarked });
+    posthog.captureFor(req, 'document_downloaded', { format: outFormat, template: tpl, watermarked });
   } catch (err) {
     if (err.statusCode) return res.status(err.statusCode).json({ error: err.message });
     next(err);
@@ -271,7 +287,16 @@ exports.updateDocumentContent = async (req, res, next) => {
     if (gapAnalysis !== undefined) updates.gapAnalysis = Array.isArray(gapAnalysis) ? gapAnalysis : [];
     if (jobTitle !== undefined) updates.jobTitle = jobTitle;
     if (jobDescription !== undefined) updates.jobDescription = jobDescription;
-    if (template !== undefined) updates.template = template;
+    // Validated against the PDF set, which is the superset. The stored template is
+    // the default for both download buttons, and the PDF picker is the only place
+    // a LaTeX template can legitimately come from, so anything outside that set is
+    // a client that disagrees with the server about the template list.
+    if (template !== undefined) {
+      if (!isTemplateValidFor('pdf', template)) {
+        return res.status(400).json({ error: `Unknown template: ${template}` });
+      }
+      updates.template = template;
+    }
 
     if (Object.keys(updates).length === 0) {
       return res.status(400).json({ error: 'No content to update' });
@@ -323,9 +348,10 @@ exports.downloadSharedDocument = async (req, res, next) => {
       location: ''
     };
     const outFormat = normalizeFormat(req.query.format);
+    const tpl = resolveTemplate(outFormat, req.query.template, doc.template);
     const buffer = outFormat === 'pdf'
-      ? await generatePdf(enrichedCV, doc.coverLetter, doc.language, doc.template || 'modern')
-      : await generateDocx(enrichedCV, doc.coverLetter, doc.language, doc.template || 'modern');
+      ? await generatePdf(enrichedCV, doc.coverLetter, doc.language, tpl)
+      : await generateDocx(enrichedCV, doc.coverLetter, doc.language, tpl);
     const filename = filenameFor(outFormat, doc.language);
 
     res.setHeader('Content-Type', contentTypeFor(outFormat));
@@ -348,6 +374,23 @@ exports.shareDocument = async (req, res, next) => {  try {
     res.json({ shareToken: doc.shareToken, shareUrl: `/shared/${doc.shareToken}` });
 
     posthog.captureFor(req, 'document_shared');
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * Which templates this build can render, per format.
+ *
+ * The picker asks the server instead of holding a hardcoded list, because the
+ * answer is no longer a constant: a build without the LaTeX engine cannot render
+ * the LaTeX templates, and offering them there would hand the user a different
+ * document than the one they picked. The docx list is unaffected -- the .docx
+ * path never touches the engine, which is why the docx path stays the default.
+ */
+exports.getTemplates = async (req, res, next) => {
+  try {
+    res.json(availablePdfTemplates());
   } catch (err) {
     next(err);
   }

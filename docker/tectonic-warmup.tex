@@ -1,0 +1,72 @@
+% Build-time warm-up for the tectonic bundle cache. Never rendered, never served.
+%
+% This document's only job is to make tectonic fetch every package that the CV
+% templates need, at image build time instead of during a user's first export.
+% Each \usepackage below appears in latexService.js for the same reason -- if a
+% package is added to a template without being added here, the first CV that needs
+% it will try to reach the network, and the runtime runs with --only-cached, so it
+% will fall over to pdfkit instead of hanging.
+%
+% Constraints discovered by probing tectonic 0.17.0's bundle, which is a reduced
+% TeX Live. Keep this in step with latexService.js:
+%
+%   * helvet, tgheros and newtxsf are NOT in the bundle, and fontspec by font
+%     *name* additionally needs fontconfig. So every template is serif and uses
+%     newtxtext.
+%   * T1 encoding alone needs the EC font metrics, which are absent, and fails
+%     with a fontconfig error. newtxtext in the same preamble supplies them, so
+%     fontenc and newtxtext always travel together.
+%   * Nothing here may enter math mode. The Computer Modern maths fonts (cmsy,
+%     cmmi) are absent too, so a single $...$ fails at the xdvipdfmx stage with
+%     "Cannot proceed without .vf or physical font for PDF output".
+
+\documentclass[11pt,a4paper]{article}
+
+\usepackage{xcolor}
+\usepackage[hidelinks]{hyperref}
+
+% latex-classic and latex-compact both use these two.
+\usepackage[T1]{fontenc}
+\usepackage{newtxtext}
+
+\usepackage[margin=18mm]{geometry}
+
+% Only loaded when the export is watermarked. Note the absence of
+% \SetWatermarkHorCenter/\SetWatermarkVerCenter: combined with \SetWatermarkAngle
+% they make draftwatermark fail to compile with "Illegal unit of measure", and the
+% angled path already centres the mark. latexService.js emits the same four lines
+% for the same reason.
+\usepackage{draftwatermark}
+
+\pagestyle{empty}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0pt}
+\renewcommand{\labelitemi}{\textbullet}
+
+\definecolor{cvheading}{HTML}{1A1A1A}
+\definecolor{cvrule}{HTML}{1A1A1A}
+\definecolor{cvmuted}{HTML}{6B7280}
+
+\begin{document}
+
+{\centering
+\color{cvheading}\LARGE\bfseries Bundle warm-up\par}
+
+\SetWatermarkText{WARMUP}
+\SetWatermarkScale{1}
+\SetWatermarkColor[gray]{0.86}
+\SetWatermarkAngle{38}
+
+{\color{cvheading}\bfseries EXPÉRIENCE}\par
+\noindent\textcolor{cvheading}{Engineer \textemdash{} Example Ltd}\hfill{\footnotesize\color{cvmuted}2024}\par
+
+\begin{list}{\textbullet}{\setlength{\leftmargin}{4.5mm}\setlength{\labelwidth}{2mm}\setlength{\topsep}{0.6mm}\setlength{\itemsep}{0.4mm}\setlength{\parsep}{0pt}\setlength{\partopsep}{0pt}}
+  \item Accented text: é è ê ë à â ù û ç î ï ô œ æ É À Ç Œ
+  \item Escaped text: 100\% of \$5, C\#, A\_B, \&
+  \item Symbols: A\textemdash{}B{} \textperiodcentered{} C\textbullet{}D
+  \item \textbf{Bold} and \textit{italic} text
+\end{list}
+
+\href{https://example.com}{example.com}
+
+\end{document}

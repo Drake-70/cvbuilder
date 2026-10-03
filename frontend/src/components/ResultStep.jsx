@@ -10,6 +10,8 @@ import CVPreview from './CVPreview';
 import BeforeAfterGaps from './BeforeAfterGaps';
 import api from '../services/api';
 import analytics from '../utils/analytics';
+import useTemplates from '../hooks/useTemplates';
+import { templatesForFormat, templateLabelKey } from '../constants/templates';
 
 export default function ResultStep({ result, onDownload, onReset, loading, onCoverLetterSelect, onSave }) {
   const { t } = useTranslation('tailor');
@@ -23,6 +25,10 @@ export default function ResultStep({ result, onDownload, onReset, loading, onCov
   const [view, setView] = useState('preview');
   const [template, setTemplate] = useState('modern');
   const [format, setFormat] = useState('docx');
+  // The LaTeX templates are PDF-only, so the picker's contents depend on the
+  // selected format rather than being one fixed list.
+  const templates = useTemplates();
+  const offeredTemplates = templatesForFormat(format, { pdf: templates.pdf, docx: templates.docx });
   const [grammarIssues, setGrammarIssues] = useState(null);
   const [grammarLoading, setGrammarLoading] = useState(false);
   const [grammarError, setGrammarError] = useState('');
@@ -163,10 +169,13 @@ export default function ResultStep({ result, onDownload, onReset, loading, onCov
         </div>
       )}
 
-      {/* Template Selector */}
+      {/* Template Selector. Reached after the server says what this build can
+          render: the LaTeX templates appear only for PDF, and only when the engine
+          is present, so the picker can never offer a template that would come back
+          as a different document. */}
       <div className="flex flex-wrap items-center gap-2 mb-4">
         <span className="text-xs font-medium text-surface-400">{t('template', 'Template')}:</span>
-        {['modern', 'classic', 'creative', 'professional', 'minimal', 'bold'].map(tpl => (
+        {offeredTemplates.map(tpl => (
           <button
             key={tpl}
             onClick={() => setTemplate(tpl)}
@@ -176,24 +185,34 @@ export default function ResultStep({ result, onDownload, onReset, loading, onCov
                 : 'bg-surface-50 border-surface-200 text-surface-500 hover:border-surface-300'
             }`}
           >
-            {tpl.charAt(0).toUpperCase() + tpl.slice(1)}
+            {t(templateLabelKey(tpl), tpl.charAt(0).toUpperCase() + tpl.slice(1))}
           </button>
         ))}
 
         <span className="text-xs font-medium text-surface-400 ml-3">{t('format', 'Format')}:</span>
-        {['docx', 'pdf'].map(fmt => (
-          <button
-            key={fmt}
-            onClick={() => setFormat(fmt)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-all border uppercase ${
-              format === fmt
-                ? 'bg-brand-50 border-brand-300 text-brand-700'
-                : 'bg-surface-50 border-surface-200 text-surface-500 hover:border-surface-300'
-            }`}
-          >
-            {fmt}
-          </button>
-        ))}
+        {['docx', 'pdf'].map(fmt => {
+          const next = templatesForFormat(fmt, { pdf: templates.pdf, docx: templates.docx });
+          return (
+            <button
+              key={fmt}
+              onClick={() => {
+                setFormat(fmt);
+                // Switching to .docx can strand a LaTeX template, which that format
+                // cannot render. Falling back to the first offered template keeps the
+                // button and the document in agreement; leaving it selected would send
+                // a template the server resolves away from, with no indication.
+                if (!next.includes(template)) setTemplate(next[0]);
+              }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-all border uppercase ${
+                format === fmt
+                  ? 'bg-brand-50 border-brand-300 text-brand-700'
+                  : 'bg-surface-50 border-surface-200 text-surface-500 hover:border-surface-300'
+              }`}
+            >
+              {fmt}
+            </button>
+          );
+        })}
       </div>
 
       {/* Content */}

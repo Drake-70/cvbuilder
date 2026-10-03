@@ -11,6 +11,9 @@ router.post('/save', requireAuth, (req, res, next) => {
   next();
 }, documentController.saveDocument);
 router.get('/list', requireAuth, cacheMiddleware(10, (req) => `/api/document/list:${req.user._id}`), documentController.listDocuments);
+// Registered before `/:id` on purpose: Express matches in declaration order, so
+// a route added after it would be captured as a document id of "templates".
+router.get('/templates', requireAuth, documentController.getTemplates);
 router.get('/:id', requireAuth, documentController.getDocument);
 router.get('/:id/download', requireAuth, documentController.downloadDocument);
 router.patch('/:id/status', requireAuth, (req, res, next) => {

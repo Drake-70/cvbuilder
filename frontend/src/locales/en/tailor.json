@@ -28,7 +28,7 @@
   "experience": "Work / Internship Experience",
   "add_experience": "Add Experience",
   "job_title": "Job Title",
-  "company": "Company / Organization",
+  "company": "Company",
   "exp_dates": "Dates (e.g. Jan 2023 - Dec 2023)",
   "exp_description": "What did you do there?",
   "has_no_experience": "I don't have any work experience yet",
@@ -101,7 +101,6 @@
   "recommendedOrder": "Recommended Section Order",
   "extraTips": "Extra tips:",
   "update": "Update",
-  "company": "Company",
   "companyPlaceholder": "e.g. MTN Cameroon",
   "status": "Status",
   "input_method": "Input method",
@@ -270,5 +269,16 @@
         "mostly_long": "{{count}} of your {{total}} sentences run past 35 words. Split them in two."
       }
     }
-  }
+  },
+  "template_labels": {
+    "modern": "Modern",
+    "classic": "Classic",
+    "creative": "Creative",
+    "professional": "Professional",
+    "minimal": "Minimal",
+    "bold": "Bold",
+    "latex-classic": "Classic (LaTeX)",
+    "latex-compact": "Compact (LaTeX)"
+  },
+  "latex_preview_hint": "LaTeX templates are typeset by a real TeX engine, so the PDF differs slightly in line breaks from this preview. The Word file always uses a Word template."
 }

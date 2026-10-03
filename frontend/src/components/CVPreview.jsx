@@ -1,5 +1,6 @@
 import { highlightText } from '../utils/gapKeywords';
 import { shouldSkillsFirst } from '../utils/cvLayout';
+import { isPdfkitTemplate } from '../constants/templates';
 
 export default function CVPreview({ cv, language = 'en', highlightTerms = [], markClass = 'cv-hl-new', template = 'modern', watermarked = false, watermarkLabel = '', watermarkHint = '' }) {
   if (!cv) return null;
@@ -7,7 +8,11 @@ export default function CVPreview({ cv, language = 'en', highlightTerms = [], ma
   const isFr = language === 'fr';
   const hl = (text) => highlightText(text, highlightTerms, markClass);
   const skillsFirst = shouldSkillsFirst(cv);
-  const tpl = ['modern', 'classic', 'creative', 'professional', 'minimal', 'bold'].includes(template) ? template : 'modern';
+  // The LaTeX templates are not pdfkit designs, so there is nothing here that can
+  // draw them; this is the pdfkit counterpart, which is what the user gets if the
+  // engine is unavailable. DocumentDetailPage says so on screen rather than letting
+  // the preview quietly disagree with the downloaded file.
+  const tpl = isPdfkitTemplate(template) ? template : 'modern';
   const wmLabel = watermarkLabel || (isFr ? 'APERÇU GRATUIT' : 'FREE PREVIEW');
   const wmHint = watermarkHint || (isFr ? 'Passez à Pro pour télécharger la version finale' : 'Upgrade to Pro to download the clean version');
 

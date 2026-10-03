@@ -187,6 +187,7 @@ cvbuilder/
 - **Job Board** — Auto-scraped Cameroonian listings (Go Africa, Louma, MyJobMag, Emploi) with category filters and email alerts
 - **Bilingual** — Full French/English with browser auto-detection
 - **Email Verification** — Six-digit code *and* a 24-hour link in one message
+- **LaTeX PDF Templates** — Two real-TeX layouts alongside the six pdfkit ones
 
 ## API Endpoints
 
@@ -378,6 +379,84 @@ and discarded the change while looking exactly like a success; and it called
 `useTranslation()` with no namespace, so every `tailor.*` label in the editor fell
 back to its inline English default and the whole editor was English-only in a
 French UI. Both fixed.
+
+#### LaTeX PDF templates
+
+Two of the eight PDF templates are typeset by a real TeX engine rather than drawn
+by pdfkit. They appear **in the PDF picker only** — the `.docx` renderer is
+untouched and remains the ATS-safe default.
+
+- `latex-classic` — centred header, ruled sections, 18 mm margins
+- `latex-compact` — left-aligned, unruled, 14 mm margins, tighter leading
+
+`GET /api/document/templates` reports what this deployment can actually render:
+
+```json
+{ "pdf": ["modern", ..., "bold", "latex-classic", "latex-compact"], "docx": ["modern", ..., "bold"], "engine": "tectonic" }
+```
+
+Six decisions here are load-bearing, and each was established by compiling against
+the real engine rather than by reading a document:
+
+- **Both templates are serif, and that is a constraint.** `helvet`, `tgheros`,
+  `tgtermes`, `lmodern` and `newtxsf` are all absent from tectonic's bundle, so no
+  sans-serif LaTeX template exists. The sans `latex-modern` was cut and replaced by
+  `latex-compact` for exactly this reason. Users wanting sans use the pdfkit
+  templates.
+- **`[T1]{fontenc}` only works alongside `newtxtext`.** On its own it fails with a
+  fontconfig error, because Computer Modern has no T1-encoded metrics in the
+  bundle. The two always travel together. No fontconfig is needed for either
+  shipped template — verified by compiling on a machine with none.
+- **Nothing may enter math mode.** `$\cdot$` pulls in the Computer Modern maths
+  fonts (`cmsy`, `cmmi`), which are absent, and the compile dies at `xdvipdfmx`
+  with "Cannot proceed without .vf or physical font for PDF output". The separator
+  is `\textperiodcentered{}`.
+- **`\SetWatermarkAngle` cannot be combined with `HorCenter`/`VerCenter`** —
+  draftwatermark fails with "Illegal unit of measure". The angled path already
+  centres the mark, so only `Text`/`Scale`/`Color`/`Angle` are emitted.
+- **Body size is fixed at `11pt`.** The bundle carries only `size11.clo`; `10pt`
+  fails with "File `size10.clo' not found".
+- **`\href` bodies need their own escaping.** A bare `%` starts a comment and eats
+  the rest of the line; a bare `#` is a parameter character. Both break the build.
+  A bare `&` is deliberately left alone — it was verified that `\&` and `&` produce
+  the identical `/URI` in the output, because hyperref applies `\dospecials` when
+  normalising the URL.
+
+#### The engine, and what happens without it
+
+`tectonic` 0.17.0 is installed by a separate Dockerfile stage, pinned by sha256, and
+its bundle cache is warmed at build time by compiling `docker/tectonic-warmup.tex`.
+That warm-up is the contract: it loads every package the templates can emit, so the
+runtime can compile with `--only-cached` and never touch the network.
+
+Two build-time details that are easy to get wrong and fail silently:
+
+- **There is no `TECTONIC_CACHE_DIR`.** The cache follows the platform user cache
+  directory, so `XDG_CACHE_HOME` is the only lever on Linux and the bundle lands at
+  `/opt/tectonic/bundles`. The Dockerfile asserts that directory exists after the
+  warm-up, so a wrong guess fails the build instead of shipping.
+- **`tectonic` does not create `--outdir`** — it errors if it is missing — so the
+  warm-up makes it first.
+
+Availability is established by **actually compiling a probe document**, not by
+finding the binary on disk. A `--version` check succeeds while the cache is stripped
+or a font is missing, which would offer LaTeX templates that fall back on every
+single export. The probe runs once per process, is cached, and gates the templates
+endpoint.
+
+When the engine is missing, everything degrades rather than breaks:
+
+- The LaTeX templates are hidden from the picker (`engine: null`).
+- A stored LaTeX template still downloads, falling back to its pdfkit counterpart
+  via an explicit map — `latex-classic → classic`, `latex-compact → minimal`.
+- `.tex` source is never written anywhere servable and is never returned by a route.
+  It is compiled in a `mkdtemp` directory that is removed in a `finally`.
+
+`isTemplateValidFor(format, name)` is deliberately about *static format
+compatibility*, not deployment state. A LaTeX template is valid for `pdf` even with
+no engine, so existing documents degrade to their pdfkit counterpart rather than
+returning `400`; it is never valid for `docx`, because the `.docx` renderer would
+silently substitute its own default.
 
 ### Payments
 - `GET /api/payments/pricing` — Get pricing info

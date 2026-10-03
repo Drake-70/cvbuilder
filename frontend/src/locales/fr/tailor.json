@@ -28,7 +28,7 @@
   "experience": "Expérience Professionnelle / Stage",
   "add_experience": "Ajouter une Expérience",
   "job_title": "Titre du Poste",
-  "company": "Entreprise / Organisation",
+  "company": "Entreprise",
   "exp_dates": "Dates (ex: janv. 2023 - déc. 2023)",
   "exp_description": "Qu'avez-vous fait là-bas ?",
   "has_no_experience": "Je n'ai pas encore d'expérience professionnelle",
@@ -101,7 +101,6 @@
   "recommendedOrder": "Ordre Recommandé des Sections",
   "extraTips": "Conseils supplémentaires :",
   "update": "Mettre à jour",
-  "company": "Entreprise",
   "companyPlaceholder": "ex: MTN Cameroun",
   "status": "Statut",
   "input_method": "Méthode d'entrée",
@@ -270,5 +269,16 @@
         "mostly_long": "{{count}} de vos {{total}} phrases dépassent 35 mots. Divisez-les en deux."
       }
     }
-  }
+  },
+  "template_labels": {
+    "modern": "Moderne",
+    "classic": "Classique",
+    "creative": "Créatif",
+    "professional": "Professionnel",
+    "minimal": "Minimal",
+    "bold": "Audacieux",
+    "latex-classic": "Classique (LaTeX)",
+    "latex-compact": "Compact (LaTeX)"
+  },
+  "latex_preview_hint": "Les modèles LaTeX sont composés par un vrai moteur TeX : le PDF peut donc différer légèrement de cet aperçu au niveau des retours à la ligne. Le fichier Word utilise toujours un modèle Word."
 }

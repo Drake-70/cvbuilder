@@ -320,7 +320,15 @@ test('verificationStatus reports a live code without revealing it', async () => 
   assert.equal(res.body.hasCode, true);
   assert.equal(res.body.emailVerified, false);
   assert.ok(res.body.expiresInSeconds > 0);
-  assert.equal(res.body.expiresInSeconds, verificationCode.CODE_EXPIRY_MINUTES * 60);
+  // expiresInSeconds is a live countdown computed from expiresAt minus now, so it
+  // is the full window only if nothing has elapsed. Asserting exact equality made
+  // this fail by one second whenever the suite ran under enough load to push a
+  // tick past the code being written, which says nothing about the behaviour.
+  const fullWindow = verificationCode.CODE_EXPIRY_MINUTES * 60;
+  assert.ok(
+    res.body.expiresInSeconds <= fullWindow && res.body.expiresInSeconds > fullWindow - 30,
+    `expected close to ${fullWindow}s remaining, got ${res.body.expiresInSeconds}s`
+  );
   assert.equal(res.body.attemptsRemaining, verificationCode.MAX_ATTEMPTS);
   assert.equal(res.body.locked, false);
 

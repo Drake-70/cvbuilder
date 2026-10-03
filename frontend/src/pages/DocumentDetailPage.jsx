@@ -8,6 +8,8 @@ import analytics from '../utils/analytics';
 import PaymentModal from '../components/PaymentModal';
 import CVPreview from '../components/CVPreview';
 import EditableCVForm from '../components/EditableCVForm';
+import useTemplates from '../hooks/useTemplates';
+import { templatesForFormat, templateLabelKey, isLatexTemplate } from '../constants/templates';
 
 export default function DocumentDetailPage() {
   const { id } = useParams();
@@ -34,6 +36,7 @@ export default function DocumentDetailPage() {
   const [templateOverride, setTemplateOverride] = useState(null);
 
   const isSubscribed = user?.subscriptionStatus === 'active';
+  const templates = useTemplates();
 
   useEffect(() => {
     const fetchDoc = async () => {
@@ -84,10 +87,16 @@ export default function DocumentDetailPage() {
     return () => { cancelled = true; };
   }, [id, tPayment, toast, fetchUser, handleDownload]);
 
-  const handleDownload = useCallback(async (fmt = format) => {
+  const handleDownload = useCallback(async (fmt = format, tpl = null) => {
     setDownloading(true);
     try {
-      const res = await api.get(`/document/${id}/download?format=${fmt}`, { responseType: 'blob' });
+      // The template is sent explicitly only for PDF. The .docx renderer has no
+      // LaTeX, so sending a LaTeX template there would leave the server to resolve
+      // it away from -- correct, but silent. Omitting it makes the PDF choice
+      // explicit and the Word choice fall back to the stored template.
+      const query = new URLSearchParams({ format: fmt });
+      if (tpl) query.set('template', tpl);
+      const res = await api.get(`/document/${id}/download?${query}`, { responseType: 'blob' });
       const filename = doc?.language === 'fr' ? `CV_Adapte.${fmt}` : `Tailored_CV.${fmt}`;
       const url = window.URL.createObjectURL(new Blob([res.data]));
       const link = document.createElement('a');
@@ -98,7 +107,7 @@ export default function DocumentDetailPage() {
       link.remove();
       window.URL.revokeObjectURL(url);
       fetchUser();
-      analytics.track('document_download', { format: fmt, documentId: id });
+      analytics.track('document_download', { format: fmt, template: tpl || doc?.template, documentId: id });
       if (res.headers?.['x-watermarked'] === 'true') {
         toast.info(t('watermark_toast_title'), t('watermark_toast_msg'));
       }
@@ -213,6 +222,13 @@ export default function DocumentDetailPage() {
   const gaps = doc?.gapAnalysis || [];
   const template = templateOverride || doc?.template || 'modern';
 
+  // The picker shows the PDF templates, including LaTeX when this build has the
+  // engine. The preview below cannot draw the LaTeX designs -- they are LaTeX
+  // layouts, not pdfkit ones -- so it falls back to the pdfkit counterpart, which
+  // is why a hint is shown when a LaTeX template is selected.
+  const pdfTemplates = templatesForFormat('pdf', templates);
+  const selectedIsLatex = isLatexTemplate(template);
+
   const handleTemplateChange = async (tpl) => {
     setTemplateOverride(tpl);
     try {
@@ -278,7 +294,9 @@ export default function DocumentDetailPage() {
               </svg>
               {t('whatsapp')}
             </button>
-            <button onClick={() => handleDownload('pdf')} disabled={downloading} className="btn-ghost text-sm flex items-center gap-1.5" title={t('download_pdf')}>
+            {/* The PDF button carries the selected template, which may be a LaTeX one. The
+                Word button does not: .docx has no LaTeX renderer. */}
+            <button onClick={() => handleDownload('pdf', template)} disabled={downloading} className="btn-ghost text-sm flex items-center gap-1.5" title={t('download_pdf')}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
               PDF
             </button>
@@ -336,7 +354,7 @@ export default function DocumentDetailPage() {
       <div className="mb-3">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs font-medium text-surface-400">{t('template')}:</span>
-          {['modern', 'classic', 'creative', 'professional', 'minimal', 'bold'].map((tpl) => (
+          {pdfTemplates.map((tpl) => (
             <button
               key={tpl}
               onClick={() => handleTemplateChange(tpl)}
@@ -346,10 +364,18 @@ export default function DocumentDetailPage() {
                   : 'bg-surface-50 border-surface-200 text-surface-500 hover:border-surface-300'
               }`}
             >
-              {tpl.charAt(0).toUpperCase() + tpl.slice(1)}
+              {tTailor(templateLabelKey(tpl), tpl.charAt(0).toUpperCase() + tpl.slice(1))}
             </button>
           ))}
         </div>
+        {/* The preview is drawn by pdfkit, which cannot reproduce a LaTeX layout.
+            Saying so is better than a preview that quietly disagrees with the
+            downloaded file. */}
+        {selectedIsLatex && (
+          <p className="mt-2 text-xs text-surface-400">
+            {tTailor('latex_preview_hint')}
+          </p>
+        )}
       </div>
       <div className="card p-5 sm:p-6 mb-6">
         {editing ? (

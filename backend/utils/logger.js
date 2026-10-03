@@ -48,9 +48,26 @@ class BetterStackTransport extends winston.Transport {
   }
 }
 
+// splat() is what makes logger.warn('failed: %s', reason) actually interpolate.
+// Without it the extra arguments are dropped on the floor and the console prints
+// a literal "%s" -- which is what every call site in this codebase was doing, so
+// the log lines looked plausible while carrying none of the values they name.
+//
+// splat() then leaves those consumed arguments behind on the info object as
+// numeric keys ("0", "1", ...). Without this they end up in the JSON that goes to
+// BetterStack as a char-indexed object on every line that uses the format.
+const stripSplatArgs = winston.format((info) => {
+  for (const key of Object.keys(info)) {
+    if (/^\d+$/.test(key)) delete info[key];
+  }
+  return info;
+});
+
 const logger = winston.createLogger({
   level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
   format: winston.format.combine(
+    winston.format.splat(),
+    stripSplatArgs(),
     winston.format.timestamp(),
     winston.format.errors({ stack: true }),
     winston.format.json()
@@ -60,8 +77,14 @@ const logger = winston.createLogger({
     new winston.transports.Console({
       format: winston.format.combine(
         winston.format.colorize(),
+        winston.format.splat(),
+        stripSplatArgs(),
+        winston.format.timestamp(),
         winston.format.printf(({ timestamp, level, message, ...meta }) => {
-          const metaStr = Object.keys(meta).length > 1 ? ` ${JSON.stringify(meta)}` : '';
+          // `service` comes from defaultMeta and is on every line, so it is not
+          // evidence that a caller passed structured metadata.
+          const extra = Object.keys(meta).filter(key => key !== 'service');
+          const metaStr = extra.length ? ` ${JSON.stringify(Object.fromEntries(extra.map(k => [k, meta[k]])))}` : '';
           return `${timestamp} [${level}]: ${message}${metaStr}`;
         })
       )

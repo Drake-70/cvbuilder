@@ -1,6 +1,8 @@
 const PDFDocument = require('pdfkit');
 const logger = require('../utils/logger');
 const { shouldSkillsFirst } = require('./cvLayout');
+const { buildLatexDocument, isLatexTemplate, LATEX_TEMPLATES } = require('./latexService');
+const latexEngine = require('./latexEngine');
 
 const PAGE_WIDTH = 595.28;
 const PAGE_HEIGHT = 841.89;
@@ -337,7 +339,25 @@ function applyWatermark(doc, text) {
   }
 }
 
-function generatePdf(cv, coverLetter, language, templateName = 'modern', watermarkText = null) {
+// The pdfkit template a LaTeX template degrades to when the engine is missing.
+//
+// `latex-modern` -> `modern` is the same document design in the other engine, so
+// a fallback is nearly invisible. The mapping is explicit rather than a computed
+// string strip so that a LaTeX template with no pdfkit counterpart (an academic
+// CV, say) cannot silently become `modern` by accident: it has to be listed here.
+const LATEX_FALLBACK = {
+  'latex-classic': 'classic',
+  'latex-compact': 'minimal'
+};
+
+function fallbackTemplate(templateName) {
+  return LATEX_FALLBACK[templateName] || 'modern';
+}
+
+// Renders with pdfkit. Split out from generatePdf so the fallback path is the
+// same code the pdfkit templates have always used, rather than a second
+// implementation that could drift from the first.
+function generateWithPdfkit(cv, coverLetter, language, templateName, watermarkText) {
   const tpl = TEMPLATES[templateName] || TEMPLATES.modern;
   const lang = language === 'fr' ? 'fr' : 'en';
   const labels = LABELS[lang];
@@ -378,5 +398,89 @@ function generatePdf(cv, coverLetter, language, templateName = 'modern', waterma
   });
 }
 
+function generateLatexPdf(cv, coverLetter, language, templateName, watermarkText) {
+  // The watermark is part of the document, so it goes through the pure builder
+  // rather than being bolted on by the engine.
+  const source = buildLatexDocument(cv, {
+    template: templateName,
+    language,
+    coverLetter,
+    watermark: watermarkText
+  });
+  return latexEngine.compile(source);
+}
+
+async function generatePdf(cv, coverLetter, language, templateName = 'modern', watermarkText = null) {
+  if (!isLatexTemplate(templateName)) {
+    return generateWithPdfkit(cv, coverLetter, language, templateName, watermarkText);
+  }
+
+  try {
+    // Checked here as well as in the picker. The picker hides the templates when
+    // the engine is missing, but a document can be rendered from a template chosen
+    // before a deploy that removed the engine, and a stored template is re-read on
+    // download. Probing first costs nothing (the answer is cached for the life of
+    // the process) and labels the failure as a missing engine rather than as a
+    // compile error.
+    if (!latexEngine.isAvailable()) {
+      const err = new Error('LaTeX engine not available');
+      err.code = 'ENGINE_MISSING';
+      throw err;
+    }
+
+    return await generateLatexPdf(cv, coverLetter, language, templateName, watermarkText);
+  } catch (err) {
+    // A PDF that fails to render is a 500 on someone's only copy of their CV, at
+    // the moment they are trying to apply. pdfkit is always present -- it is a
+    // dependency of the backend, not an optional extra -- so there is always a
+    // document to hand back. The template degrades to its pdfkit counterpart and
+    // the substitution is logged, because an unlogged substitution is a bug
+    // report weeks later with no way to explain the output.
+    logger.warn(
+      'LaTeX render failed for template %s (%s); falling back to pdfkit template %s',
+      templateName, err.message, fallbackTemplate(templateName)
+    );
+    return generateWithPdfkit(cv, coverLetter, language, fallbackTemplate(templateName), watermarkText);
+  }
+}
+
+/**
+ * Templates this build can actually render, as a PDF.
+ *
+ * The picker is driven from this rather than from a hardcoded list so it cannot
+ * offer a LaTeX template on a build without the engine, where choosing it would
+ * silently produce a different document. The six pdfkit templates are always
+ * present.
+ */
+function availablePdfTemplates() {
+  const engineReady = latexEngine.isAvailable();
+  return {
+    pdf: [...Object.keys(TEMPLATES), ...(engineReady ? LATEX_TEMPLATES : [])],
+    docx: Object.keys(TEMPLATES),
+    engine: engineReady ? 'tectonic' : null
+  };
+}
+
+// Whether a template name is meaningful for a format. This is about format
+// compatibility, which is static, and is deliberately NOT the same question as
+// `availablePdfTemplates`, which is about this deployment.
+//
+// The distinction matters: a stored `latex-classic` still has to be renderable on
+// a build without the engine, and the way to guarantee that is to let it through
+// here and let generatePdf's fallback handle it -- producing the `classic`
+// counterpart. Rejecting it as an invalid template would instead turn an old
+// document's download into a 400.
+//
+// A LaTeX template sent for .docx is a different case: there is no fallback and
+// no counterpart, the .docx renderer would quietly use its default, so it is not
+// a valid docx template.
+function isTemplateValidFor(format, name) {
+  if (typeof name !== 'string' || !name) return false;
+  if (format === 'pdf') return isLatexTemplate(name) || Object.prototype.hasOwnProperty.call(TEMPLATES, name);
+  return Object.prototype.hasOwnProperty.call(TEMPLATES, name);
+}
+
 exports.generatePdf = generatePdf;
+exports.availablePdfTemplates = availablePdfTemplates;
+exports.isTemplateValidFor = isTemplateValidFor;
 exports.PDF_TEMPLATES = Object.keys(TEMPLATES);
