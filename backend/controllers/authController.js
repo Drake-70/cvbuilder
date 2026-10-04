@@ -63,7 +63,10 @@ function userResponse(user) {
     freeDocumentCredits: user.freeDocumentCredits || 0,
     role: user.role || 'user',
     hasPassword: !!user.passwordHash,
-    emailVerified: !!user.emailVerified
+    emailVerified: !!user.emailVerified,
+    // Reflected so the settings toggle shows the real stored state rather than
+    // local component state, which would silently disagree after a failed save.
+    dailyDigest: !!user.dailyDigest
   };
 }
 
@@ -328,7 +331,7 @@ exports.me = async (req, res) => {
 
 exports.updateMe = async (req, res, next) => {
   try {
-    const { name, preferredLanguage, currentPassword, newPassword, bio, summary, phone, location, jobTitle, company, linkedin, website, savedSkills } = req.body;
+    const { name, preferredLanguage, currentPassword, newPassword, bio, summary, phone, location, jobTitle, company, linkedin, website, savedSkills, dailyDigest } = req.body;
     const user = await User.findById(req.user._id);
 
     if (name) user.name = name;
@@ -341,6 +344,9 @@ exports.updateMe = async (req, res, next) => {
     if (company !== undefined) user.company = company;
     if (linkedin !== undefined) user.linkedin = linkedin;
     if (website !== undefined) user.website = website;
+    // `!== undefined` rather than truthiness, because false is the value that turns
+    // the digest off and `if (dailyDigest)` would quietly refuse to do it.
+    if (dailyDigest !== undefined) user.dailyDigest = !!dailyDigest;
     if (savedSkills !== undefined) {
       const cleaned = (Array.isArray(savedSkills) ? savedSkills : [])
         .map((s) => String(s).trim())

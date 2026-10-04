@@ -24,6 +24,63 @@ function escapeHtml(value) {
     .replace(/'/g, '&#39;');
 }
 
+const NAMED_ENTITIES = {
+  nbsp: ' ', amp: '&', lt: '<', gt: '>', quot: '"', apos: "'",
+  eacute: 'é', egrave: 'è', agrave: 'à', ccedil: 'ç', ugrave: 'ù', ocirc: 'ô'
+};
+
+/**
+ * Resolve HTML entities in a stored value.
+ *
+ * Necessary because stored values are inconsistent: the scraper's `clean()` only
+ * decodes `&nbsp;`, while its other source uses cheerio's `.text()`, which decodes
+ * everything. So a company stored as "Acme &amp; Sons" is a real value.
+ *
+ * Numeric references are resolved too, and that is safe in both directions because
+ * every caller either escapes (for HTML) or strips tags (for text) afterwards: a
+ * stored "&#60;script&#62;" cannot reach a reader as a live tag.
+ */
+function decodeEntities(value) {
+  return String(value == null ? '' : value).replace(
+    /&(#x[0-9a-f]+|#\d+|[a-z]+);/gi,
+    (match, body) => {
+      const key = body.toLowerCase();
+      if (Object.prototype.hasOwnProperty.call(NAMED_ENTITIES, key)) return NAMED_ENTITIES[key];
+      if (key[0] === '#') {
+        const code = key[1] === 'x' ? parseInt(key.slice(2), 16) : parseInt(key.slice(1), 10);
+        if (Number.isFinite(code) && code > 0 && code <= 0x10ffff) return String.fromCodePoint(code);
+      }
+      return match;
+    }
+  );
+}
+
+/**
+ * Reduce a stored value to plain text: resolve entities, strip tags, collapse space.
+ *
+ * Decode first, then strip. The reverse order leaves a stored "&lt;img src=x&gt;"
+ * decoding into a live tag after the strip has already run.
+ */
+function plainText(value) {
+  return decodeEntities(value)
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * A stored value rendered safely into an HTML body.
+ *
+ * plainText first, escapeHtml second -- in that order, and only in that order.
+ * Escaping alone double-escapes an entity the scraper already decoded, so a company
+ * stored as "Acme &amp; Sons" reaches the reader as "Acme &amp;amp; Sons"; stripping
+ * alone leaves live markup. Doing both means the HTML part shows the same characters
+ * as the text part.
+ */
+function htmlText(value) {
+  return escapeHtml(plainText(value));
+}
+
 let transporter = null;
 
 const FROM = process.env.SMTP_FROM || 'CVBoost <noreply@cvboost.app>';
@@ -452,11 +509,131 @@ function transportStatus() {
   return 'console';
 }
 
+/**
+ * The daily digest: one email listing everything that matched a saved alert since
+ * the last digest, rather than one email per match.
+ *
+ * Built from the Notification rows the alert matcher already wrote, so the digest
+ * cannot drift from what the user sees in-app -- there is no second matching pass
+ * that could disagree with the first about what matched.
+ *
+ * `totalMatched` is the count before `DIGEST_JOB_LIMIT` truncated the list. The
+ * difference is stated in the body rather than hidden, because "you have 40
+ * matches and the email shows 15" read as a bug otherwise.
+ */
+async function sendDailyDigestEmail({ email, name, language = 'en', jobs, totalMatched = 0 }) {
+  if (!jobs || !jobs.length) return { success: true, consoleOnly: true };
+
+  const baseUrl = frontendUrl();
+  const isFr = language === 'fr';
+
+  // htmlText, not escapeHtml: the stored values have already been through the
+  // scraper's clean(), and that is not the same as being safe to embed -- it only
+  // decodes &nbsp; and leaves every other entity, including markup, in place.
+  const list = jobs.map((job) => {
+    const title = htmlText(job.title || (isFr ? 'Offre' : 'Job'));
+    const company = htmlText(job.company || '');
+    const location = htmlText(job.location || (isFr ? 'Cameroun' : 'Cameroon'));
+    const url = `${baseUrl}/jobs/${encodeURIComponent(String(job._id))}`;
+    // Expired listings stay clickable. The board keeps serving them, marked
+    // expired, and a digest that dropped them would silently under-report matches.
+    const expired = job.active === false;
+    const tag = expired
+      ? `<span style="color:#b45309;font-size:11px;">${isFr ? 'b expirée' : 'expired'}</span>`
+      : '';
+    return `<li style="margin:0 0 10px;padding:10px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;">
+      <a href="${url}" style="color:#4f46e5;font-weight:600;text-decoration:none;">${title}</a>
+      <p style="margin:2px 0 0;color:#64748b;font-size:13px;">${company} &middot; ${location} ${tag}</p>
+    </li>`;
+  }).join('');
+
+  const hidden = totalMatched - jobs.length;
+  const overflow = hidden > 0
+    ? `<p style="color:#94a3b8;font-size:12px;">${isFr
+        ? `et ${hidden} autre(s) sur la page.`
+        : `and ${hidden} more on the board.`}</p>`
+    : '';
+  // One phrase, used by both parts. They drifted apart once already, which is how a
+  // text-only client ends up reading a different email from an HTML one.
+  const overflowText = hidden > 0
+    ? (isFr ? `et ${hidden} autre(s) sur la page.` : `and ${hidden} more on the board.`)
+    : '';
+
+  const greeting = name ? (isFr ? `Bonjour ${htmlText(name)},` : `Hi ${htmlText(name)},`) : '';
+  // Stripped, not escaped: this one lands in the text part, where the reader wants
+  // their own name rather than an entity-encoded version of it.
+  const greetingPlain = name ? (isFr ? `Bonjour ${plainText(name)},` : `Hi ${plainText(name)},`) : '';
+  const count = totalMatched;
+
+  const subjects = {
+    en: `${count} job${count > 1 ? 's' : ''} matched your alerts${hidden > 0 ? ` (${jobs.length} shown)` : ''}`,
+    fr: `${count} offre${count > 1 ? 's' : ''} correspondent${count > 1 ? 'ent' : ''} à vos alertes${hidden > 0 ? ` (${jobs.length} affichée${jobs.length > 1 ? 's' : ''})` : ''}`
+  };
+
+  const bodies = {
+    en: `
+      <div style="font-family:system-ui,sans-serif;max-width:480px;margin:0 auto;padding:32px;">
+        <h2 style="color:#4f46e5;">Your daily job digest</h2>
+        ${greeting ? `<p style="color:#334155;">${greeting}</p>` : ''}
+        <p style="color:#334155;">${count} new ${count > 1 ? 'listings matched' : 'listing matched'} your saved ${count > 1 ? 'alerts' : 'alert'} since the last digest.</p>
+        <ul style="list-style:none;padding:0;margin:16px 0;">${list}</ul>
+        ${overflow}
+        <a href="${baseUrl}/jobs" style="display:inline-block;background:#4f46e5;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin:8px 0;">Browse all jobs</a>
+        <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0;" />
+        <p style="color:#94a3b8;font-size:12px;">CVBoost &mdash; Turn this off in Settings.</p>
+      </div>`,
+    fr: `
+      <div style="font-family:system-ui,sans-serif;max-width:480px;margin:0 auto;padding:32px;">
+        <h2 style="color:#4f46e5;">Votre résumé quotidien</h2>
+        ${greeting ? `<p style="color:#334155;">${greeting}</p>` : ''}
+        <p style="color:#334155;">${count} nouvelle${count > 1 ? 's' : ''} offre${count > 1 ? 's' : ''} correspond${count > 1 ? 'ent' : ''} à vos alertes depuis le dernier résumé.</p>
+        <ul style="list-style:none;padding:0;margin:16px 0;">${list}</ul>
+        ${overflow}
+        <a href="${baseUrl}/jobs" style="display:inline-block;background:#4f46e5;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin:8px 0;">Voir toutes les offres</a>
+        <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0;" />
+        <p style="color:#94a3b8;font-size:12px;">CVBoost &mdash; Désactivez ceci dans les paramètres.</p>
+      </div>`
+  };
+
+  // Every value interpolated into the text part goes through plainText, not escapeHtml.
+  // escapeHtml in a text/plain part is the wrong tool: it would leave the reader
+  // looking at "&lt;img src=x&gt;" while the tag itself survived in the message.
+  const plainJobs = jobs.map((job) => {
+    const bits = [
+      `- ${plainText(job.title || (isFr ? 'Offre' : 'Job'))}`,
+      job.company ? ` (${plainText(job.company)})` : '',
+      job.location ? ` - ${plainText(job.location)}` : '',
+      job.active === false ? (isFr ? ' [b expirée]' : ' [expired]') : ''
+    ].join('');
+    return `${bits}\n  ${baseUrl}/jobs/${encodeURIComponent(String(job._id))}`;
+  }).join('\n');
+
+  const plainBodies = {
+    en: `${greetingPlain}\n\n${count} new listing${count > 1 ? 's' : ''} matched your saved alert${count > 1 ? 's' : ''} since the last digest:\n\n`
+      + plainJobs
+      + `${overflowText ? `\n\n${overflowText}` : ''}\n\nBrowse all jobs: ${baseUrl}/jobs\n\nTurn this off in Settings.`,
+    fr: `${greetingPlain}\n\n${count} nouvelle${count > 1 ? 's' : ''} offre${count > 1 ? 's' : ''} correspond${count > 1 ? 'ent' : ''} à vos alertes :\n\n`
+      + plainJobs
+      + `${overflowText ? `\n\n${overflowText}` : ''}\n\nVoir toutes les offres : ${baseUrl}/jobs\n\nDésactivez ceci dans les paramètres.`
+  };
+
+  return sendMail({
+    to: email,
+    subject: subjects[isFr ? 'fr' : 'en'],
+    html: bodies[isFr ? 'fr' : 'en'],
+    text: plainBodies[isFr ? 'fr' : 'en']
+  });
+}
+
 module.exports = {
   sendMail,
   sendPasswordResetEmail,
   sendVerificationEmail,
   sendPaymentReceiptEmail,
   sendJobAlertEmail,
-  transportStatus
+  sendDailyDigestEmail,
+  transportStatus,
+  plainText,
+  htmlText,
+  decodeEntities
 };

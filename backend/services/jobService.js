@@ -190,9 +190,30 @@ async function runScrapeCycle() {
   const since = new Date(Date.now() - 10 * 60 * 1000);
   const recentJobs = await Job.find({ scrapedAt: { $gte: since }, active: true }).limit(300).lean();
   const matched = await matchAlertsForJobs(recentJobs);
+
+  // Runs last, and reads only what the two steps above wrote, so the digest
+  // summarises a scrape that has actually landed rather than the previous one.
+  //
+  // Placed here rather than in the scheduler so all three triggers get it: the
+  // in-process timer, the GitHub Actions cron, and the admin button. Each one
+  // throttles independently through the recipient's lastDigestAt, and takes its own
+  // lock, so a second trigger arriving mid-digest cannot double-send.
+  //
+  // Failure is swallowed deliberately. A scrape is worth having even when the
+  // digest is not, and a Brevo outage turning every scrape into an error would
+  // hide the part that matters.
+  let digest = { skipped: true, error: 'not run' };
+  try {
+    const { runDailyDigest } = require('./digestService');
+    digest = await runDailyDigest();
+  } catch (err) {
+    logger.warn(`[digest] cycle failed: ${err.message}`);
+    digest = { skipped: true, error: err.message };
+  }
+
   // `expiry` is surfaced so the number of listings aged out is visible in the
   // scrape response and the GitHub Actions log rather than only in a debug line.
-  return { ...cycle, matched, expiry };
+  return { ...cycle, matched, expiry, digest };
 }
 
 module.exports = { createNotification, matchAlertsForJobs, alertMatches, runScrapeCycle };

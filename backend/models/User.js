@@ -47,6 +47,15 @@ const userSchema = new mongoose.Schema({
   resetPasswordToken: { type: String, sparse: true, index: true },
   resetPasswordExpires: { type: Date },
   emailVerified: { type: Boolean, default: false },
+  // Opt-in, and opt-in means false by default rather than "true, turn it off".
+  // Turning it on would mail every existing user an unsolicited daily email the
+  // first time a scrape found them a match, which is how an opt-in list becomes
+  // a spam list.
+  dailyDigest: { type: Boolean, default: false },
+  // When the last digest actually went out. This is the throttle, and it lives on
+  // the user rather than in memory so a restart, a deploy, or a second instance
+  // cannot turn one day's digest into two.
+  lastDigestAt: { type: Date, default: null },
   emailVerificationToken: { type: String, sparse: true, index: true },
   emailVerificationExpires: { type: Date },
   // Six-digit code fields, alongside the link rather than replacing it. A code is

@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import api from '../services/api';
 import PushNotificationCard from '../components/PushNotificationCard';
+import DailyDigestCard from '../components/DailyDigestCard';
 import ApiKeysCard from '../components/ApiKeysCard';
 
 export default function SettingsPage() {
@@ -220,6 +221,11 @@ export default function SettingsPage() {
       </div>
 
       <PushNotificationCard />
+
+      {/* The digest. Directly below push because it is the other half of the same
+          question -- push for now, email for later -- and a user who wants alerts
+          switched on wants to see both before saving anything. */}
+      <DailyDigestCard />
 
       {/* MCP. Next to push rather than buried at the bottom: both are credentials for
           something outside the browser, and they are what a power user reaches for

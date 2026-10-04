@@ -185,6 +185,7 @@ cvbuilder/
 - **Subscription** — Monthly unlimited tier
 - **Interview Prep** — AI-generated STAR-method questions (subscribers)
 - **Job Board** — Auto-scraped Cameroonian listings (Go Africa, Louma, MyJobMag, Emploi) with category filters and email alerts
+- **Daily Job Digest** — Opt-in roundup email, once a day, of everything matching your alerts
 - **Bilingual** — Full French/English with browser auto-detection
 - **Email Verification** — Six-digit code *and* a 24-hour link in one message
 - **LaTeX PDF Templates** — Two real-TeX layouts alongside the six pdfkit ones
@@ -200,6 +201,7 @@ cvbuilder/
 - `POST /api/auth/verify-email-code` — Verify with a six-digit code
 - `GET /api/auth/verification-status` — Code expiry, attempts left, resend cooldown
 - `POST /api/auth/resend-verification` — Send a fresh code and link
+- `PATCH /api/auth/me` — Update profile, language, or password. Accepts `dailyDigest`
 
 #### Email verification
 
@@ -589,6 +591,58 @@ answers `409` if someone starts a *new* application against an expired posting
 while still allowing edits to one they already made.
 
 Set `JOB_EXPIRY_DAYS=0` to turn the sweep off without a code change.
+
+#### Daily job digest
+
+One email a day summarising everything that matched the user's saved alerts since
+the last digest, as an alternative cadence to the per-match alert email. Opt-in
+per user, toggled in **Settings → Daily job digest**, and stored as
+`User.dailyDigest` with `User.lastDigestAt`.
+
+Four properties are load-bearing:
+
+- **It is opt-in and defaults to `false`.** Defaults to off rather than
+  "on, turn it off" because turning it on would mail every existing user an
+  unsolicited daily email the first time a scrape found them a match. That is how an
+  opt-in list becomes a spam list.
+- **It runs once a day, not once a scrape.** Scraping runs every six hours, so the
+  throttle is `lastDigestAt >= 23 hours ago`, stored on the user document rather than
+  in memory — a restart, a Render deploy, or a second instance would each otherwise
+  decide it was the first of the day. 23 hours rather than 24 because the scrape grid
+  is six hours: a strict 24 could leave a user waiting an extra cycle for no benefit.
+- **It is assembled from `Notification` rows of type `job_alert`, not from a second
+  matching pass.** That set is exactly what the user has already been notified about
+  in-app, so the digest cannot disagree with the alert matcher about what matched. A
+  second implementation of `alertMatches` would be a second thing to keep in step.
+- **`lastDigestAt` moves only on success.** A user whose send failed keeps their
+  window open and is retried on the next cycle; stamping it on failure would drop
+  those matches permanently.
+
+The digest runs at the end of `runScrapeCycle` rather than on its own timer, so all
+three scrape triggers — the in-process scheduler, the GitHub Actions cron, and the
+admin button — get it, and it summarises a scrape that has actually landed rather
+than the previous one. Each trigger throttles independently through the recipient's
+`lastDigestAt` and takes its own Redis lock (`cvboost:jobs:digest-lock`), so a second
+trigger arriving mid-digest cannot double-send. A digest failure is logged and
+swallowed: a scrape is worth having even when the digest is not.
+
+Four numbers appear in the log line, because a summary of zeroes is otherwise
+indistinguishable from a broken matcher:
+
+```
+[digest] 12 sent to 40 opted-in user(s) (26 not due yet, 1 had no new matches, ...)
+```
+
+A day with no matches sends nothing — no "0 new jobs" email — and `lastDigestAt` is
+left alone so the user's window keeps accumulating rather than resetting. The window
+reaches back at most `MAX_WINDOW_MS` (7 days) so a server outage cannot produce one
+email containing a month of everything, and the body itemises at most 15 listings
+while stating the true total.
+
+Expired listings are still listed, labelled *expired* rather than dropped: the board
+keeps serving them, so dropping them would under-report what matched. A match whose
+listing has been deleted outright is counted and logged instead, since there is
+nothing to link to.
 
 ### Admin
 
