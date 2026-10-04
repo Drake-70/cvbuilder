@@ -667,6 +667,117 @@ so the app does not take on delivering it.
 does not restamp them, because an audit field that says a message was just handled
 when nothing happened is worse than a stale one.
 
+### MCP server
+
+An MCP endpoint at **`/api/mcp`**, so an AI assistant can read the user's CVs, score
+them, search the job board and keep the application tracker up to date.
+
+#### Authentication: keys, not the session cookie
+
+The web app authenticates with a JWT in an httpOnly cookie. That is the right shape
+for a browser and the wrong one for a program: an MCP client cannot send an httpOnly
+cookie, and handing it the session token instead would mean revoking every session
+to cut off one integration. So keys are their own credential with their own
+lifecycle, and they survive logout.
+
+- `POST /api/keys` — mint a key. Cookie-authenticated. **The plaintext is in this
+  response and nowhere else, ever.**
+- `GET /api/keys` — list keys: name, `prefix`, `createdAt`, `lastUsedAt`, `active`
+- `DELETE /api/keys/:id` — revoke
+
+A key is `cvb_` plus 32 CSPRNG bytes, hex, and only its **SHA-256** is stored
+(`select: false`, so it does not come back through a careless `find` either). Not
+bcrypt, and the difference is deliberate: a password is low-entropy and needs a slow
+hash to be worth stealing, whereas this is 32 bytes of CSPRNG output where there is
+nothing to guess — bcrypt would put a ~100 ms cost on every MCP request to defend
+against an attack that cannot be mounted.
+
+- Ten live keys per account. Revoked keys are **set, not deleted** (`revokedAt`), so
+  history stays attributable and a deletion cannot be mistaken for "never existed".
+- `verifyKey` returns `null` for every failure — wrong, revoked or unknown — with no
+  distinction between them, so the endpoint cannot be used to enumerate which keys
+  exist. A value without the `cvb_` prefix is rejected before any database query, so
+  a stray JWT from another service costs nothing.
+- Revocation is scoped by `userId` in the query, not checked afterwards. Someone
+  else's key reports *not found*, because a `403` would confirm the id exists.
+
+`apiKeyAuth` is a separate middleware from `requireAuth`, not a second strategy: the
+lifetimes genuinely differ, and a cookie that dies with the session is the wrong
+thing to hand a program.
+
+#### The seven tools
+
+Read-and-analyse by default. `tailor_cv` returns a **proposal and saves nothing**,
+which honours the same review-before-save contract as the web app for a different
+keyboard. `set_application_status` is the only tool that writes, it is named as a
+verb, and it touches only tracker fields — never the CV itself.
+
+| Tool | Does |
+|---|---|
+| `score_resume` | Score a CV on its own, JD-independent, six categories |
+| `match_job` | Score against a posting; matched and missing keywords |
+| `tailor_cv` | Propose a tailored rewrite. Saves nothing |
+| `list_jobs` | Search the job board: keyword, category, location |
+| `get_job` | One listing in full |
+| `list_documents` | Saved documents with status, next action, follow-up date |
+| `set_application_status` | Update the tracker fields. The only writer |
+
+Credits are deducted at document *generation*, not at the AI rewrite, and generation
+is not exposed over MCP at all — so there is no billing bypass, and an MCP client
+cannot spend credits.
+
+Tool failures are returned as `{isError: true, content: [...]}` rather than thrown.
+An exception escaping a tool becomes a JSON-RPC protocol error, which most clients
+render as *"the MCP server is unreachable"*, losing both the message and the
+conversation. An `isError` result reaches the model with the reason attached.
+
+#### Four integration details that are load-bearing
+
+The endpoint is the kind of thing that passes a unit test and then 403s in
+production, because the middleware around it was written for browsers. Each of these
+is pinned by a test in `backend/tests/mcp.test.js`.
+
+- **CSRF is skipped, but only for a caller that presents its own credential.** A
+  request authenticated by an `Authorization` header has no ambient credential for a
+  hostile page to ride on, and a client cannot send a CSRF token because it has no
+  session to have been issued one. The exemption is gated on the header rather than
+  on the bare path, so a cookie-authenticated caller reaching `/api/mcp` without one
+  is still refused.
+- **`sanitize` does not apply.** It strips `<[^>]*>` from every string in the body —
+  the right blunt rule for a profile field and the wrong one for a CV, where
+  `array<int>`, `3 < 5 years` and `a < b > c` are all legitimate text. Applied here
+  it would silently rewrite the CV and return a score for something the user never
+  sent. Nothing in these arguments is rendered as HTML anyway: they go to the
+  scoring services, to the AI prompt, or to length-checked fields, and React escapes
+  whatever it does render.
+- **JSON responses, not SSE.** The transport defaults to an event stream; this one
+  sets `enableJsonResponse`. The app mounts `compression()` globally, and compression
+  buffers a response stream until it can compress it, which would hold a streamable
+  response open instead of letting it complete. Nothing here needs streaming — every
+  tool is one request answered by one result.
+- **Stateless.** `sessionIdGenerator: undefined` is the documented way to ask for it:
+  no session id, no session validation, nothing held between requests. The tools hold
+  no state, and Render can run several instances behind a load balancer, where a
+  stateful server hands out a session id the next instance has never heard of.
+  Stateless is the only mode that works without sticky sessions. The server and
+  transport are therefore built **per request** — identity is captured in the tool
+  closures from `req.user`, since the SDK invokes tools with arguments only.
+
+`POST` requires `Accept` to list **both** `application/json` and
+`text/event-stream` (`406` otherwise) and a JSON content type (`415` otherwise). The
+official client gets both right; a hand-written `curl` gets a clear error rather than
+a stack trace.
+
+`generalLimiter` already applies at 200 requests per 15 minutes in production. There
+is no MCP-specific limiter: a second, looser one would never bind, and a tighter one
+would throttle `tools/list` and `tools/call` alike. A tighter cap on the AI-backed
+tools specifically would need a shared counter, and Redis is optional in this
+deployment — an in-process one would reset on every deploy and differ per instance.
+
+Interop is verified against the **official `@modelcontextprotocol/sdk` client** over a
+real socket, against the real middleware chain, rather than against a hand-rolled
+stub of the protocol.
+
 ## Testing
 
 ```bash

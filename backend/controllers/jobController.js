@@ -11,12 +11,7 @@ const { runScrapeCycle } = require('../services/jobService');
 const { computeJobMatchScore } = require('../services/scoreService');
 const { notifyUser } = require('../services/pushService');
 const posthog = require('../config/posthog');
-
-const JOB_CATEGORIES = [
-  'IT & Software', 'Accounting & Finance', 'Engineering', 'Sales & Marketing',
-  'Healthcare', 'Education', 'Administration & HR', 'Logistics & Transport',
-  'Hospitality & Tourism', 'Management', 'Other'
-];
+const { JOB_CATEGORIES } = require('../config/jobCategories');
 
 // A board page is at most 50 jobs (the `limit` cap in listJobs), so this covers
 // a full page without letting the endpoint be used to score the whole board.

@@ -89,7 +89,13 @@ exports.generateDocument = async (req, res, next) => {
     const outFormat = normalizeFormat(format);
     const lang = language || 'en';
     const watermark = watermarked ? watermarkTextFor(lang) : null;
-    const tpl = resolveTemplate(outFormat, template, template);
+    // No stored fallback here, and that is deliberate rather than an oversight. This
+    // renders from the request body, so there is no previous template to inherit:
+    // `documentId` is a paid-entitlement check, not a source of defaults. Passing
+    // `template` in both slots was equivalent -- the second lookup can only fail
+    // where the first already did -- but it read like a typo and invited someone to
+    // "fix" it the other way, by loading a template the request never asked for.
+    const tpl = resolveTemplate(outFormat, template, null);
     const buffer = outFormat === 'pdf'
       ? await generatePdf(enrichedCV, coverLetter || '', lang, tpl, watermark)
       : await generateDocx(enrichedCV, coverLetter || '', lang, tpl, watermark);

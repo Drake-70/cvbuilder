@@ -13,6 +13,19 @@ function csrfProtection(req, res, next) {
   // Skip for scheduled scraper trigger (external cron without cookies; protected by X-Scrape-Key)
   if (req.path === '/api/jobs/scrape') return next();
 
+  // Skip for MCP clients, but only when they present a credential of their own.
+  //
+  // CSRF defends requests that carry an ambient credential -- the session cookie the
+  // browser attaches whether or not the user meant to. A request authenticated by an
+  // Authorization header has no such credential: a browser will not attach an
+  // arbitrary Authorization header on the user's behalf, so there is nothing for a
+  // hostile page to ride on. Requiring the header rather than skipping the bare path
+  // keeps that reasoning honest, so a cookie-authenticated caller reaching this path
+  // without one is still refused instead of quietly exempted.
+  if (req.path === '/api/mcp' && (req.headers.authorization || req.headers['x-api-key'])) {
+    return next();
+  }
+
   // Skip for auth routes that don't use cookies yet
   if (req.path.startsWith('/api/auth/')) {
     if (req.method === 'GET') setCsrfCookie(req, res);

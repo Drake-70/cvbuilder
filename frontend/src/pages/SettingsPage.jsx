@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import api from '../services/api';
 import PushNotificationCard from '../components/PushNotificationCard';
+import ApiKeysCard from '../components/ApiKeysCard';
 
 export default function SettingsPage() {
   const { t } = useTranslation('common');
@@ -219,6 +220,11 @@ export default function SettingsPage() {
       </div>
 
       <PushNotificationCard />
+
+      {/* MCP. Next to push rather than buried at the bottom: both are credentials for
+          something outside the browser, and they are what a power user reaches for
+          immediately after the password section. */}
+      <ApiKeysCard />
 
       {/* Password */}
       <div className="card p-6 mb-6">
