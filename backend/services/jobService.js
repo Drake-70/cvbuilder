@@ -32,11 +32,34 @@ async function createNotification({ userId, type, title, body, jobId = null, lin
   return Notification.create({ userId, type, title, body, jobId, link });
 }
 
+/**
+ * The shape every non-matching outcome returns.
+ *
+ * Named rather than repeated because the alternative already shipped: two of the
+ * three early returns were missing `pushes`, so a caller reading `result.pushes` got
+ * undefined on the quiet paths and a number on the busy ones -- a value that means
+ * "nothing" and "not computed" at once, and only differs when someone is already
+ * looking.
+ */
+function emptyMatch(extra = {}) {
+  return { notifications: 0, emails: 0, pushes: 0, alerts: 0, matched: 0, alreadyNotified: 0, ...extra };
+}
+
 async function matchAlertsForJobs(jobs) {
-  if (!jobs || !jobs.length) return { notifications: 0, emails: 0 };
+  const jobCount = jobs && jobs.length ? jobs.length : 0;
+  if (!jobCount) {
+    logger.info('[jobs] alert matching skipped: no active listings to match against');
+    return emptyMatch({ skipped: true });
+  }
 
   const alerts = await JobAlert.find({ active: true }).lean();
-  if (!alerts.length) return { notifications: 0, emails: 0 };
+  if (!alerts.length) {
+    // Said out loud. Silence here is indistinguishable from a scrape that found
+    // nothing, and "alerts matched 0" reads like a broken matcher rather than an
+    // empty table -- which is how a real failure gets mistaken for a quiet night.
+    logger.info('[jobs] no active job alerts configured, so nothing was matched');
+    return emptyMatch();
+  }
 
   const emailsToSend = new Map();
   const users = new Map();
@@ -51,11 +74,21 @@ async function matchAlertsForJobs(jobs) {
   const jobsToPush = new Map();
 
   let created = 0;
+  let matched = 0;
+  let alreadyNotified = 0;
   for (const job of jobs) {
     for (const alert of alerts) {
       if (!alertMatches(alert, job)) continue;
+      matched += 1;
       const exists = await Notification.exists({ userId: alert.userId, jobId: job._id, type: 'job_alert' });
-      if (exists) continue;
+      // Counted rather than silently skipped. A scrape that finds six matches and
+      // notifies nobody has found them again, and the difference between that and
+      // "nothing matched" is the difference between a working dedupe and a broken
+      // one -- invisible unless both numbers are logged.
+      if (exists) {
+        alreadyNotified += 1;
+        continue;
+      }
 
       await Notification.create({
         userId: alert.userId,
@@ -112,8 +145,15 @@ async function matchAlertsForJobs(jobs) {
     if (result && !result.consoleOnly) sent += 1;
   }
 
-  logger.info(`[jobs] alerts matched ${created} new notification(s), ${sent} email(s), ${pushes} push(es)`);
-  return { notifications: created, emails: sent, pushes };
+  // Every number that decides whether this is working, including the two that are
+  // otherwise indistinguishable: alerts considered, listings considered, and matches
+  // found before the dedupe.
+  logger.info(
+    `[jobs] alerts: ${alerts.length} active against ${jobCount} listing(s) -- ` +
+    `${matched} matched, ${alreadyNotified} already notified, ` +
+    `${created} new notification(s), ${sent} email(s), ${pushes} push(es)`
+  );
+  return { notifications: created, emails: sent, pushes, alerts: alerts.length, matched, alreadyNotified };
 }
 
 async function runScrapeCycle() {
@@ -125,7 +165,12 @@ async function runScrapeCycle() {
 
   // A duplicate trigger was suppressed; report it without touching the DB.
   if (cycle.skipped) {
-    return { alreadyRunning: true, startedAt: cycle.startedAt, results: [], matched: { notifications: 0, emails: 0 } };
+    return {
+      alreadyRunning: true,
+      startedAt: cycle.startedAt,
+      results: [],
+      matched: { notifications: 0, emails: 0, pushes: 0, alerts: 0, matched: 0, skipped: true }
+    };
   }
 
   // Runs after the upserts so a listing that is still on its source board has

@@ -1,7 +1,7 @@
 ﻿const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 
-// Observability â€” Sentry is enabled only when SENTRY_DSN is set.
+// Observability — Sentry is enabled only when SENTRY_DSN is set.
 //
 // This MUST stay above `require('express')`. expressIntegration() monkey-patches
 // express, so initialising Sentry afterwards loads fine but silently leaves
@@ -68,7 +68,7 @@ const app = express();
 app.set('trust proxy', 1);
 
 // Security
-// Security â€” CSP is declared in frontend/index.html meta tag (single source of truth)
+// Security — CSP is declared in frontend/index.html meta tag (single source of truth)
 // referrerPolicy must NOT be no-referrer or Google Identity Services rejects the button
 // with "[GSI_LOGGER]: The given origin is not allowed for the given client ID".
 app.use(helmet({
@@ -76,10 +76,10 @@ app.use(helmet({
   referrerPolicy: { policy: 'strict-origin-when-cross-origin' }
 }));
 
-// Compress JSON/static responses (gzip/br) â€” biggest transfer-size win
+// Compress JSON/static responses (gzip/br) — biggest transfer-size win
 app.use(compression());
 
-// CORS â€” supports a comma-separated list of origins, and falls back to the
+// CORS — supports a comma-separated list of origins, and falls back to the
 // platform's own public URL so a deploy is never left allowing only localhost.
 const allowedOrigins = require('./config/urls').allowedOrigins();
 
@@ -193,7 +193,7 @@ let mongoEverReady = false;
 //
 // Registered BEFORE the rate limiter on purpose. The general limiter allows
 // 200 requests / 15 min in production, while Render probes every few seconds
-// and restarts the instance after 60s of failed checks â€” so a rate-limited
+// and restarts the instance after 60s of failed checks — so a rate-limited
 // health endpoint means a restart loop.
 //
 // Always 200 while the process is up: this is a liveness probe. MongoDB state
@@ -316,7 +316,7 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
-// Error handler â€” registered last so it also covers failures raised by static
+// Error handler — registered last so it also covers failures raised by static
 // file serving and res.sendFile, not just the API routes.
 if (Sentry) Sentry.setupExpressErrorHandler(app);
 app.use(errorHandler);
@@ -343,7 +343,7 @@ async function connectWithRetry() {
       startJobScheduler();
       return;
     } catch (err) {
-      logger.error(`[mongo] unavailable: ${err.message} â€” retrying in 15s`);
+      logger.error(`[mongo] unavailable: ${err.message} — retrying in 15s`);
       await new Promise((resolve) => setTimeout(resolve, 15000));
     }
   }
@@ -354,7 +354,7 @@ async function connectWithRetry() {
  *
  * A bare truthiness check reports an empty string as configured, and clearing a
  * field in the Render dashboard is the single most likely way to end up with
- * one â€” so `SENTRY_DSN=''` reported `sentry=on` while Sentry was off. Trim as
+ * one — so `SENTRY_DSN=''` reported `sentry=on` while Sentry was off. Trim as
  * well, since a value that is only whitespace is the same mistake with extra
  * keystrokes.
  */
@@ -397,21 +397,28 @@ let shuttingDown = false;
 const shutdown = (signal) => {
   if (shuttingDown) return;
   shuttingDown = true;
-  logger.info(`${signal} received â€” shutting down gracefully`);
+  logger.info(`${signal} received — shutting down gracefully`);
 
   stopJobScheduler();
 
   const forceExit = setTimeout(() => {
-    logger.warn('graceful shutdown timed out â€” forcing exit');
+    logger.warn('graceful shutdown timed out — forcing exit');
     process.exit(1);
   }, 10000);
   if (forceExit.unref) forceExit.unref();
 
+  // Logged before the logger is closed, not after.
+  //
+  // flushLogs() calls logger.close(), which tears down winston's transports. Writing
+  // afterwards left nothing to write into -- the one line that confirms a clean
+  // shutdown was the one line that never appeared, and winston complained about it
+  // in exactly the run where an operator needed to read the logs. This is the last
+  // thing said before exit, so it goes first.
   const done = () => {
-    Promise.resolve(flushLogs()).finally(() => {
-      logger.info('shutdown complete');
-      process.exit(0);
-    });
+    logger.info('shutdown complete');
+    Promise.resolve(flushLogs())
+      .catch(() => { /* shutdown must not fail on a telemetry error */ })
+      .finally(() => process.exit(0));
   };
 
   if (server) server.close(done);

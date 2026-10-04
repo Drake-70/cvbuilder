@@ -2,7 +2,7 @@
 //
 // Why this exists at all: pdfkit draws a PDF by placing every glyph itself, which
 // caps it at one page size, one set of metrics and no hyphenation. A CV is
-// exactly the document that suffers from that â€” long bullets, two-column dates,
+// exactly the document that suffers from that — long bullets, two-column dates,
 // French accents. LaTeX has real line-breaking, so it produces a document that
 // reflows instead of one whose every line break was chosen by hand.
 //
@@ -253,7 +253,7 @@ function certificationItem(cert) {
   return cert.year ? `${head} (${tex(cert.year)})` : head;
 }
 
-// Jobs are "Title â€” Company" on one line with the dates right-aligned. A right
+// Jobs are "Title — Company" on one line with the dates right-aligned. A right
 // edge needs a box, so this is where the width arithmetic lives: \hfill inside a
 // paragraph with no box would just push the dates onto the next line.
 function dateLine(dates, color) {
