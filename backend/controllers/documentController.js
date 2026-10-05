@@ -252,25 +252,6 @@ exports.updateApplicationStatus = async (req, res, next) => {
       return res.status(400).json({ error: 'No content to update' });
     }
 
-    // appliedAt is the record of when the application was actually sent, so it is
-    // stamped once and never moves. This used to reset on every save while the
-    // status was "applied" -- which is the default status and the most common one --
-    // so every edit of the company field restarted "7 days since you applied" at
-    // zero, and the follow-up nudge could never fire for a user who kept correcting
-    // their own data.
-    //
-    // It is set as part of the same awaited write as the rest of the update. Stamping
-    // it with a separate fire-and-forget updateOne meant the response was serialised
-    // before that write landed, so a caller reading the response back saw
-    // appliedAt: null immediately after setting the status to applied. Reading the
-    // current value first costs one projected query and keeps the write atomic.
-    if (applicationStatus === 'applied' && !req.body.preserveAppliedAt) {
-      const existing = await TailoredDocument.findOne({ _id: req.params.id, userId: req.user._id })
-        .select('appliedAt')
-        .lean();
-      if (existing && !existing.appliedAt) updates.appliedAt = new Date();
-    }
-
     const doc = await TailoredDocument.findOneAndUpdate(
       { _id: req.params.id, userId: req.user._id },
       { $set: updates },
@@ -278,6 +259,30 @@ exports.updateApplicationStatus = async (req, res, next) => {
     );
     if (!doc) {
       return res.status(404).json({ error: 'Document not found' });
+    }
+
+    // appliedAt is the record of when the application was actually sent, so it is
+    // stamped once and never moves. This used to reset on every save while the
+    // status was "applied" -- which is the default status and the most common one --
+    // so every edit of the company field restarted "7 days since you applied" at
+    // zero, and the follow-up nudge could never fire for a user who kept correcting
+    // their own data. Conditional on the field still being null, so no read is
+    // needed and two concurrent saves cannot both stamp it.
+    //
+    // Awaited, and the returned value folded back into `doc` before it is serialised.
+    // This used to be a fire-and-forget updateOne, which meant the response was built
+    // before the stamp landed and a caller reading the response back saw
+    // appliedAt: null immediately after setting the status to applied. Reading the
+    // field first and then writing it instead would fix the response but reintroduce
+    // the race the null filter exists to prevent, so the atomic filter stays and the
+    // write is awaited.
+    if (applicationStatus === 'applied' && !req.body.preserveAppliedAt) {
+      const stamped = await TailoredDocument.findOneAndUpdate(
+        { _id: doc._id, appliedAt: null },
+        { $set: { appliedAt: new Date() } },
+        { new: true }
+      );
+      if (stamped) doc.appliedAt = stamped.appliedAt;
     }
 
     res.json(doc);
