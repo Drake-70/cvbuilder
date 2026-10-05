@@ -80,6 +80,8 @@ jobs:
         run: npm run check:sw-assets
       - name: Check index.html for render blocking
         run: npm run check:render-blocking
+      - name: Check translation files for duplicate keys
+        run: npm run check:i18n-keys
       - name: Lint
         run: npm run lint
         working-directory: frontend

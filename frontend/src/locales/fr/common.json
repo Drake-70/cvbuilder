@@ -7,7 +7,7 @@
   "register": "S'inscrire",
   "logout": "Déconnexion",
   "home": "Accueil",
-  "dashboard": "Tableau de bord",
+  "dashboard_label": "Tableau de bord",
   "language": "Langue",
   "switch_to_fr": "Français",
   "switch_to_en": "English",

@@ -29,20 +29,28 @@ module.exports = defineConfig({
     screenshot: 'only-on-failure',
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  // The backend timeout was 60s, which is not a budget anyone validated -- it is
+  // Playwright's default, and it was inherited when the server was added. Measured
+  // cold boot on a fresh node_modules is 52.6s before the port is even open, and a
+  // CI runner always boots cold because it has just run npm ci. That left ~7s of
+  // slack, so the suite failed at "Timed out waiting 60000ms from config.webServer"
+  // before a single assertion ran, and produced no JSON report for the reporter to
+  // surface. Warm boot is 14.2s for the same code, which is why this only ever
+  // failed in CI and never on a machine that had just run the suite.
   webServer: [
     {
       command: 'node server.js',
       cwd: 'backend',
       url: 'http://localhost:5001/api/health',
       reuseExistingServer: true,
-      timeout: 60000,
+      timeout: 180000,
     },
     {
       command: 'npm run dev',
       cwd: 'frontend',
       url: 'http://localhost:5173',
       reuseExistingServer: true,
-      timeout: 120000,
+      timeout: 180000,
     },
   ],
 });

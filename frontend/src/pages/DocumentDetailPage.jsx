@@ -217,7 +217,7 @@ export default function DocumentDetailPage() {
         </div>
         <h2 className="text-xl font-bold text-surface-900 dark:text-white mb-2">{error}</h2>
         <button onClick={() => navigate('/dashboard')} className="btn-primary mt-4">
-          {t('dashboard')}
+          {t('dashboard_label')}
         </button>
       </div>
     );

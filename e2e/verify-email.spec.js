@@ -1,5 +1,6 @@
 const { test, expect } = require('@playwright/test');
 const { markEmailVerified } = require('./helpers/verifiedUser');
+const { acceptTerms } = require('./helpers/acceptTerms');
 
 test.describe('email verification page', () => {
   test('shows error state for an invalid token', async ({ page }) => {
@@ -27,6 +28,7 @@ test.describe('email verification page', () => {
     await page.goto('/login');
     await page.fill('#login-email', email);
     await page.fill('#login-password', 'pw-test-123');
+    await acceptTerms(page);
     await page.getByRole('button', { name: 'Log In', exact: true }).click();
     // This is the unverified path, so it deliberately does NOT verify the user (see
     // helpers/verifiedUser). Logging in establishes a session but must not grant
@@ -56,6 +58,7 @@ test.describe('email verification page', () => {
     await page.goto('/login');
     await page.fill('#login-email', email);
     await page.fill('#login-password', 'pw-test-123');
+    await acceptTerms(page);
     await page.getByRole('button', { name: 'Log In', exact: true }).click();
 
     await expect(page).toHaveURL(/\/dashboard/, { timeout: 15000 });

@@ -1,5 +1,6 @@
 const { test, expect } = require('@playwright/test');
 const { markEmailVerified } = require('./helpers/verifiedUser');
+const { acceptTerms } = require('./helpers/acceptTerms');
 
 test.describe('authentication flows', () => {
   let credentials;
@@ -23,6 +24,7 @@ test.describe('authentication flows', () => {
     await page.goto('/login');
     await page.fill('#login-email', credentials.email);
     await page.fill('#login-password', credentials.password);
+    await acceptTerms(page);
     await page.getByRole('button', { name: 'Log In', exact: true }).click();
 
     await expect(page).toHaveURL(/\/dashboard/, { timeout: 15000 });
@@ -32,9 +34,18 @@ test.describe('authentication flows', () => {
     await page.goto('/login');
     await page.fill('#login-email', credentials.email);
     await page.fill('#login-password', 'wrong-password');
+    // Without this the form refuses to submit and raises the ToS alert, which
+    // satisfies the getByRole('alert') assertion below -- so the test passed
+    // without ever sending a wrong password.
+    await acceptTerms(page);
     await page.getByRole('button', { name: 'Log In', exact: true }).click();
 
-    await expect(page.getByRole('alert')).toBeVisible({ timeout: 15000 });
+    // Named, so the assertion cannot be satisfied by some unrelated alert. This is
+    // the only thing that distinguishes "the form rejected the password" from "the
+    // form rejected something else".
+    await expect(page.getByRole('alert')).toContainText(/password|credential|invalid/i, {
+      timeout: 15000,
+    });
     await expect(page).toHaveURL(/\/login$/);
   });
 });

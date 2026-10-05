@@ -7,7 +7,7 @@
   "register": "Register",
   "logout": "Log Out",
   "home": "Home",
-  "dashboard": "Dashboard",
+  "dashboard_label": "Dashboard",
   "language": "Language",
   "switch_to_fr": "Français",
   "switch_to_en": "English",

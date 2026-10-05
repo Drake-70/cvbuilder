@@ -1,6 +1,7 @@
 const path = require('path');
 const { test, expect } = require('@playwright/test');
 const { markEmailVerified } = require('./helpers/verifiedUser');
+const { acceptTerms } = require('./helpers/acceptTerms');
 
 const SHOT_DIR = path.join(process.env.LOCALAPPDATA || process.env.TEMP, 'Temp', 'opencode', 'paste-parse-shots');
 
@@ -81,6 +82,7 @@ test.describe('paste-path CV parsing', () => {
     await page.fill('#register-email', email);
     await page.fill('#register-password', 'paste-pass-123');
     await page.fill('#register-confirm', 'paste-pass-123');
+    await acceptTerms(page);
     await page.getByRole('button', { name: 'Create Account', exact: true }).click();
     // A new account is unverified, so registration lands on the verification screen.
     // Verified here (no mail provider in the test environment) and then loaded, which

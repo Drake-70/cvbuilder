@@ -1,5 +1,6 @@
 const { test, expect } = require('@playwright/test');
 const { markEmailVerified } = require('./helpers/verifiedUser');
+const { acceptTerms } = require('./helpers/acceptTerms');
 
 test.describe('CVBoost landing page', () => {
   test('renders hero, header and footer', async ({ page }) => {
@@ -75,6 +76,7 @@ test.describe('registration flow', () => {
     await page.fill('#register-email', email);
     await page.fill('#register-password', 'e2e-pass-123');
     await page.fill('#register-confirm', 'e2e-pass-123');
+    await acceptTerms(page);
 
     await page.getByRole('button', { name: 'Create Account', exact: true }).click();
 
