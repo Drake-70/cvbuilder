@@ -1,9 +1,6 @@
-const path = require('path');
 const { test, expect } = require('@playwright/test');
 const { markEmailVerified } = require('./helpers/verifiedUser');
 const { acceptTerms } = require('./helpers/acceptTerms');
-
-const SHOT_DIR = path.join(process.env.LOCALAPPDATA || process.env.TEMP, 'Temp', 'opencode', 'gap-highlight-shots');
 
 const ORIGINAL_STRUCTURED = {
   name: 'MARIE NKAMGA',
@@ -77,7 +74,7 @@ const MOCK_TAILOR = {
 };
 
 test.describe('gap-highlight diff', () => {
-  test('build path shows gaps first, then structured Before above After on A4 sheets', async ({ page }) => {
+  test('build path shows gaps first, then structured Before above After on A4 sheets', async ({ page }, testInfo) => {
     const fulfillJson = (route, body) =>
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
 
@@ -156,6 +153,11 @@ test.describe('gap-highlight diff', () => {
     await chips.nth(0).click();
     await expect(page.locator('.a4-sheet mark.cv-hl-new')).toHaveCount(5);
 
-    await page.screenshot({ path: path.join(SHOT_DIR, 'gap-highlight-final.png') });
+    // Written into this test's own output directory, which Playwright creates per run on
+    // whatever platform is executing. The previous hardcoded path was Windows-only and
+    // resolved to undefined on the Linux runner, so `path.join` threw while the spec was
+    // being collected -- taking the whole suite down before a single test ran, including
+    // the specs that had nothing to do with this screenshot.
+    await page.screenshot({ path: testInfo.outputPath('gap-highlight-final.png') });
   });
 });

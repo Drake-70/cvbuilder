@@ -1,9 +1,6 @@
-const path = require('path');
 const { test, expect } = require('@playwright/test');
 const { markEmailVerified } = require('./helpers/verifiedUser');
 const { acceptTerms } = require('./helpers/acceptTerms');
-
-const SHOT_DIR = path.join(process.env.LOCALAPPDATA || process.env.TEMP, 'Temp', 'opencode', 'paste-parse-shots');
 
 const PASTED_CV = `MARIE NKAMGA
 Douala, Cameroon
@@ -63,7 +60,7 @@ const MOCK_TAILOR = {
 };
 
 test.describe('paste-path CV parsing', () => {
-  test('pasted CV is parsed into a structured Before sheet (real /api/cv/paste)', async ({ page }) => {
+  test('pasted CV is parsed into a structured Before sheet (real /api/cv/paste)', async ({ page }, testInfo) => {
     const fulfillJson = (route, body) =>
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
 
@@ -117,6 +114,8 @@ test.describe('paste-path CV parsing', () => {
     expect(beforeText).not.toContain('{"');
     expect(beforeText).toMatch(/EXPERIENCE|Customer Service Agent/);
 
-    await page.screenshot({ path: path.join(SHOT_DIR, 'paste-parsed.png') });
+    // See the note in gap-highlight.spec.js: the output directory is per-run and portable,
+    // where the previous hardcoded path was Windows-only and aborted spec collection.
+    await page.screenshot({ path: testInfo.outputPath('paste-parsed.png') });
   });
 });
