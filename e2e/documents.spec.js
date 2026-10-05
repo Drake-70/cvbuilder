@@ -80,3 +80,75 @@ test.describe('document lifecycle', () => {
     expect(docs2.some((d) => d._id === docId)).toBe(false);
   });
 });
+
+// The rest of this file drives the API directly, which left /documents/:id with no browser
+// coverage at all. That gap is not theoretical: the page shipped a temporal-dead-zone crash
+// ("Cannot access 'handleDownload' before initialization") that blanked it on every visit,
+// and every API-level assertion here still passed. A page can satisfy its entire API contract
+// and render nothing whatsoever.
+test.describe('document detail page', () => {
+  test('renders a saved document in the browser without throwing', async ({ page, request }) => {
+    // Uncaught exceptions, collected across the whole navigation. This is the assertion
+    // that catches a render-time crash; without it a blank page still "passes" any check
+    // that only asks whether some element is absent.
+    const pageErrors = [];
+    page.on('pageerror', (err) => pageErrors.push(err.message));
+
+    const email = `pw-page-${Date.now()}@test.com`;
+    const reg = await request.post('/api/auth/register', {
+      data: { name: 'Page Tester', email, password: 'pw-test-123' }
+    });
+    expect(reg.ok()).toBeTruthy();
+    await markEmailVerified(email);
+
+    const csrf = (await request.storageState()).cookies.find((c) => c.name === 'csrf-token')?.value || '';
+    const save = await request.post('/api/document/save', {
+      headers: { 'X-CSRF-Token': csrf },
+      data: {
+        baseCvId: null,
+        jobTitle: 'Marketing Officer',
+        jobDescription: 'Manage social media and support the sales team in Douala.',
+        tailoredContent: {
+          name: 'Page Tester',
+          summary: 'Marketing professional in Douala.',
+          skills: ['Social Media', 'Microsoft Office'],
+          experience: [{ title: 'Assistant', company: 'Local Co', dates: '2023-2024', bullets: ['Ran campaigns'] }]
+        },
+        coverLetter: 'Dear Hiring Manager,\n\nI am a great fit.',
+        gapAnalysis: ['More quantifiable results'],
+        language: 'en',
+        template: 'modern'
+      }
+    });
+    expect(save.status()).toBe(201);
+    const docId = (await save.json())._id;
+
+    await page.goto(`/documents/${docId}`);
+
+    // Asserted on values that came from the document, not on UI copy. Translations change,
+    // and a test that fails when a label is reworded trains people to ignore it.
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(/Marketing Officer/);
+    await expect(
+      page.getByText('Manage social media and support the sales team in Douala.')
+    ).toBeVisible();
+
+    expect(pageErrors, `uncaught errors while rendering the document page:\n${pageErrors.join('\n')}`).toEqual([]);
+  });
+
+  test('shows the not-found state instead of crashing on an unknown id', async ({ page, request }) => {
+    const pageErrors = [];
+    page.on('pageerror', (err) => pageErrors.push(err.message));
+
+    const email = `pw-404-${Date.now()}@test.com`;
+    await request.post('/api/auth/register', {
+      data: { name: 'Missing Tester', email, password: 'pw-test-123' }
+    });
+    await markEmailVerified(email);
+
+    await page.goto('/documents/000000000000000000000000');
+
+    // A real response, not a crash: the page handles the 404 itself.
+    await expect(page.getByRole('heading', { level: 2 })).toBeVisible();
+    expect(pageErrors, `uncaught errors on the not-found path:\n${pageErrors.join('\n')}`).toEqual([]);
+  });
+});
