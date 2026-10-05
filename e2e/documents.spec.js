@@ -1,5 +1,6 @@
 const { test, expect } = require('@playwright/test');
 const { markEmailVerified } = require('./helpers/verifiedUser');
+const { copyApiCookiesToBrowser, expectInsideProtectedRoute } = require('./helpers/browserSession');
 
 test.describe('document lifecycle', () => {
   test('save, list, view, share, update status, and delete a tailored document', async ({ request }) => {
@@ -123,7 +124,9 @@ test.describe('document detail page', () => {
     expect(save.status()).toBe(201);
     const docId = (await save.json())._id;
 
+    await copyApiCookiesToBrowser(request, page);
     await page.goto(`/documents/${docId}`);
+    await expectInsideProtectedRoute(page, `/documents/${docId}`);
 
     // Asserted on values that came from the document, not on UI copy. Translations change,
     // and a test that fails when a label is reworded trains people to ignore it.
@@ -144,11 +147,20 @@ test.describe('document detail page', () => {
       data: { name: 'Missing Tester', email, password: 'pw-test-123' }
     });
     await markEmailVerified(email);
+    await copyApiCookiesToBrowser(request, page);
 
+    // A valid 24-hex ObjectId that belongs to nobody, so the API answers 404 rather
+    // than failing to cast.
     await page.goto('/documents/000000000000000000000000');
 
-    // A real response, not a crash: the page handles the 404 itself.
-    await expect(page.getByRole('heading', { level: 2 })).toBeVisible();
+    // The URL assertion is load-bearing. An anonymous browser is redirected to /login,
+    // which renders its own h2 in the split-screen panel -- so the previous version of
+    // this test, asserting only that "an h2 is visible", was green while the 404 branch
+    // of the page ran zero times.
+    await expectInsideProtectedRoute(page, '/documents/000000000000000000000000');
+    await expect(page.getByRole('heading', { level: 2, name: 'Document not found.' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Dashboard', exact: true })).toBeVisible();
+
     expect(pageErrors, `uncaught errors on the not-found path:\n${pageErrors.join('\n')}`).toEqual([]);
   });
 });
