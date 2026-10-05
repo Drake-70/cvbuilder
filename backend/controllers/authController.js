@@ -64,6 +64,12 @@ function userResponse(user) {
     role: user.role || 'user',
     hasPassword: !!user.passwordHash,
     emailVerified: !!user.emailVerified,
+    // Reflected so the app can show a suspended account an explanation and stop
+    // retrying, rather than rendering as though merely logged out. `reason` is
+    // admin-authored text about this user's own account.
+    suspended: !!user.suspended,
+    suspendedReason: user.suspended ? (user.suspendedReason || '') : '',
+    suspendedAt: user.suspended ? user.suspendedAt || null : null,
     // Reflected so the settings toggle shows the real stored state rather than
     // local component state, which would silently disagree after a failed save.
     dailyDigest: !!user.dailyDigest
@@ -260,11 +266,31 @@ exports.login = async (req, res, next) => {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
+    // Checked after the password comparison, not before it.
+    //
+    // Before would mean a suspended account reports its own state to anyone who can
+    // name the address: "this account is suspended" is an answer about an account,
+    // and it turns the login form into an account-existence oracle for every address
+    // on the list. After the comparison means a suspended user with the right
+    // password is told why, and everyone else still gets "invalid email or password".
+    if (user.suspended) {
+      return res.status(403).json({
+        error: 'This account has been suspended.',
+        code: 'ACCOUNT_SUSPENDED',
+        reason: user.suspendedReason || '',
+        since: user.suspendedAt
+      });
+    }
+
     // Reset lockout on successful login
     if (user.loginAttempts || user.lockoutUntil) {
       user.loginAttempts = 0;
       user.lockoutUntil = null;
     }
+
+    // Exact, unlike lastActiveAt: this is one deliberate write on the session path
+    // only, so it costs nothing on ordinary traffic.
+    user.lastLoginAt = new Date();
 
     const tokens = generateTokens(user._id, user.tokenVersion);
     setTokenCookies(res, tokens.accessToken, tokens.refreshToken);

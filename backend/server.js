@@ -33,6 +33,7 @@ const sanitize = require('./middleware/sanitize');
 const csrfProtection = require('./middleware/csrf');
 const logger = require('./utils/logger');
 const { cacheMiddleware, invalidateCache } = require('./middleware/cache');
+const metrics = require('./services/metrics');
 const redis = require('./config/redis');
 
 const authRoutes = require('./routes/auth');
@@ -221,6 +222,14 @@ app.get('/api/health', cacheMiddleware(30, undefined, { memoryOnly: true }), (_r
     env: process.env.NODE_ENV || 'development'
   });
 });
+
+// Request metrics, mounted before the rate limiter and the routers so it measures the
+// request as the client experienced it, including the time spent being rate limited
+// and rejected. Mounted after the health probe on purpose: Render polls /api/health
+// every few seconds, and counting those would put a constant stream of synthetic
+// "traffic" at the top of every route table and dilute the error rate with the
+// platform's own polling.
+app.use(metrics.metricsMiddleware);
 
 app.use(generalLimiter);
 
