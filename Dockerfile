@@ -45,11 +45,19 @@ ARG TECTONIC_SHA256=8533d07f9ccbd7a65824b9e0459041bca34af1eb33daba48f59215593753
 
 RUN apk add --no-cache curl ca-certificates tar
 
-# tectonic reads its cache location from the platform's user cache directory,
-# which on Linux means $XDG_CACHE_HOME (falling back to $HOME/.cache) with a
-# "bundles" subdirectory appended by the library. There is no TECTONIC_CACHE_DIR
-# and no CLI flag for it, so XDG_CACHE_HOME is the only lever -- and setting it to
-# a fixed path is what makes the cache copyable into the production stage.
+# Where tectonic keeps its downloaded TeX bundle.
+#
+# TECTONIC_CACHE_DIR is tectonic's own override and is used verbatim: only the
+# requested subdirectory ("bundles") is appended to it. XDG_CACHE_HOME also points
+# here as a backstop, because that path is resolved by the `directories` crate,
+# which inserts an extra "Tectonic" component ($XDG_CACHE_HOME/Tectonic) and could
+# change under us. Both routes stay inside /opt/tectonic, so the single
+# `COPY --from=latex /opt/tectonic /opt/tectonic` below captures the bundle either
+# way, and the warm-up step asserts against the path tectonic reports rather than
+# a hardcoded guess.
+#
+# Verified against tectonic 0.17.0 (crates/io_base/src/app_dirs.rs).
+ENV TECTONIC_CACHE_DIR=/opt/tectonic
 ENV XDG_CACHE_HOME=/opt/tectonic
 
 # The release digest is verified rather than the URL trusted: a build that pulls a
@@ -80,17 +88,36 @@ COPY docker/tectonic-warmup.tex /tmp/warmup.tex
 # on an empty page would compile the first few CVs and then hit the network on one
 # that mentions a certification.
 #
-# `--only-cached` is deliberately NOT used here: this is the one place the bundle
+# The warming compile does NOT pass --only-cached: this is the one place the bundle
 # is allowed to be fetched. tectonic does not create `--outdir`, it errors if the
-# directory is missing, so it is made first. The two assertions at the end are what
-# turn a silent misconfiguration into a build failure: without the first, a wrong
-# cache path would put the bundle in $HOME/.cache and leave the copy below empty.
+# directory is missing, so it is made first.
+#
+# The cache location is *asked for*, not assumed: `tectonic -X show user-cache-dir`
+# prints the directory tectonic itself resolved, `bundles` already included. A
+# hardcoded path is what broke this build once -- the compile succeeded, the
+# assertion expected a directory one segment shallower than where the bundle
+# actually landed, and a working image failed to build. Reading the path back from
+# the binary cannot drift with a version bump.
+#
+# That path is only logged, deliberately, and the proof that the warm-up worked is
+# the second compile. Resolving the cache directory creates it as a side effect, so
+# `test -d` on the reported path passes even when nothing was downloaded and would
+# happily green-light an empty cache. Recompiling with the exact flag set the
+# runtime uses (`--outfmt pdf --only-cached --untrusted`) cannot be faked that way:
+# with the network forbidden, it succeeds only if every package the templates need
+# is genuinely cached. This is the contract production depends on, so it is checked
+# here rather than discovered by the first user who exports a PDF.
 RUN set -eux; \
-    mkdir -p /tmp/warmup-out; \
+    mkdir -p /tmp/warmup-out /tmp/warmup-cached-out; \
     /usr/local/bin/tectonic -X compile --outdir /tmp/warmup-out --outfmt pdf /tmp/warmup.tex; \
     test -s /tmp/warmup-out/warmup.pdf; \
-    test -d /opt/tectonic/bundles; \
-    du -sh /opt/tectonic
+    cache_dir="$(/usr/local/bin/tectonic -X show user-cache-dir 2>/dev/null)"; \
+    test -n "$cache_dir"; \
+    echo "warmed tectonic bundle cache at $cache_dir"; \
+    du -sh "$cache_dir"; \
+    /usr/local/bin/tectonic -X compile --outfmt pdf --only-cached --untrusted \
+      --outdir /tmp/warmup-cached-out /tmp/warmup.tex; \
+    test -s /tmp/warmup-cached-out/warmup.pdf
 
 # Production image
 FROM node:22-alpine AS production
@@ -104,6 +131,10 @@ COPY --from=base /app/frontend/dist ./frontend/dist
 # renders through pdfkit. That is the whole reason the fallback exists.
 COPY --from=latex /usr/local/bin/tectonic /usr/local/bin/tectonic
 COPY --from=latex /opt/tectonic /opt/tectonic
+# Must match the latex stage exactly: the runtime resolves the bundle through these,
+# so a mismatch ships a pre-warmed cache that --only-cached cannot find and every
+# export fails on the first PDF request.
+ENV TECTONIC_CACHE_DIR=/opt/tectonic
 ENV XDG_CACHE_HOME=/opt/tectonic
 ENV TECTONIC_BIN=/usr/local/bin/tectonic
 

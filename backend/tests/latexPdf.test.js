@@ -533,16 +533,72 @@ describe('routes: the template capability endpoint', () => {
 describe('Dockerfile: the engine is installed reproducibly', () => {
   const dockerfile = fs.readFileSync(DOCKERFILE, 'utf8');
 
-  test('points the bundle cache at XDG_CACHE_HOME, not a variable that does not exist', () => {
-    // tectonic reads its cache from the platform user cache directory. There is no
-    // TECTONIC_CACHE_DIR and no flag for it, so an env var of that name is silently
-    // ignored and the bundle lands in $HOME/.cache -- leaving the copied cache empty.
-    assert.ok(dockerfile.includes('ENV XDG_CACHE_HOME=/opt/tectonic'), 'should set XDG_CACHE_HOME');
-    // Matched as an assignment rather than a bare substring, because the Dockerfile
-    // names the variable in a comment to explain why it is not used.
+  test('points the bundle cache at a fixed directory tectonic resolves', () => {
+    // tectonic resolves its cache via TECTONIC_CACHE_DIR (used verbatim, only the
+    // "bundles" subdirectory appended) or, failing that, $XDG_CACHE_HOME through the
+    // `directories` crate, which inserts an extra "Tectonic" component. Both are set
+    // to the same root so the cache lands under /opt/tectonic whichever applies, and
+    // so the single COPY below captures it.
+    assert.ok(dockerfile.includes('ENV TECTONIC_CACHE_DIR=/opt/tectonic'), 'should set TECTONIC_CACHE_DIR');
+    assert.ok(dockerfile.includes('ENV XDG_CACHE_HOME=/opt/tectonic'), 'should also set XDG_CACHE_HOME');
+  });
+
+  test('asks tectonic where the bundle is instead of guessing', () => {
+    // The build failed once on exactly this: the bundle landed one level deeper than
+    // the assertion expected, so a successful compile exited non-zero. Reading the
+    // resolved path back from the binary cannot drift with a version bump.
+    assert.match(
+      dockerfile,
+      /tectonic -X show user-cache-dir/,
+      'should query the cache path from tectonic'
+    );
     assert.ok(
-      !/TECTONIC_CACHE_DIR\s*=/.test(dockerfile),
-      'TECTONIC_CACHE_DIR does nothing and must not be assigned'
+      !/test -d \/opt\/tectonic\/bundles/.test(dockerfile),
+      'should not assert a hardcoded bundle path'
+    );
+  });
+
+  test('proves the warm-up by recompiling offline, not by testing the directory', () => {
+    // Resolving the cache dir creates it (get_user_cache_dir calls create_dir_all), so
+    // `test -d` on the reported path passes even when the bundle is empty -- it would
+    // green-light exactly the failure it is meant to catch. Recompiling with the
+    // runtime's own flags cannot be faked: with the network forbidden it succeeds
+    // only if every needed package is genuinely cached.
+    // Matched as one literal rather than flag by flag: those flags also appear in the
+    // comments above it, and a per-flag indexOf finds the prose, not the command.
+    const at = dockerfile.indexOf(
+      '/usr/local/bin/tectonic -X compile --outfmt pdf --only-cached --untrusted'
+    );
+    assert.ok(at > 0, 'the warm-up should recompile offline with the runtime flag set');
+
+    // Must come after the warming compile, and its output must be checked, or the
+    // second command is decoration.
+    const warmingAt = dockerfile.indexOf('--outdir /tmp/warmup-out --outfmt pdf');
+    assert.ok(warmingAt > 0, 'should warm the bundle first');
+    assert.ok(warmingAt < at, 'the offline proof must follow the warming compile');
+    assert.ok(
+      dockerfile.slice(at).includes('test -s /tmp/warmup-cached-out/warmup.pdf'),
+      'the offline recompile output should be asserted'
+    );
+    assert.ok(
+      dockerfile.includes('mkdir -p /tmp/warmup-out /tmp/warmup-cached-out'),
+      'both outdirs must be created; tectonic errors on a missing one'
+    );
+  });
+
+  test('sets the same cache location in the production stage', () => {
+    // The runtime resolves the bundle through these variables; if they differ from
+    // the latex stage, --only-cached cannot find the pre-warmed cache.
+    const productionAt = dockerfile.indexOf('AS production');
+    assert.ok(productionAt > 0, 'should have a production stage');
+    const production = dockerfile.slice(productionAt);
+    assert.ok(
+      production.includes('ENV TECTONIC_CACHE_DIR=/opt/tectonic'),
+      'production should set TECTONIC_CACHE_DIR'
+    );
+    assert.ok(
+      production.includes('ENV XDG_CACHE_HOME=/opt/tectonic'),
+      'production should set XDG_CACHE_HOME'
     );
   });
 

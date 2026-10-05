@@ -433,10 +433,16 @@ runtime can compile with `--only-cached` and never touch the network.
 
 Two build-time details that are easy to get wrong and fail silently:
 
-- **There is no `TECTONIC_CACHE_DIR`.** The cache follows the platform user cache
-  directory, so `XDG_CACHE_HOME` is the only lever on Linux and the bundle lands at
-  `/opt/tectonic/bundles`. The Dockerfile asserts that directory exists after the
-  warm-up, so a wrong guess fails the build instead of shipping.
+- **The cache path is resolved by the library, not by the obvious route.**
+  `TECTONIC_CACHE_DIR` is tectonic's own override and is used verbatim, with only the
+  `bundles` subdirectory appended. Without it, `XDG_CACHE_HOME` is resolved by the
+  `directories` crate, which inserts an extra `Tectonic` component — so
+  `XDG_CACHE_HOME=/opt/tectonic` yields `/opt/tectonic/Tectonic/bundles`, not
+  `/opt/tectonic/bundles`. The Dockerfile sets both to the same root so the bundle
+  lands under `/opt/tectonic` either way, and then asks
+  `tectonic -X show user-cache-dir` for the resolved path rather than asserting a
+  guess. A hardcoded path is what broke this build once: the compile succeeded, the
+  assertion looked one segment too shallow, and a working image failed to build.
 - **`tectonic` does not create `--outdir`** — it errors if it is missing — so the
   warm-up makes it first.
 
