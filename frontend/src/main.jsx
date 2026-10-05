@@ -1,60 +1,41 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
-import * as Sentry from '@sentry/react'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { ToastProvider } from './contexts/ToastContext'
+import AppErrorBoundary from './components/AppErrorBoundary'
 import analytics from './utils/analytics'
+import { initSentry } from './utils/sentry'
+import { loadTelemetry } from './utils/telemetry'
 import './i18n'
 import './index.css'
 import App from './App.jsx'
 
-if (import.meta.env.VITE_SENTRY_DSN) {
-  Sentry.init({
-    dsn: import.meta.env.VITE_SENTRY_DSN,
-    environment: import.meta.env.VITE_APP_ENV || import.meta.env.MODE,
-    tracesSampleRate: 0.1
-  })
-}
+// Both of these are deferred to the load event. Neither is needed to render
+// the app, and eagerly importing or fetching them cost real load time: the
+// Sentry and PostHog SDKs together were the largest chunk in the entry graph,
+// and the telemetry script was parser-blocking. See the utils for detail.
+window.addEventListener('load', () => {
+  initSentry();
+  loadTelemetry();
 
-analytics.init()
+  if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(err => console.warn('SW registration failed:', err.message));
+  } else if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then(regs => regs.forEach(r => r.unregister())).catch(() => {});
+  }
+}, { once: true });
 
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    if (import.meta.env.PROD) {
-      navigator.serviceWorker.register('/sw.js').catch(err => console.warn('SW registration failed:', err.message));
-    } else {
-      navigator.serviceWorker.getRegistrations().then(regs => regs.forEach(r => r.unregister())).catch(() => {});
-    }
-  });
-}
-
-function CrashFallback() {
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
-      <div className="text-center max-w-md">
-        <h1 className="text-xl font-bold text-slate-900 mb-2">Something went wrong</h1>
-        <p className="text-slate-600 mb-4">An unexpected error occurred. Please refresh the page to continue.</p>
-        <button
-          type="button"
-          onClick={() => window.location.reload()}
-          className="px-4 py-2 rounded-lg bg-brand-600 text-white font-medium hover:bg-brand-700"
-        >
-          Reload
-        </button>
-      </div>
-    </div>
-  )
-}
+analytics.init();
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <BrowserRouter>
       <ThemeProvider>
         <ToastProvider>
-          <Sentry.ErrorBoundary fallback={<CrashFallback />}>
+          <AppErrorBoundary>
             <App />
-          </Sentry.ErrorBoundary>
+          </AppErrorBoundary>
         </ToastProvider>
       </ThemeProvider>
     </BrowserRouter>

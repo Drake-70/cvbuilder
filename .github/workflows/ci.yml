@@ -78,6 +78,8 @@ jobs:
       # build from the cache and never revalidated it. No dependencies.
       - name: Check service worker asset policy
         run: npm run check:sw-assets
+      - name: Check index.html for render blocking
+        run: npm run check:render-blocking
       - name: Lint
         run: npm run lint
         working-directory: frontend

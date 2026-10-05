@@ -19,12 +19,12 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <title>CVBoost - Tailor Your CV with AI</title>
-    <!-- CMO.ai telemetry: user activity + Core Web Vitals + query perf → studio monitor -->
-    <script
-      src="https://cmo-a0km.onrender.com/telemetry.js"
-      data-product="cvboost"
-      data-endpoint="https://cmo-a0km.onrender.com"
-      data-key="tk_cb677041a7a3c43fa050aac91f50f96aca0fbfbf0a47bd91"></script>
+    <!--
+      The CMO.ai telemetry script used to live here as a plain <script src>, which is
+      parser-blocking: the browser stopped rendering the page to fetch it, from a host
+      that is often asleep on Render's free tier. It is now injected after the load
+      event by src/utils/telemetry.js, so it cannot hold up first paint.
+    -->
     <script>
       (function() {
         var theme = localStorage.getItem('cvboost-theme');

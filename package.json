@@ -12,6 +12,7 @@
     "check:workflows": "node scripts/check-workflows.js",
     "check:hook-deps": "node scripts/check-hook-deps.js",
     "check:sw-assets": "node scripts/check-sw-assets.js",
+    "check:render-blocking": "node scripts/check-render-blocking.js",
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:ui": "playwright test --ui",
     "tunnel": "ngrok http 5173",
