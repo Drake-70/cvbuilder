@@ -14,6 +14,26 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Cheap and first, because the failure it catches is the one CI cannot otherwise
+  # see: an unrecognised key makes GitHub discard a workflow file outright, so the
+  # workflow just stops running and no check ever goes red. jobs-scrape.yml managed
+  # that undetected for four days while its schedule silently did nothing.
+  workflows:
+    name: Workflow definitions
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Check workflow files load
+        run: npm run check:workflows
+
   backend:
     name: Backend unit tests
     runs-on: ubuntu-latest

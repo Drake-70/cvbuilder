@@ -9,6 +9,7 @@
     "build": "cd frontend && npm run build",
     "test:e2e": "playwright test",
     "test:e2e:report": "node scripts/e2e-failures.check.js",
+    "check:workflows": "node scripts/check-workflows.js",
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:ui": "playwright test --ui",
     "tunnel": "ngrok http 5173",
@@ -19,6 +20,7 @@
     "node": ">=22.0.0"
   },
   "devDependencies": {
-    "@playwright/test": "^1.62.1"
+    "@playwright/test": "^1.62.1",
+    "yaml": "^2.9.1"
   }
 }

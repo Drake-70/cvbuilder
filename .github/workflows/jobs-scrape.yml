@@ -9,8 +9,13 @@ on:
 
 # A full cycle takes 60-120s of outbound HTTP, so the job needs a generous
 # ceiling. The curl below caps itself at 420s.
-timeout-minutes: 15
-
+#
+# This belongs on the job, not at the top level: timeout-minutes is only defined
+# as jobs.<job_id>.timeout-minutes (and per step). A workflow-level one is not a
+# recognised key, which makes GitHub reject the whole file as invalid -- the job
+# then never runs on its schedule, and nothing reports it, because a workflow
+# that does not load simply produces no runs. That is how this file came to sit
+# broken and silent for days.
 concurrency:
   group: jobs-scrape
   cancel-in-progress: false
@@ -19,6 +24,7 @@ jobs:
   scrape:
     name: Trigger /api/jobs/scrape
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: POST scrape trigger
         env:
