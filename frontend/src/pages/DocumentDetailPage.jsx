@@ -52,6 +52,43 @@ export default function DocumentDetailPage() {
     fetchDoc();
   }, [id, t]);
 
+  const handleDownload = useCallback(async (fmt = format, tpl = null) => {
+    setDownloading(true);
+    try {
+      // The template is sent explicitly only for PDF. The .docx renderer has no
+      // LaTeX, so sending a LaTeX template there would leave the server to resolve
+      // it away from -- correct, but silent. Omitting it makes the PDF choice
+      // explicit and the Word choice fall back to the stored template.
+      const query = new URLSearchParams({ format: fmt });
+      if (tpl) query.set('template', tpl);
+      const res = await api.get(`/document/${id}/download?${query}`, { responseType: 'blob' });
+      const filename = doc?.language === 'fr' ? `CV_Adapte.${fmt}` : `Tailored_CV.${fmt}`;
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      fetchUser();
+      analytics.track('document_download', { format: fmt, template: tpl || doc?.template, documentId: id });
+      if (res.headers?.['x-watermarked'] === 'true') {
+        toast.info(t('watermark_toast_title'), t('watermark_toast_msg'));
+      }
+    } catch {
+      toast.error(t('download_failed'), t('download_failed_msg'));
+    } finally {
+      setDownloading(false);
+    }
+  }, [id, format, doc, t, toast, fetchUser]);
+
+  // Payment polling is declared after handleDownload on purpose: it lists
+  // handleDownload in its dependency array, and a dependency array is evaluated while the
+  // component renders -- before the `const` below would have been initialised. Reading it
+  // from here threw "Cannot access 'handleDownload' before initialization" on every render
+  // of this page, which is a total crash rather than a subtle misbehaviour. The early
+  // `return` inside the effect does not help: the array is built either way.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const paymentId = params.get('payment');
@@ -86,37 +123,6 @@ export default function DocumentDetailPage() {
     poll();
     return () => { cancelled = true; };
   }, [id, tPayment, toast, fetchUser, handleDownload]);
-
-  const handleDownload = useCallback(async (fmt = format, tpl = null) => {
-    setDownloading(true);
-    try {
-      // The template is sent explicitly only for PDF. The .docx renderer has no
-      // LaTeX, so sending a LaTeX template there would leave the server to resolve
-      // it away from -- correct, but silent. Omitting it makes the PDF choice
-      // explicit and the Word choice fall back to the stored template.
-      const query = new URLSearchParams({ format: fmt });
-      if (tpl) query.set('template', tpl);
-      const res = await api.get(`/document/${id}/download?${query}`, { responseType: 'blob' });
-      const filename = doc?.language === 'fr' ? `CV_Adapte.${fmt}` : `Tailored_CV.${fmt}`;
-      const url = window.URL.createObjectURL(new Blob([res.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', filename);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-      fetchUser();
-      analytics.track('document_download', { format: fmt, template: tpl || doc?.template, documentId: id });
-      if (res.headers?.['x-watermarked'] === 'true') {
-        toast.info(t('watermark_toast_title'), t('watermark_toast_msg'));
-      }
-    } catch {
-      toast.error(t('download_failed'), t('download_failed_msg'));
-    } finally {
-      setDownloading(false);
-    }
-  }, [id, format, doc, t, toast, fetchUser]);
 
   const handlePaymentSuccess = () => {
     handleDownload();
