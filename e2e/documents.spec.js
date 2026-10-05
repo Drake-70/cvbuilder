@@ -1,6 +1,7 @@
 const { test, expect } = require('@playwright/test');
 const { markEmailVerified } = require('./helpers/verifiedUser');
 const { copyApiCookiesToBrowser, expectInsideProtectedRoute } = require('./helpers/browserSession');
+const { csrfToken } = require('./helpers/csrf');
 
 test.describe('document lifecycle', () => {
   test('save, list, view, share, update status, and delete a tailored document', async ({ request }) => {
@@ -17,8 +18,7 @@ test.describe('document lifecycle', () => {
 
     const me = await ctx.get('/api/auth/me');
     expect(me.ok()).toBeTruthy();
-    const csrf = (await ctx.storageState()).cookies.find((c) => c.name === 'csrf-token')?.value || '';
-    const headers = { 'X-CSRF-Token': csrf };
+    const headers = { 'X-CSRF-Token': await csrfToken(ctx) };
 
     const payload = {
       baseCvId: null,
@@ -102,9 +102,8 @@ test.describe('document detail page', () => {
     expect(reg.ok()).toBeTruthy();
     await markEmailVerified(email);
 
-    const csrf = (await request.storageState()).cookies.find((c) => c.name === 'csrf-token')?.value || '';
     const save = await request.post('/api/document/save', {
-      headers: { 'X-CSRF-Token': csrf },
+      headers: { 'X-CSRF-Token': await csrfToken(request) },
       data: {
         baseCvId: null,
         jobTitle: 'Marketing Officer',
@@ -130,7 +129,14 @@ test.describe('document detail page', () => {
 
     // Asserted on values that came from the document, not on UI copy. Translations change,
     // and a test that fails when a label is reworded trains people to ignore it.
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText(/Marketing Officer/);
+    //
+    // Named rather than a bare level-1 query: the rendered CV carries its own h1 (the
+    // candidate's name), so `heading level 1` matches two elements and fails on strict
+    // mode. Naming the job title also pins it to the page heading instead of the
+    // document body.
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'Marketing Officer' })
+    ).toBeVisible();
     await expect(
       page.getByText('Manage social media and support the sales team in Douala.')
     ).toBeVisible();

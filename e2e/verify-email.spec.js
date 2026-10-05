@@ -40,9 +40,19 @@ test.describe('email verification page', () => {
     await expect(
       page.getByRole('heading', { name: 'Verification link invalid or expired' })
     ).toBeVisible();
-    await expect(
-      page.getByRole('button', { name: 'Resend Verification Email' })
-    ).toBeVisible();
+
+    // Matched on role and a stable substring rather than the whole label. The button
+    // carries a live countdown -- "Resend email", then "Resend available in 59s" -- so
+    // any exact-name match is a race against a timer that restarts on every render. The
+    // countdown state is asserted on its own terms below.
+    const resend = page.getByRole('button', { name: /Resend (email|available in)/ });
+    await expect(resend).toBeVisible();
+
+    // The countdown is the behaviour worth pinning: without it a resend that silently
+    // stopped being offered would still pass a "button exists" check. A brand new
+    // account has never been sent a code, so there is nothing to wait for.
+    await expect(resend).toBeEnabled();
+    await expect(resend).toHaveText(/^Resend email$/);
   });
 
   test('a verified user is sent to the dashboard, not the verification screen', async ({ page }) => {

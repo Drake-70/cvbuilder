@@ -1,6 +1,7 @@
 const { test, expect } = require('@playwright/test');
 const { request } = require('playwright');
 const { markEmailVerified } = require('./helpers/verifiedUser');
+const { csrfToken } = require('./helpers/csrf');
 
 test.describe('referral program', () => {
   test('grants a free credit to both parties and rejects misuse', async () => {
@@ -34,8 +35,7 @@ test.describe('referral program', () => {
     const meB = await ctxB.get('/api/auth/me');
     expect(meB.ok()).toBeTruthy();
     expect((await meB.json()).user.freeDocumentCredits).toBe(1);
-    const csrfB = (await ctxB.storageState()).cookies.find((c) => c.name === 'csrf-token')?.value || '';
-    const headersB = { 'X-CSRF-Token': csrfB };
+    const headersB = { 'X-CSRF-Token': await csrfToken(ctxB) };
 
     const apply = await ctxB.post('/api/referrals/apply', { headers: headersB, data: { code } });
     expect(apply.status()).toBe(200);
@@ -52,9 +52,8 @@ test.describe('referral program', () => {
     expect(again.status()).toBe(400);
     expect((await again.json()).error).toMatch(/already been used/i);
 
-    const csrfA = (await ctxA.storageState()).cookies.find((c) => c.name === 'csrf-token')?.value || '';
     const selfApply = await ctxA.post('/api/referrals/apply', {
-      headers: { 'X-CSRF-Token': csrfA },
+      headers: { 'X-CSRF-Token': await csrfToken(ctxA) },
       data: { code }
     });
     expect(selfApply.status()).toBe(400);
