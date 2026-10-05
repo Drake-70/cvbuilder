@@ -1,4 +1,5 @@
 const { test, expect } = require('@playwright/test');
+const { markEmailVerified } = require('./helpers/verifiedUser');
 
 const MINIMAL_CV = {
   name: 'Test User',
@@ -25,6 +26,9 @@ test.describe('free download credit flow', () => {
       data: { name: 'Credit Tester', email, password: 'pw-test-123' }
     });
     expect(reg.ok()).toBeTruthy();
+    // Document generation is gated on emailVerified, so without this the first
+    // generate is 403 rather than the 200 that spends the credit.
+    await markEmailVerified(email);
 
     const me = await ctx.get('/api/auth/me');
     expect(me.ok()).toBeTruthy();

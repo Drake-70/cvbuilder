@@ -1,5 +1,6 @@
 const path = require('path');
 const { test, expect } = require('@playwright/test');
+const { markEmailVerified } = require('./helpers/verifiedUser');
 
 const SHOT_DIR = path.join(process.env.LOCALAPPDATA || process.env.TEMP, 'Temp', 'opencode', 'gap-highlight-shots');
 
@@ -98,6 +99,12 @@ test.describe('gap-highlight diff', () => {
     await page.fill('#register-password', 'gap-pass-123');
     await page.fill('#register-confirm', 'gap-pass-123');
     await page.getByRole('button', { name: 'Create Account', exact: true }).click();
+    // A new account is unverified, so registration lands on the verification screen.
+    // Verified here (no mail provider in the test environment) and then loaded, which
+    // re-reads /auth/me -- the session cached at registration still says unverified.
+    await page.waitForURL(/\/verify-email/);
+    await markEmailVerified(email);
+    await page.goto('/dashboard');
     await page.waitForURL(/\/dashboard/);
 
     await page.goto('/tailor');

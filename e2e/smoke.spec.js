@@ -1,4 +1,5 @@
 const { test, expect } = require('@playwright/test');
+const { markEmailVerified } = require('./helpers/verifiedUser');
 
 test.describe('CVBoost landing page', () => {
   test('renders hero, header and footer', async ({ page }) => {
@@ -66,7 +67,7 @@ test.describe('API via dev proxy', () => {
 });
 
 test.describe('registration flow', () => {
-  test('registers a new user and lands on dashboard', async ({ page }) => {
+  test('registers a new user, gates them at verification, then reaches the dashboard', async ({ page }) => {
     const email = `e2e-${Date.now()}@test.com`;
     await page.goto('/register');
 
@@ -77,7 +78,18 @@ test.describe('registration flow', () => {
 
     await page.getByRole('button', { name: 'Create Account', exact: true }).click();
 
-    await expect(page).toHaveURL(/\/dashboard/, { timeout: 15000 });
+    // Registration succeeds, but a brand new account is unverified, so it is sent to
+    // the verification screen rather than straight to the dashboard. Asserted rather
+    // than skipped over: this is the gate doing its job on the very first navigation.
+    await expect(page).toHaveURL(/\/verify-email/, { timeout: 15000 });
+
+    // No mail provider in the test environment, so the flag the gate reads is set
+    // directly (see helpers/verifiedUser). A full page load re-reads /auth/me,
+    // because the session cached at registration still says emailVerified: false.
+    await markEmailVerified(email);
+    await page.goto('/dashboard');
+
+    await expect(page).toHaveURL(/\/dashboard/);
     await expect(page.getByRole('banner')).toBeVisible();
   });
 });

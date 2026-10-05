@@ -1,4 +1,5 @@
 const { test, expect } = require('@playwright/test');
+const { markEmailVerified } = require('./helpers/verifiedUser');
 
 test.describe('authentication flows', () => {
   let credentials;
@@ -11,6 +12,11 @@ test.describe('authentication flows', () => {
     };
     const res = await request.post('/api/auth/register', { data: credentials });
     expect(res.ok()).toBeTruthy();
+    // These tests are about the credential checks, not the verification gate, and
+    // every route past login is gated on emailVerified. Verified up front so the
+    // dashboard is reachable; see helpers/verifiedUser for why this is a write and
+    // not a disabled gate.
+    await markEmailVerified(credentials.email);
   });
 
   test('logs in with valid credentials and lands on dashboard', async ({ page }) => {

@@ -1,4 +1,5 @@
 const { test, expect } = require('@playwright/test');
+const { markEmailVerified } = require('./helpers/verifiedUser');
 
 test.describe('document lifecycle', () => {
   test('save, list, view, share, update status, and delete a tailored document', async ({ request }) => {
@@ -9,6 +10,9 @@ test.describe('document lifecycle', () => {
       data: { name: 'Doc Tester', email, password: 'pw-test-123' }
     });
     expect(reg.ok()).toBeTruthy();
+    // /api/document/save is gated on emailVerified, so a brand new account would get
+    // 403 here rather than the 201 this flow is about.
+    await markEmailVerified(email);
 
     const me = await ctx.get('/api/auth/me');
     expect(me.ok()).toBeTruthy();

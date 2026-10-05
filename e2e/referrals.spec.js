@@ -1,5 +1,6 @@
 const { test, expect } = require('@playwright/test');
 const { request } = require('playwright');
+const { markEmailVerified } = require('./helpers/verifiedUser');
 
 test.describe('referral program', () => {
   test('grants a free credit to both parties and rejects misuse', async () => {
@@ -15,6 +16,9 @@ test.describe('referral program', () => {
       data: { name: 'Referrer A', email: emailA, password: 'pw-test-123' }
     });
     expect(regA.ok()).toBeTruthy();
+    // Both referral routes are gated on emailVerified, so both accounts need
+    // verifying before this flow can run.
+    await markEmailVerified(emailA);
 
     const statsA = await ctxA.get('/api/referrals/stats');
     expect(statsA.ok()).toBeTruthy();
@@ -25,6 +29,7 @@ test.describe('referral program', () => {
       data: { name: 'Referrer B', email: emailB, password: 'pw-test-123' }
     });
     expect(regB.ok()).toBeTruthy();
+    await markEmailVerified(emailB);
 
     const meB = await ctxB.get('/api/auth/me');
     expect(meB.ok()).toBeTruthy();
