@@ -96,8 +96,21 @@ jobs:
         working-directory: frontend
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
+      # Runs unconditionally, and before the suite: a reporter that silently stops
+      # reporting is how this suite stayed red for weeks unnoticed.
+      - name: Verify the e2e failure reporter
+        run: node scripts/e2e-failures.check.js
       - name: Run e2e tests
-        run: npx playwright test
+        # The JSON reporter is added alongside the list reporter, not instead of it:
+        # the log stays readable and the machine-readable report below drives the
+        # annotations, so a failing test is legible from the check itself.
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_NAME: e2e-results.json
+        run: npx playwright test --reporter=list,json
+      - name: Surface e2e failures
+        # Only on failure, and always exits 0 so it cannot mask the real verdict.
+        if: failure()
+        run: node scripts/e2e-failures.js e2e-results.json
 
   deploy-readiness:
     name: Deployment config checks
