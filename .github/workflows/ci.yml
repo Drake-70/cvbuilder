@@ -164,8 +164,25 @@ jobs:
       # window, from the captured log, so the cause is an annotation on the check run
       # rather than something only visible to someone who can read the run log.
       - name: Explain the e2e step failure
-        if: steps.e2e.outcome == 'failure'
+        # failure() rather than steps.e2e.outcome: on the run that motivated this step,
+        # the outcome comparison silently evaluated false and the explanation was skipped
+        # -- the exact case this step exists for. failure() does not depend on the step
+        # id resolving, and is still true here because the failure above persists.
+        if: failure()
         run: node scripts/e2e-explain.js e2e-run.log
+      # Both files are kept so the cause of a red job can be read from the run page
+      # instead of reconstructed from annotations. A red run used to produce no
+      # artifacts at all, which is why the log had to be recovered some other way.
+      - name: Keep the e2e report and run log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-report
+          path: |
+            e2e-results.json
+            e2e-run.log
+          if-no-files-found: warn
+          retention-days: 7
 
   deploy-readiness:
     name: Deployment config checks

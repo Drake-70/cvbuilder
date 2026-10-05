@@ -134,12 +134,20 @@ test.describe('document detail page', () => {
     // candidate's name), so `heading level 1` matches two elements and fails on strict
     // mode. Naming the job title also pins it to the page heading instead of the
     // document body.
+    //
+    // The timeout is explicit because the default 5s is not enough here on a cold run.
+    // /documents/:id is a lazily-imported route, so the first visit in a fresh checkout
+    // has to wait for Vite to transform that chunk and for the document fetch to land on
+    // top of it. Measured: the heading was still absent at 5s on a cold cache and the
+    // test passed on retry, so this is transform latency rather than a rendering fault.
+    // Scoped to this test rather than raised globally, since a blanket expect timeout
+    // would also hide a genuinely slow interaction everywhere else.
     await expect(
       page.getByRole('heading', { level: 1, name: 'Marketing Officer' })
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 15000 });
     await expect(
       page.getByText('Manage social media and support the sales team in Douala.')
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 15000 });
 
     expect(pageErrors, `uncaught errors while rendering the document page:\n${pageErrors.join('\n')}`).toEqual([]);
   });

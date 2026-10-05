@@ -57,7 +57,29 @@ const cases = [
         { status: 'passed' },
       ], 'flaky')] }],
     },
-    expect: (o) => o.startsWith('No per-test failures recorded') && o.includes('1 flaky'),
+    expect: (o) => o.startsWith('No failing tests and no load errors') && o.includes('1 flaky'),
+  },
+  {
+    // A run where nothing executed: no failing tests, a non-zero exit, and the whole
+    // cause sitting in suite.errors. Reading test results alone calls this clean.
+    name: 'a spec that failed to load is reported even with no failing tests',
+    report: {
+      stats: { expected: 0, unexpected: 0, flaky: 0 },
+      suites: [{
+        title: 'credits.spec.js',
+        file: 'e2e/credits.spec.js',
+        errors: [{
+          message: "Cannot find module 'jszip'\nRequire stack:\n- e2e/helpers/docx.js",
+          location: { file: 'e2e/credits.spec.js', line: 4, column: 31 },
+        }],
+        specs: [],
+      }],
+    },
+    expect: (o) =>
+      o.includes('could not be loaded') &&
+      o.includes('Cannot find module') &&
+      o.includes('file=e2e/credits.spec.js') &&
+      o.includes('line=4'),
   },
   {
     name: 'timedOut counts as a failure even with no error object',

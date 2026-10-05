@@ -68,9 +68,35 @@ function summarise(message, fallback) {
   return text.length > 300 ? `${text.slice(0, 297)}...` : text;
 }
 
+/**
+ * Errors that stopped a spec file from running at all.
+ *
+ * Playwright records these against the suite rather than as a failing test, so a run
+ * whose only problem is a spec that could not be loaded produces a report with zero
+ * failing tests and a non-zero exit code. Reading test results alone then reports
+ * "nothing failed" about a run in which nothing ran, which is the least useful answer
+ * available -- and is exactly how a red e2e job once sat unexplained for a whole cycle.
+ */
+function collectLoadErrors(suite, out) {
+  const file = (suite.file || '').replace(/\\/g, '/');
+  for (const error of suite.errors || []) {
+    const line = (error.location && error.location.line) || suite.line || 1;
+    out.push({
+      title: 'spec file could not be loaded',
+      file: file.split('/').pop() || 'playwright.config.js',
+      path: file || 'playwright.config.js',
+      line,
+      message: summarise(error.message, 'no error message'),
+    });
+  }
+}
+
 /** Collects the failing specs, since suites nest arbitrarily deep. */
 function collectFailures(suites, out = []) {
   for (const suite of suites || []) {
+    // Load errors come first: when a file fails to load its tests never appear, and
+    // leading with them keeps the actual cause above anything downstream of it.
+    collectLoadErrors(suite, out);
     collectFailures(suite.suites, out);
 
     for (const spec of suite.specs || []) {
@@ -110,7 +136,13 @@ function main() {
   const counts = report.stats || {};
 
   if (failures.length === 0) {
-    console.log(`No per-test failures recorded (${counts.expected || 0} expected, ${counts.unexpected || 0} unexpected, ${counts.flaky || 0} flaky).`);
+    // Names both channels it just checked, because the report existing is not evidence
+    // that anything ran: a suite that fails to load writes a report with no failures.
+    console.log(
+      `No failing tests and no load errors recorded (${counts.expected || 0} expected, ` +
+        `${counts.unexpected || 0} unexpected, ${counts.flaky || 0} flaky). ` +
+        'If the step still failed, the cause is outside the tests -- see the e2e run log.'
+    );
     return;
   }
 
