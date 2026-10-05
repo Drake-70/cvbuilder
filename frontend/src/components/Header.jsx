@@ -48,10 +48,17 @@ export default function Header() {
   };
 
   const handleLogout = async () => {
-    await logout();
+    // Leave the authenticated UI even if the request failed. Local state is
+    // cleared either way, and a reload reconciles the cookie against it.
+    try {
+      await logout();
+    } catch {
+      // Offline or server error; nothing useful to do but continue signing out.
+    } finally {
+      setMenuOpen(false);
+      setDropdownOpen(false);
+    }
     navigate('/');
-    setMenuOpen(false);
-    setDropdownOpen(false);
   };
 
   const dropdownItems = user ? [

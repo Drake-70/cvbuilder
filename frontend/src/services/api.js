@@ -1,5 +1,15 @@
 import axios from 'axios';
 
+// Set by AuthProvider. A 401 is ambiguous on its own: for an anonymous visitor
+// it is the correct answer and must change nothing, while for someone the app
+// believes is signed in it means the session is gone. Only the provider knows
+// which of those is true, so it registers the decision.
+let onSessionLost = null;
+
+export function setSessionLostHandler(fn) {
+  onSessionLost = fn;
+}
+
 const api = axios.create({
   baseURL: '/api',
   withCredentials: true
@@ -50,6 +60,13 @@ api.interceptors.response.use(
     sanitized.status = error.response?.status;
     sanitized.code = error.response?.data?.code;
     sanitized.response = { data: error.response?.data, status: error.response?.status };
+
+    // A hard 401 that is not a refreshable expiry means the session is gone.
+    // Left unhandled, the app keeps rendering authenticated chrome — the
+    // notification bell alone fires two 401s every 45 seconds forever — while
+    // every action behind it fails. The provider ignores this for anonymous
+    // visitors, for whom 401 is the expected answer.
+    if (sanitized.status === 401 && onSessionLost) onSessionLost();
 
     // The backend refuses gated routes for unverified accounts. Any component
     // that calls one without sitting behind ProtectedRoute would otherwise show

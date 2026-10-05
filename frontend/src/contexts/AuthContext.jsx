@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import api from '../services/api';
+import api, { setSessionLostHandler } from '../services/api';
 import analytics from '../utils/analytics';
 
 const AuthContext = createContext(null);
@@ -28,6 +28,16 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     fetchUser();
   }, [fetchUser]);
+
+  // Clear the session on any unrecoverable 401 so the UI stops claiming to be
+  // signed in. The functional update reads current state instead of closing
+  // over `user`, which would need this effect to re-register on every change.
+  useEffect(() => {
+    setSessionLostHandler(() => {
+      setUser((current) => (current ? null : current));
+    });
+    return () => setSessionLostHandler(null);
+  }, []);
 
   const login = async (email, password) => {
     const res = await api.post('/auth/login', { email, password });
@@ -58,9 +68,18 @@ export function AuthProvider({ children }) {
     return res.data;
   };
 
+  // Clearing local state is unconditional. The session lives in an httpOnly
+  // cookie, so a failed request means that cookie survives and a later reload
+  // would restore the session. That is still better than the alternative this
+  // used to produce: the rejection escaped, the caller never ran its next
+  // line, and the user was left staring at an authenticated page whose Log out
+  // button did nothing. The error is still rethrown so the caller can say so.
   const logout = async () => {
-    await api.post('/auth/logout');
-    setUser(null);
+    try {
+      await api.post('/auth/logout');
+    } finally {
+      setUser(null);
+    }
   };
 
   return (

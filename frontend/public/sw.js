@@ -1,4 +1,5 @@
-const CACHE_NAME = 'cvboost-v4';
+// Bump on every deploy that must invalidate previously cached bundles.
+const CACHE_NAME = 'cvboost-v5';
 const PRECACHE = ['/', '/index.html'];
 
 self.addEventListener('install', (event) => {
@@ -87,6 +88,36 @@ self.addEventListener('fetch', (event) => {
         return response;
       } catch (err) {
         return (await caches.match('/index.html')) || new Response('', { status: 504 });
+      }
+    })());
+    return;
+  }
+
+  // Content-hashed build assets are network-first, deliberately.
+  //
+  // Cache-first looks safe for hashed assets, and usually is: a new build
+  // renames every file, so a cache miss is guaranteed. It stops being safe the
+  // moment the network fails. A failed navigation falls back to the cached
+  // shell, that shell names the previous entry chunk, and every chunk it
+  // imports is cached as well — so the client boots an entire older build and
+  // never revalidates any of it. A crash fixed in the new build stays broken
+  // for that client indefinitely, which is exactly the failure this shape
+  // causes. Network-first here means a client is never handed a bundle older
+  // than the one the server is actually offering; the catch below still serves
+  // from cache when the network is genuinely unreachable.
+  if (url.pathname.startsWith('/assets/')) {
+    event.respondWith((async () => {
+      try {
+        const response = await fetch(event.request);
+        if (response && response.ok) {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+        }
+        return response;
+      } catch (err) {
+        const cached = await caches.match(event.request);
+        if (cached) return cached;
+        return new Response('', { status: 504 });
       }
     })());
     return;

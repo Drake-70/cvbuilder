@@ -73,6 +73,11 @@ jobs:
       # script has no dependencies, so it runs without an install step.
       - name: Check hook dependency order
         run: npm run check:hook-deps
+      # Cache-first on hashed assets is the bug that kept a fixed crash live in
+      # production: a client that lost connectivity booted an entire older
+      # build from the cache and never revalidated it. No dependencies.
+      - name: Check service worker asset policy
+        run: npm run check:sw-assets
       - name: Lint
         run: npm run lint
         working-directory: frontend
