@@ -134,19 +134,38 @@ jobs:
         run: npx playwright install --with-deps chromium
       # Runs unconditionally, and before the suite: a reporter that silently stops
       # reporting is how this suite stayed red for weeks unnoticed.
-      - name: Verify the e2e failure reporter
-        run: node scripts/e2e-failures.check.js
+      - name: Verify the e2e failure reporters
+        run: |
+          node scripts/e2e-failures.check.js
+          node scripts/e2e-explain.check.js
       - name: Run e2e tests
         # The JSON reporter is added alongside the list reporter, not instead of it:
         # the log stays readable and the machine-readable report below drives the
         # annotations, so a failing test is legible from the check itself.
+        #
+        # tee would otherwise swallow the exit status, so pipefail restores it. That
+        # matters here specifically: this step once failed in five seconds with no test
+        # failures in the report at all, and a green step here would have hidden it.
+        id: e2e
         env:
           PLAYWRIGHT_JSON_OUTPUT_NAME: e2e-results.json
-        run: npx playwright test --reporter=list,json
+        run: |
+          set -o pipefail
+          npx playwright test --reporter=list,json 2>&1 | tee e2e-run.log
       - name: Surface e2e failures
-        # Only on failure, and always exits 0 so it cannot mask the real verdict.
-        if: failure()
+        # Always, not only on failure: on a green run this reports the tally, so a
+        # reporter that has stopped working is visible rather than silent. Always exits
+        # 0, so it cannot mask the verdict from the step above.
+        if: always()
         run: node scripts/e2e-failures.js e2e-results.json
+      # The JSON report only exists once Playwright has collected and run tests, so a
+      # failure before that -- a config error, a port already bound, a webServer process
+      # that exited -- leaves the reporter with nothing to say. This step covers that
+      # window, from the captured log, so the cause is an annotation on the check run
+      # rather than something only visible to someone who can read the run log.
+      - name: Explain the e2e step failure
+        if: steps.e2e.outcome == 'failure'
+        run: node scripts/e2e-explain.js e2e-run.log
 
   deploy-readiness:
     name: Deployment config checks

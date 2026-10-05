@@ -20,6 +20,19 @@ const reportPath = process.argv[2] || process.env.PLAYWRIGHT_JSON_OUTPUT_NAME ||
 // is fine; the full text still goes to the step summary for anyone reading it.
 const MAX_ANNOTATIONS = 8;
 
+/**
+ * GitHub parses a workflow command as `::name key=value,key=value::body`, so a literal
+ * % or newline in either half is read as an escape rather than as text -- and a title
+ * containing a comma would be parsed as the start of another key.
+ */
+function escapeCommand(value, { isProperty }) {
+  const escaped = String(value)
+    .replace(/%/g, '%25')
+    .replace(/\r/g, '%0D')
+    .replace(/\n/g, '%0A');
+  return isProperty ? escaped.replace(/,/g, '%2C') : escaped;
+}
+
 function readReport() {
   try {
     const raw = fs.readFileSync(reportPath, 'utf8');
@@ -70,10 +83,16 @@ function collectFailures(suites, out = []) {
         const failed = results.length ? last.status !== 'passed' : test.status !== 'expected';
         if (!failed) continue;
 
-        const file = (spec.file || suite.file || '').split(/[\\/]/).pop();
+        // Two forms of the same path, for two different readers: the bare filename is
+        // what a person scanning the annotation list wants, while GitHub needs the
+        // repo-relative path to anchor the note to a location in the diff. Collapsing to
+        // the basename is what the earlier version did, so the annotation could not be
+        // clicked through to anything.
+        const path = (spec.file || suite.file || '').replace(/\\/g, '/');
         out.push({
           title: spec.title,
-          file,
+          file: path.split('/').pop(),
+          path,
           line: spec.line,
           message: summarise(last.error && last.error.message, last.status || test.status || 'failed'),
         });
@@ -101,13 +120,21 @@ function main() {
   console.log(`${failures.length} failing test(s): ${counts.unexpected || failures.length} unexpected, ${counts.flaky || 0} flaky`);
 
   for (const failure of failures.slice(0, MAX_ANNOTATIONS)) {
+    // file/line are carried on the annotation, not just in the title, so a failure is
+    // anchored to the spec that produced it in the diff view. Without them GitHub still
+    // renders the note, but only as free-floating text with nothing to click.
     const title = `e2e: ${failure.title} (${failure.file}:${failure.line})`;
-    console.log(`::error title=${title}::${failure.message}`);
+    console.log(
+      `::error file=${escapeCommand(failure.path, { isProperty: true })},` +
+        `line=${escapeCommand(failure.line, { isProperty: true })},` +
+        `title=${escapeCommand(title, { isProperty: true })}::` +
+        escapeCommand(failure.message, { isProperty: false })
+    );
   }
 
   if (failures.length > MAX_ANNOTATIONS) {
     const rest = failures.slice(MAX_ANNOTATIONS).map((f) => `${f.file}:${f.line} ${f.title}`).join(' | ');
-    console.log(`::error title=e2e (+${failures.length - MAX_ANNOTATIONS} more)::${rest}`);
+    console.log(`::error title=e2e (+${failures.length - MAX_ANNOTATIONS} more)::${escapeCommand(rest, { isProperty: false })}`);
   }
 
   // Full detail for whoever opens the run.
