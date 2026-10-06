@@ -369,6 +369,37 @@ test('every admin route is behind the admin guard', () => {
   assert.ok(guard < firstRoute, 'the guard must come before every handler');
 });
 
+test('the admin guard shares requireAuth instead of authenticating a second time', () => {
+  // It used to verify the JWT itself, which meant every guard added to requireAuth
+  // afterwards silently did not apply to admin routes. That is how revocation went
+  // missing from them: force-logging-out an admin did nothing until the token
+  // expired, and the one account it most needed to reach was unaffected by it.
+  const adminGuard = src('backend/middleware/requireAdmin.js');
+
+  assert.ok(adminGuard.includes('requireAuth'), 'authentication must be delegated');
+  assert.ok(!adminGuard.includes('jwt.verify'), 'must not verify the token again here');
+  assert.ok(!adminGuard.includes('sessionInvalidBefore'),
+    'the revocation check must not be reimplemented');
+  assert.ok(!adminGuard.includes('activity.touch'),
+    'the activity stamp belongs to requireAuth, not to its callers');
+  assert.ok(adminGuard.includes("'admin'"), 'the role check itself must remain');
+});
+
+test('the optional guard drops a withdrawn identity rather than populating it', () => {
+  const optionalAuth = src('backend/middleware/optionalAuth.js');
+
+  // Populating `req.user` from a revoked or suspended session would leave every
+  // downstream handler acting on an identity that has been withdrawn.
+  assert.ok(optionalAuth.includes('issuedBeforeRevocation'),
+    'revocation must be honoured here too');
+  assert.ok(optionalAuth.includes('user.suspended'), 'suspension must be honoured here too');
+  assert.ok(optionalAuth.includes('activity.touch'), 'an optional request is still activity');
+
+  // And it must still never reject: an external caller authenticating by header
+  // shares this path, and has no part in session state to be refused over.
+  assert.ok(!optionalAuth.includes('res.status('), 'optionalAuth must never send a response');
+});
+
 test('the new endpoints are wired to the handlers that were written for them', () => {
   const expected = [
     ['router.get(\'/kpis\'', 'adminKpiController.getKpis'],

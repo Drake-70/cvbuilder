@@ -99,6 +99,16 @@ function recordLatency(histogram, ms) {
 /** Express middleware. Mounted early so it measures the whole request lifecycle. */
 function metricsMiddleware(req, res, next) {
   const startedAt = process.hrtime.bigint();
+
+  // Captured here rather than read back at `finish`. By then Express has handed the
+  // request to a mounted router, and `req.route.path` is relative to that mount --
+  // "/kpis" instead of "/api/admin/kpis". Two routers with the same sub-path would
+  // then collide into one key, and the monitoring table would name a route that does
+  // not exist while the real one never appears. `originalUrl` is the full path; the
+  // query string is stripped because a query is unbounded, so leaving it in would
+  // rely entirely on the cardinality cap to avoid one key per request.
+  const requestPath = String(req.originalUrl || req.url || req.path || '').split('?')[0] || '/';
+
   state.totals.requests += 1;
   state.totals.inFlight += 1;
 
@@ -113,7 +123,7 @@ function metricsMiddleware(req, res, next) {
     const durationMs = Number(process.hrtime.bigint() - startedAt) / 1e6;
     const status = res.statusCode;
     const isError = status >= 500;
-    const key = normaliseRoute(req.path, req.route && req.route.path);
+    const key = normaliseRoute(requestPath);
 
     let route = state.routes.get(key);
     if (!route) {

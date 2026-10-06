@@ -12,10 +12,15 @@ const activity = require('../services/activity');
  * perfectly normal refresh. Comparing issue times revokes exactly the sessions that
  * existed when an admin acted.
  *
- * Second-resolution, because `iat` is a JWT numeric date. A token minted in the same
- * second as the revocation is treated as still valid; the window is one second and it
- * fails open deliberately, since the alternative is a suspension that intermittently
- * does not take effect on the account it was applied to.
+ * Second-resolution, because `iat` is a JWT numeric date and so is floored to the
+ * second. That flooring makes `iat * 1000` always read earlier than the token really
+ * was minted, which biases the comparison toward refusing — a token minted in the
+ * same second as the revocation is treated as revoked, not as valid. That is the
+ * direction this must fail in: the whole reason the field exists is that a
+ * suspension has to take effect immediately, and an intermittent "not revoked yet"
+ * would leave an abusive account working. The cost is a token issued within the same
+ * second of *clearing* a revocation also being refused, which resolves itself on the
+ * next request and fails toward "log in again", never toward "still authorized".
  */
 function issuedBeforeRevocation(decoded, user) {
   if (!user.sessionInvalidBefore) return false;

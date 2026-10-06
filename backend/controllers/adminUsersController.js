@@ -77,12 +77,21 @@ exports.getUserDetail = async (req, res, next) => {
     const user = await User.findById(req.params.id).select(USER_PRIVATE_FIELDS);
     if (!user) return res.status(404).json({ error: 'User not found' });
 
+    // Flat, not nested. `Promise.all` resolves to a flat array, so a nested pattern
+    // like `[a, b, [c, d]]` reads element 2 and tries to iterate it as an array —
+    // which for a mongoose Query is a TypeError at request time rather than a
+    // compile error, and the endpoint answers 500 to every call.
     const [
       documentCount,
       cvCount,
       paymentStats,
       applicationCount,
-      [referral, referredCount, documents, cvs, payments, audit]
+      referral,
+      referredCount,
+      documents,
+      cvs,
+      payments,
+      audit
     ] = await Promise.all([
       TailoredDocument.countDocuments({ userId: user._id }),
       CV.countDocuments({ userId: user._id }),

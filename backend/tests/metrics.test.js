@@ -148,7 +148,66 @@ test('in-flight requests are released exactly once', () => {
   assert.strictEqual(metrics.snapshot().totals.inFlight, 0);
 });
 
-test('5xx responses are counted as errors and 4xx are not', () => {
+test('the full request path is measured, not the router-relative one', () => {
+  metrics.reset();
+  const middleware = metrics.metricsMiddleware;
+
+  // This is the shape Express presents at `finish`: the route has been handed to a
+  // mounted router, so `route.path` is what the router matched ("/kpis") and says
+  // nothing about which router it was. Reading that instead of the full path made
+  // two routers with the same sub-path collide into one key, and the monitoring
+  // table showed a route that does not exist.
+  const res = fakeRes(200);
+  middleware({
+    method: 'GET',
+    originalUrl: '/api/admin/kpis?days=30',
+    path: '/kpis',
+    url: '/kpis',
+    route: { path: '/kpis' }
+  }, res, () => {});
+  res.finish();
+
+  const snapshot = metrics.snapshot();
+  assert.ok(
+    snapshot.routes.some((r) => r.path === '/api/admin/kpis'),
+    `expected the full path, got ${JSON.stringify(snapshot.routes.map((r) => r.path))}`
+  );
+  assert.ok(
+    !snapshot.routes.some((r) => r.path === '/kpis'),
+    'the mount-relative path must not become a key'
+  );
+});
+
+test('the query string is stripped, because it is unbounded', () => {
+  metrics.reset();
+  const middleware = metrics.metricsMiddleware;
+
+  // A hundred distinct queries on one endpoint would otherwise be a hundred keys,
+  // relying solely on the cardinality cap to stop them.
+  for (const q of ['?a=1', '?a=2', '?email=someone@example.com', '']) {
+    const res = fakeRes(200);
+    middleware({ method: 'GET', originalUrl: `/api/search${q}`, path: '/search' }, res, () => {});
+    res.finish();
+  }
+
+  const search = metrics.snapshot().routes.find((r) => r.path === '/api/search');
+  assert.ok(search, 'the route must be recorded');
+  assert.strictEqual(search.requests, 4, 'four different queries are one route');
+});
+
+test('a request with no path at all still records', () => {
+  metrics.reset();
+  const middleware = metrics.metricsMiddleware;
+
+  const res = fakeRes(200);
+  middleware({ method: 'GET', path: '' }, res, () => {});
+  res.finish();
+
+  assert.strictEqual(metrics.snapshot().totals.requests, 1);
+  assert.strictEqual(metrics.snapshot().routes.length, 1);
+});
+
+test('a 5xx response is counted as an error and 4xx are not', () => {
   metrics.reset();
   const middleware = metrics.metricsMiddleware;
 
