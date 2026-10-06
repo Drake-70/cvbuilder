@@ -33,6 +33,12 @@ export default function SettingsPage() {
   const [savingPassword, setSavingPassword] = useState(false);
 
   const [language, setLanguage] = useState(user?.preferredLanguage || 'en');
+  // Declared because `handleSaveLanguage` sets it. Without this the setter was an
+  // undefined reference, so the first language switch threw a ReferenceError before
+  // the request ever went out — the picker looked broken and the choice silently
+  // never persisted. It also gates the buttons, which otherwise let a second click
+  // fire a concurrent PATCH while the first is still in flight.
+  const [savingLang, setSavingLang] = useState(false);
 
   const [deletePassword, setDeletePassword] = useState('');
   const [deleting, setDeleting] = useState(false);
@@ -262,7 +268,8 @@ export default function SettingsPage() {
             <button
               key={lang}
               onClick={() => handleSaveLanguage(lang)}
-              className={`flex-1 py-3 rounded-xl text-sm font-medium cursor-pointer transition-all border ${
+              disabled={savingLang}
+              className={`flex-1 py-3 rounded-xl text-sm font-medium transition-all border disabled:opacity-60 disabled:cursor-not-allowed ${
                 language === lang
                   ? 'bg-brand-50 dark:bg-brand-900/20 border-brand-300 dark:border-brand-700 text-brand-700 dark:text-brand-300'
                   : 'bg-surface-50 dark:bg-surface-800 border-surface-200 dark:border-surface-700 text-surface-600 dark:text-surface-400 hover:border-surface-300'

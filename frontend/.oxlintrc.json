@@ -1,7 +1,18 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
   "plugins": ["react", "oxc"],
+  "env": {
+    "browser": true,
+    "es2021": true,
+    "node": true
+  },
   "rules": {
+    // `no-undef` is what turns "useCallback is not defined" from a production
+    // ReferenceError into a failed lint. It is off in oxlint's default set, so a
+    // missing import passed lint, passed vite build, and shipped as a blank admin
+    // page. The `env` block keeps browser and node globals out of its way, so the
+    // only thing it reports is a genuinely unresolved identifier.
+    "no-undef": "error",
     "react/rules-of-hooks": "error",
     "react/only-export-components": ["warn", { "allowConstantExport": true }]
   }
