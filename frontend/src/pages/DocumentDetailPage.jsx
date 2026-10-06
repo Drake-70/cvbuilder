@@ -7,6 +7,7 @@ import api from '../services/api';
 import analytics from '../utils/analytics';
 import PaymentModal from '../components/PaymentModal';
 import CVPreview from '../components/CVPreview';
+import WatermarkOverlay from '../components/WatermarkOverlay';
 import EditableCVForm from '../components/EditableCVForm';
 import useTemplates from '../hooks/useTemplates';
 import { templatesForFormat, templateLabelKey, isLatexTemplate } from '../constants/templates';
@@ -36,6 +37,15 @@ export default function DocumentDetailPage() {
   const [templateOverride, setTemplateOverride] = useState(null);
 
   const isSubscribed = user?.subscriptionStatus === 'active';
+  // One expression, read by the CV preview and by the cover letter beside it --
+  // the letter used to take no watermarked prop at all, so both documents were
+  // never in agreement.
+  //
+  // Written as `credits === 0` rather than the `!(credits) > 0` it replaced. That
+  // form parses as `(!credits) > 0` and only produced the right answer by
+  // coincidence: `!0` is `true`, and `true > 0` is `true`. Anyone "fixing" the
+  // precedence the other way would silently have inverted it.
+  const watermarked = !isSubscribed && (user?.freeDocumentCredits || 0) === 0 && !doc?.paid;
   const templates = useTemplates();
 
   useEffect(() => {
@@ -324,7 +334,7 @@ export default function DocumentDetailPage() {
       </div>
 
       {/* Upsell: watermarked download for unpaid users */}
-      {!isSubscribed && !((user?.freeDocumentCredits || 0) > 0) && !doc?.paid && (
+      {watermarked && (
         <div className="card p-4 mb-6 flex flex-col sm:flex-row sm:items-center gap-3 border-amber-200 dark:border-amber-800/40 bg-amber-50/60 dark:bg-amber-900/10">
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-surface-800 dark:text-surface-100 flex items-center gap-2">
@@ -398,7 +408,7 @@ export default function DocumentDetailPage() {
             cv={cv}
             language={doc.language}
             template={template}
-            watermarked={!isSubscribed && !(user?.freeDocumentCredits || 0) > 0 && !doc?.paid}
+            watermarked={watermarked}
             watermarkLabel={t('watermark_label')}
             watermarkHint={t('watermark_hint')}
           />
@@ -407,11 +417,18 @@ export default function DocumentDetailPage() {
 
       {/* Cover Letter */}
       {coverLetter && (
-        <div className="card p-5 sm:p-6 mb-6">
+        <div className="card p-5 sm:p-6 mb-6 relative">
           <h3 className="text-xs font-bold text-brand-600 uppercase tracking-wider mb-3">{tTailor('cover_letter')}</h3>
           <div className="whitespace-pre-wrap text-sm text-surface-600 dark:text-surface-300 leading-relaxed">
             {coverLetter}
           </div>
+          {watermarked && (
+            <WatermarkOverlay
+              language={doc.language}
+              label={t('watermark_label')}
+              hint={t('watermark_hint')}
+            />
+          )}
         </div>
       )}
 

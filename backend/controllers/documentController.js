@@ -62,11 +62,45 @@ async function resolveAccess(userId, documentId) {
   return { watermarked: true };
 }
 
+/**
+ * Entitlement for a download that nobody is signed in for.
+ *
+ * `resolveAccess` cannot be used here: it is written for the owner acting on
+ * their own account, and the share route has no `req.user` at all -- the viewer
+ * is whoever holds the token. The only entitlement that can apply is the owner's,
+ * and only the two that are properties of the account or of the document itself
+ * carry across: an active subscription, or a document that was paid for.
+ *
+ * Free credits are deliberately not honoured. They are personal and are spent
+ * only by the owner's own authenticated downloads, so a balance of one would
+ * otherwise become unlimited clean files for everyone the link is sent to -- the
+ * exact limit that was not being enforced. Nor is a credit *spent* from this
+ * route: it is unauthenticated and unrated, so letting it decrement a balance
+ * would hand anyone holding the token a way to drain the owner's credits to zero
+ * before the owner ever used them.
+ *
+ * An owner who cannot be found fails closed to the watermarked render rather
+ * than throwing: a 404 here would be reporting the owner's missing account as a
+ * problem with the viewer's link.
+ *
+ * @param {import('../models/TailoredDocument').default} doc
+ * @returns {Promise<{watermarked: boolean}>}
+ */
+async function resolveSharedAccess(doc) {
+  if (doc.paid) return { watermarked: false };
+
+  const owner = await User.findById(doc.userId);
+  if (owner && owner.subscriptionStatus === 'active') return { watermarked: false };
+
+  return { watermarked: true };
+}
+
 function watermarkTextFor(lang) {
   return lang === 'fr' ? 'APERÇU GRATUIT' : 'FREE PREVIEW';
 }
 
 exports.resolveAccess = resolveAccess;
+exports.resolveSharedAccess = resolveSharedAccess;
 exports.watermarkTextFor = watermarkTextFor;
 
 exports.generateDocument = async (req, res, next) => {
@@ -353,6 +387,14 @@ exports.downloadSharedDocument = async (req, res, next) => {
     const doc = await TailoredDocument.findOne({ shareToken: req.params.token });
     if (!doc) return res.status(404).json({ error: 'Document not found or no longer shared' });
 
+    // Checked before a single byte is rendered. This path used to call the
+    // generators with no watermark argument at all, so the watermark defaulted to
+    // null and every shared download came back clean: an account with no credits
+    // and no subscription could share its own document and pull unlimited
+    // unwatermarked files through the link, with no credit ever touched. Sharing
+    // is offered to every account, so the hole was reachable from a free plan.
+    const { watermarked } = await resolveSharedAccess(doc);
+
     doc.downloadCount = (doc.downloadCount || 0) + 1;
     await doc.save();
 
@@ -364,14 +406,16 @@ exports.downloadSharedDocument = async (req, res, next) => {
       location: ''
     };
     const outFormat = normalizeFormat(req.query.format);
+    const watermark = watermarked ? watermarkTextFor(doc.language) : null;
     const tpl = resolveTemplate(outFormat, req.query.template, doc.template);
     const buffer = outFormat === 'pdf'
-      ? await generatePdf(enrichedCV, doc.coverLetter, doc.language, tpl)
-      : await generateDocx(enrichedCV, doc.coverLetter, doc.language, tpl);
+      ? await generatePdf(enrichedCV, doc.coverLetter, doc.language, tpl, watermark)
+      : await generateDocx(enrichedCV, doc.coverLetter, doc.language, tpl, watermark);
     const filename = filenameFor(outFormat, doc.language);
 
     res.setHeader('Content-Type', contentTypeFor(outFormat));
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('X-Watermarked', watermarked ? 'true' : 'false');
     res.send(Buffer.from(buffer));
   } catch (err) {
     next(err);

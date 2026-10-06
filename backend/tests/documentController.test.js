@@ -65,6 +65,112 @@ test('resolveAccess: another users paid doc does NOT bypass the watermark', asyn
   assert.deepEqual(await resolveAccess('u1', 'd1'), { watermarked: true });
 });
 
+// --- shared downloads ---------------------------------------------------------
+//
+// The share link has no signed-in viewer, so resolveAccess does not apply. These
+// pin the rule that replaced the one that shipped nothing: the owner's
+// subscription and the document's paid flag carry across, the owner's free
+// credits do not, and an owner who cannot be found fails closed.
+
+test('resolveSharedAccess: a paid document is clean for an anonymous viewer', async () => {
+  mock.method(User, 'findById', async () => ({ subscriptionStatus: 'none', freeDocumentCredits: 0 }));
+  const { resolveSharedAccess } = loadController();
+  assert.deepEqual(await resolveSharedAccess({ paid: true, userId: 'u1' }), { watermarked: false });
+});
+
+test('resolveSharedAccess: the owners subscription carries to the shared download', async () => {
+  mock.method(User, 'findById', async () => ({ subscriptionStatus: 'active', freeDocumentCredits: 0 }));
+  const { resolveSharedAccess } = loadController();
+  assert.deepEqual(await resolveSharedAccess({ paid: false, userId: 'u1' }), { watermarked: false });
+});
+
+test('resolveSharedAccess: owners free credits do NOT make the shared download clean', async () => {
+  // The regression. A balance of one used to launder unlimited clean files for
+  // everyone the link was sent to, because the shared path had no check at all.
+  let decremented = false;
+  mock.method(User, 'findById', async () => ({ subscriptionStatus: 'none', freeDocumentCredits: 5 }));
+  mock.method(User, 'findByIdAndUpdate', async () => { decremented = true; return {}; });
+  const { resolveSharedAccess } = loadController();
+
+  assert.deepEqual(await resolveSharedAccess({ paid: false, userId: 'u1' }), { watermarked: true });
+  // And nothing was spent: an unauthenticated, unrated GET must not be able to
+  // move the owner's balance.
+  assert.equal(decremented, false);
+});
+
+test('resolveSharedAccess: an owner who cannot be found fails closed', async () => {
+  mock.method(User, 'findById', async () => null);
+  const { resolveSharedAccess } = loadController();
+  assert.deepEqual(await resolveSharedAccess({ paid: false, userId: 'gone' }), { watermarked: true });
+});
+
+function sharedDownloadRes() {
+  const headers = {};
+  const state = { body: null };
+  const res = {
+    setHeader: (k, v) => { headers[k] = v; },
+    send: (body) => { state.body = body; },
+    status: () => res,
+    json: () => {}
+  };
+  return { res, headers, state };
+}
+
+function sharedDoc(overrides = {}) {
+  return {
+    shareToken: 'tok',
+    userId: 'u1',
+    paid: false,
+    tailoredContent: { name: 'Ann' },
+    coverLetter: '',
+    language: 'en',
+    template: 'modern',
+    downloadCount: 0,
+    save: async () => {},
+    ...overrides
+  };
+}
+
+test('downloadSharedDocument watermarks an unpaid owners document', async () => {
+  let watermarkArg = 'sentinel';
+  mock.method(documentService, 'generateDocx', async (_cv, _cl, _lang, _tpl, watermark) => {
+    watermarkArg = watermark;
+    return Buffer.from('docx-bytes');
+  });
+  // Credits are present on purpose: having them must not change the outcome.
+  mock.method(User, 'findById', async () => ({ subscriptionStatus: 'none', freeDocumentCredits: 3 }));
+  mock.method(TailoredDocument, 'findOne', async () => sharedDoc());
+
+  const controller = loadController();
+  const { res, headers, state } = sharedDownloadRes();
+  const req = { params: { token: 'tok' }, query: { format: 'docx' } };
+
+  await controller.downloadSharedDocument(req, res, () => { throw new Error('next should not be called'); });
+
+  assert.equal(headers['X-Watermarked'], 'true');
+  assert.equal(watermarkArg, 'FREE PREVIEW');
+  assert.deepEqual(state.body, Buffer.from('docx-bytes'));
+});
+
+test('downloadSharedDocument renders clean for a subscriber', async () => {
+  let watermarkArg = 'sentinel';
+  mock.method(documentService, 'generateDocx', async (_cv, _cl, _lang, _tpl, watermark) => {
+    watermarkArg = watermark;
+    return Buffer.from('docx-bytes');
+  });
+  mock.method(User, 'findById', async () => ({ subscriptionStatus: 'active', freeDocumentCredits: 0 }));
+  mock.method(TailoredDocument, 'findOne', async () => sharedDoc());
+
+  const controller = loadController();
+  const { res, headers } = sharedDownloadRes();
+  const req = { params: { token: 'tok' }, query: { format: 'docx' } };
+
+  await controller.downloadSharedDocument(req, res, () => { throw new Error('next should not be called'); });
+
+  assert.equal(headers['X-Watermarked'], 'false');
+  assert.equal(watermarkArg, null);
+});
+
 test('generateDocument sets X-Watermarked true and passes the watermark text for unpaid users', async () => {
   let watermarkArg = 'sentinel';
   mock.method(documentService, 'generateDocx', async (_cv, _cl, _lang, _tpl, watermark) => {

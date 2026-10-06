@@ -7,6 +7,7 @@ import ResumeScoreCard from './ResumeScoreCard';
 import ChangeReview from './ChangeReview';
 import LinkedInGenerator from './LinkedInGenerator';
 import CVPreview from './CVPreview';
+import WatermarkOverlay from './WatermarkOverlay';
 import BeforeAfterGaps from './BeforeAfterGaps';
 import api from '../services/api';
 import analytics from '../utils/analytics';
@@ -50,6 +51,11 @@ export default function ResultStep({ result, onDownload, onReset, loading, onCov
 
   const isSubscribed = user?.subscriptionStatus === 'active';
   const hasCredits = (user?.freeDocumentCredits || 0) > 0;
+  // One condition for both documents. The cover letter tab used to render with
+  // no overlay at all, so a preview that was out of credits showed a watermarked
+  // CV and a plainly readable letter beside it -- the upsell described only half
+  // the page it was standing on.
+  const watermarked = !isSubscribed && !hasCredits;
 
   const handleDownloadClick = () => {
     onDownload(template, format);
@@ -222,7 +228,7 @@ export default function ResultStep({ result, onDownload, onReset, loading, onCov
             cv={cv}
             language={result.language}
             template={template}
-            watermarked={!isSubscribed && !hasCredits}
+            watermarked={watermarked}
             watermarkLabel={tCommon('watermark_label')}
             watermarkHint={tCommon('watermark_hint')}
           />
@@ -299,7 +305,18 @@ export default function ResultStep({ result, onDownload, onReset, loading, onCov
 
         {tab === 'cover' && (
           <div className="space-y-5 animate-fade-in">
-            <div className="whitespace-pre-wrap text-sm text-surface-600 leading-relaxed">{coverLetter}</div>
+            {/* Positioned so the overlay fills exactly the letter, not the whole
+                tab: the variant picker below it is a control, not the document. */}
+            <div className="relative">
+              <div className="whitespace-pre-wrap text-sm text-surface-600 leading-relaxed">{coverLetter}</div>
+              {watermarked && (
+                <WatermarkOverlay
+                  language={result.language}
+                  label={tCommon('watermark_label')}
+                  hint={tCommon('watermark_hint')}
+                />
+              )}
+            </div>
 
             {activeCoverVariant && (
               <button

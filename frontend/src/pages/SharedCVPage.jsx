@@ -3,12 +3,14 @@ import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import api from '../services/api';
 import analytics from '../utils/analytics';
+import { useToast } from '../contexts/ToastContext';
 import CVPreview from '../components/CVPreview';
 
 export default function SharedCVPage() {
   const { token } = useParams();
   const { t } = useTranslation('common');
   const { t: tTailor } = useTranslation('tailor');
+  const { toast } = useToast();
   const [doc, setDoc] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -43,6 +45,14 @@ export default function SharedCVPage() {
       link.remove();
       window.URL.revokeObjectURL(url);
       analytics.track('shared_cv_downloaded', { format, hasCoverLetter: Boolean(doc?.coverLetter) });
+      // The shared download is entitled by the owner, not by the viewer (see
+      // resolveSharedAccess), so it can come back watermarked for a reason that
+      // has nothing to do with anything this visitor did. Every other download
+      // path says so; without this one the recipient just got a marked file with
+      // no explanation.
+      if (res.headers?.['x-watermarked'] === 'true') {
+        toast.info(t('watermark_toast_title'), t('watermark_toast_msg'));
+      }
     } catch {
       setError(t('shared_cv_download_failed'));
     } finally {

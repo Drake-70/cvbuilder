@@ -152,6 +152,80 @@ test.describe('document detail page', () => {
     expect(pageErrors, `uncaught errors while rendering the document page:\n${pageErrors.join('\n')}`).toEqual([]);
   });
 
+  // The free-preview overlay used to be drawn by CVPreview and nowhere else, so an
+  // out-of-credits account saw a watermarked CV and a plainly readable cover letter
+  // sitting right beside it -- the upsell described half the page it was on. Covered
+  // here because this is presentational and nothing in the API suite could notice it:
+  // the download was correctly watermarked either way, which is precisely how the
+  // mismatch survived.
+  test('marks the cover letter along with the CV once the free credit is spent', async ({ page, request }) => {
+    const pageErrors = [];
+    page.on('pageerror', (err) => pageErrors.push(err.message));
+
+    const email = `pw-wm-${Date.now()}@test.com`;
+    const reg = await request.post('/api/auth/register', {
+      data: { name: 'Watermark Tester', email, password: 'pw-test-123' }
+    });
+    expect(reg.ok()).toBeTruthy();
+    await markEmailVerified(email);
+
+    const headers = { 'X-CSRF-Token': await csrfToken(request) };
+
+    // Spends the one free credit a new account starts with. Without this the page
+    // renders both documents unwatermarked and the assertions below would pass
+    // even if the cover letter had no overlay code at all -- a test that cannot fail.
+    const gen = await request.post('/api/document/generate', {
+      headers,
+      data: { tailoredCV: { name: 'Watermark Tester' }, language: 'en', template: 'modern' }
+    });
+    expect(gen.status()).toBe(200);
+    expect(gen.headers()['x-watermarked']).toBe('false');
+
+    const me = await request.get('/api/auth/me');
+    expect((await me.json()).user.freeDocumentCredits).toBe(0);
+
+    const save = await request.post('/api/document/save', {
+      headers,
+      data: {
+        baseCvId: null,
+        jobTitle: 'Marketing Officer',
+        jobDescription: 'Manage social media and support the sales team in Douala.',
+        tailoredContent: {
+          name: 'Watermark Tester',
+          summary: 'Marketing professional in Douala.',
+          skills: ['Social Media'],
+          experience: []
+        },
+        coverLetter: 'Dear Hiring Manager,\n\nI am a great fit.',
+        gapAnalysis: [],
+        language: 'en',
+        template: 'modern'
+      }
+    });
+    expect(save.status()).toBe(201);
+    const docId = (await save.json())._id;
+
+    await copyApiCookiesToBrowser(request, page);
+    await page.goto(`/documents/${docId}`);
+    await expectInsideProtectedRoute(page, `/documents/${docId}`);
+
+    // The whole invariant is the count: exactly two overlays, one per document.
+    // Asserted as a pair with the per-container check below rather than a bare
+    // "at least one", which the CV alone would satisfy.
+    const overlays = page.locator('.cv-watermark');
+    await expect(overlays).toHaveCount(2, { timeout: 15000 });
+    await expect(page.locator('.cv-preview-wrapper .cv-watermark')).toHaveCount(1);
+    await expect(page.locator('.card').filter({ hasText: 'Dear Hiring Manager' }).locator('.cv-watermark')).toHaveCount(1);
+
+    // The label, not just the box. The overlay is decorative enough that a node
+    // with no text in it would still satisfy every assertion above, and the string
+    // has to match what the backend stamps into the file -- see the drift guards
+    // in backend/tests/documentController.test.js.
+    await expect(page.locator('.cv-watermark-label')).toHaveText(['FREE PREVIEW', 'FREE PREVIEW']);
+
+    expect(pageErrors, `uncaught errors while rendering the watermarked document:\n${pageErrors.join('\n')}`).toEqual([]);
+  });
+
   test('shows the not-found state instead of crashing on an unknown id', async ({ page, request }) => {
     const pageErrors = [];
     page.on('pageerror', (err) => pageErrors.push(err.message));

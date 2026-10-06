@@ -1,6 +1,7 @@
 import { highlightText } from '../utils/gapKeywords';
 import { shouldSkillsFirst } from '../utils/cvLayout';
 import { isPdfkitTemplate } from '../constants/templates';
+import WatermarkOverlay from './WatermarkOverlay';
 
 export default function CVPreview({ cv, language = 'en', highlightTerms = [], markClass = 'cv-hl-new', template = 'modern', watermarked = false, watermarkLabel = '', watermarkHint = '' }) {
   if (!cv) return null;
@@ -13,8 +14,6 @@ export default function CVPreview({ cv, language = 'en', highlightTerms = [], ma
   // engine is unavailable. DocumentDetailPage says so on screen rather than letting
   // the preview quietly disagree with the downloaded file.
   const tpl = isPdfkitTemplate(template) ? template : 'modern';
-  const wmLabel = watermarkLabel || (isFr ? 'APERÇU GRATUIT' : 'FREE PREVIEW');
-  const wmHint = watermarkHint || (isFr ? 'Passez à Pro pour télécharger la version finale' : 'Upgrade to Pro to download the clean version');
 
   const skillsSection = cv.skills && cv.skills.length > 0 ? (
     <div className="cv-section">
@@ -126,10 +125,7 @@ export default function CVPreview({ cv, language = 'en', highlightTerms = [], ma
       </div>
 
       {watermarked && (
-        <div className="cv-watermark" aria-hidden="true">
-          <div className="cv-watermark-label">{wmLabel}</div>
-          <div className="cv-watermark-hint">{wmHint}</div>
-        </div>
+        <WatermarkOverlay language={language} label={watermarkLabel} hint={watermarkHint} />
       )}
     </div>
   );

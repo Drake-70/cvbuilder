@@ -75,4 +75,50 @@ test.describe('free download credit flow', () => {
 
     await ctx.dispose();
   });
+
+  // The share link is the other way out of the paywall, and it was not guarded at
+  // all: downloadSharedDocument called the generators with no watermark argument, so
+  // every shared download came back clean regardless of subscription, payment, or
+  // balance. Sharing is offered to every account, so a free plan could share its own
+  // document and pull unlimited unwatermarked files through the link.
+  //
+  // The assertion that matters is the credit balance *after* the download. A pass
+  // with 0 left would be satisfied by a fix that spent the owner's credit for them,
+  // which is the other half of the bug: an unauthenticated, unrated GET must not be
+  // able to move anyone's balance.
+  test('a shared download is watermarked and spends nothing', async ({ request }) => {
+    const ctx = request;
+    const headers = { 'X-CSRF-Token': await csrfToken(ctx) };
+    const email = `pw-${Date.now()}@test.com`;
+
+    const reg = await ctx.post('/api/auth/register', {
+      headers,
+      data: { name: 'Share Tester', email, password: 'pw-test-123' }
+    });
+    expect(reg.ok()).toBeTruthy();
+    await markEmailVerified(email);
+
+    // Saved directly rather than generated, so the one free credit is still on the
+    // account when the shared download happens.
+    const save = await ctx.post('/api/document/save', {
+      headers,
+      data: { tailoredContent: MINIMAL_CV, coverLetter: 'Dear Hiring Manager, find my CV attached.', language: 'en' }
+    });
+    expect(save.status()).toBe(201);
+    const docId = (await save.json())._id;
+
+    const share = await ctx.post(`/api/document/${docId}/share`, { headers });
+    expect(share.ok()).toBeTruthy();
+    const { shareToken } = await share.json();
+
+    const dl = await ctx.get(`/api/document/shared/${shareToken}/download?format=docx`);
+    expect(dl.status()).toBe(200);
+    expect(dl.headers()['x-watermarked']).toBe('true');
+    expect(await docxContainsText(await dl.body(), 'FREE PREVIEW')).toBe(true);
+
+    const me = await ctx.get('/api/auth/me');
+    expect((await me.json()).user.freeDocumentCredits).toBe(1);
+
+    await ctx.dispose();
+  });
 });
