@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import api from '../services/api';
@@ -9,6 +9,13 @@ import PaymentsTab from '../components/admin/PaymentsTab';
 import ContactsTab from '../components/admin/ContactsTab';
 import JobsTab from '../components/admin/JobsTab';
 
+// Lazy because `KpisTab` pulls in Recharts, which is the largest dependency this
+// app has and is irrelevant to the six tabs that do not use it. Loading it only when
+// that tab is opened keeps it out of the admin bundle everyone else downloads, and
+// out of the first-paint path for every ordinary user.
+const KpisTab = lazy(() => import('../components/admin/KpisTab'));
+const HealthTab = lazy(() => import('../components/admin/HealthTab'));
+
 /**
  * Admin dashboard.
  *
@@ -18,6 +25,8 @@ import JobsTab from '../components/admin/JobsTab';
  */
 const TABS = [
   { value: 'overview', label: 'Overview' },
+  { value: 'kpis', label: 'KPIs' },
+  { value: 'health', label: 'Health' },
   { value: 'users', label: 'Users' },
   { value: 'payments', label: 'Payments' },
   { value: 'inbox', label: 'Inbox' },
@@ -84,7 +93,9 @@ export default function AdminPage() {
         </div>
         <div>
           <h1 className="text-2xl font-bold text-surface-900 dark:text-white">Admin dashboard</h1>
-          <p className="text-sm text-surface-500 dark:text-surface-400">Users, revenue, inbox, and job board</p>
+          <p className="text-sm text-surface-500 dark:text-surface-400">
+            Growth, health, users, revenue, inbox, and job board
+          </p>
         </div>
       </div>
 
@@ -121,6 +132,16 @@ export default function AdminPage() {
       ) : (
         <>
           {tab === 'overview' && dashboard && <OverviewTab dashboard={dashboard} />}
+          {tab === 'kpis' && (
+            <Suspense fallback={<div className="space-y-3">{[1, 2, 3].map((i) => <Skeleton key={i} className="h-20 rounded-2xl" />)}</div>}>
+              <KpisTab />
+            </Suspense>
+          )}
+          {tab === 'health' && (
+            <Suspense fallback={<div className="space-y-3">{[1, 2, 3].map((i) => <Skeleton key={i} className="h-20 rounded-2xl" />)}</div>}>
+              <HealthTab />
+            </Suspense>
+          )}
           {tab === 'users' && <UsersTab currentUserId={user?._id} />}
           {tab === 'payments' && <PaymentsTab />}
           {tab === 'inbox' && <ContactsTab />}

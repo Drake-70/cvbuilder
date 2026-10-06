@@ -151,7 +151,7 @@ function escapeRegex(str) {
 
 exports.listUsers = async (req, res, next) => {
   try {
-    const { search = '', role, verified, subscription, sort } = req.query;
+    const { search = '', role, verified, subscription, suspended, sort } = req.query;
     const { page, limit, skip } = parsePaging(req.query);
 
     const query = {};
@@ -179,6 +179,14 @@ exports.listUsers = async (req, res, next) => {
     if (['none', 'active', 'expired'].includes(subscription)) {
       query.subscriptionStatus = subscription;
     }
+
+    // Same guard as the others: an unknown value is ignored rather than passed
+    // through, so a bad filter cannot produce an empty page that reads as "nobody is
+    // suspended". Matching the `$ne: true` shape rather than `false` deliberately, so
+    // accounts that predate the field entirely are counted as not suspended rather
+    // than vanishing from the default view.
+    if (suspended === 'true' || suspended === '1') query.suspended = true;
+    else if (suspended === 'false' || suspended === '0') query.suspended = { $ne: true };
 
     // Newest-first is the default and the only sort exposed. Sorting by email or
     // role means a full in-memory sort of the whole collection, which on an

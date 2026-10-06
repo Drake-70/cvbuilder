@@ -3,6 +3,7 @@ import api from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
 import { Skeleton } from '../Skeleton';
 import AdminPagination from './AdminPagination';
+import UserDetailPanel from './UserDetailPanel';
 
 /**
  * User administration.
@@ -34,6 +35,12 @@ const SUBSCRIPTION = [
   { value: 'expired', label: 'Expired' }
 ];
 
+const SUSPENSION = [
+  { value: '', label: 'Any status' },
+  { value: 'false', label: 'Active' },
+  { value: 'true', label: 'Suspended' }
+];
+
 const PAGE_SIZE = 20;
 
 export default function UsersTab({ currentUserId }) {
@@ -54,7 +61,11 @@ export default function UsersTab({ currentUserId }) {
   const [role, setRole] = useState('');
   const [verified, setVerified] = useState('');
   const [subscription, setSubscription] = useState('');
+  const [suspended, setSuspended] = useState('');
   const [page, setPage] = useState(1);
+  // Which account is open in the detail panel. Held here rather than in the panel so
+  // a row's action can refresh the list underneath it while it stays open.
+  const [selected, setSelected] = useState(null);
 
   // Debounce the query, not the page reset. Requesting page 1 on every keystroke
   // and then typing the next character would fetch a page nobody looks at.
@@ -69,10 +80,19 @@ export default function UsersTab({ currentUserId }) {
   // Any other filter change also returns to page 1: page 7 of a filtered set that
   // has three pages shows an empty table, which reads as "no results" rather than
   // "you are past the end".
-  useEffect(() => { setPage(1); }, [role, verified, subscription]);
+  useEffect(() => { setPage(1); }, [role, verified, subscription, suspended]);
 
+  // Guarded by a ref rather than a per-effect `cancelled` flag, because the same
+  // loader is also called directly by panel actions. The effect owns the lifecycle;
+  // `refresh` re-reads the current page without starting a second, competing
+  // lifecycle that a filter change would have to know about.
+  const mountedRef = useRef(true);
   useEffect(() => {
-    let cancelled = false;
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
+
+  const load = useCallback(() => {
     setLoading(true);
 
     api.get('/admin/users', {
@@ -82,23 +102,28 @@ export default function UsersTab({ currentUserId }) {
         search: debouncedSearch || undefined,
         role: role || undefined,
         verified: verified || undefined,
-        subscription: subscription || undefined
+        subscription: subscription || undefined,
+        suspended: suspended || undefined
       }
     })
       .then((res) => {
-        if (!cancelled) setData(res.data);
+        if (mountedRef.current) setData(res.data);
       })
       .catch((err) => {
-        if (!cancelled) {
+        if (mountedRef.current) {
           toastRef.current.error('Could not load users', err.response?.data?.error || 'Please try again.');
         }
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (mountedRef.current) setLoading(false);
       });
+  }, [page, debouncedSearch, role, verified, subscription, suspended]);
 
-    return () => { cancelled = true; };
-  }, [page, debouncedSearch, role, verified, subscription]);
+  useEffect(() => { load(); }, [load]);
+
+  // Re-reads the list after an action taken from the detail panel. The panel reloads
+  // its own copy; this only stops the table underneath it from going stale.
+  const refresh = useCallback(() => { load(); }, [load]);
 
   const changeRole = async (u, nextRole) => {
     setBusyId(u._id);
@@ -144,7 +169,7 @@ export default function UsersTab({ currentUserId }) {
 
   return (
     <div className="space-y-4 animate-fade-in">
-      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-3">
         <input
           type="search"
           value={search}
@@ -161,6 +186,9 @@ export default function UsersTab({ currentUserId }) {
         </select>
         <select value={subscription} onChange={(e) => setSubscription(e.target.value)} className={selectClass} aria-label="Filter by plan">
           {SUBSCRIPTION.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+        <select value={suspended} onChange={(e) => setSuspended(e.target.value)} className={selectClass} aria-label="Filter by suspension">
+          {SUSPENSION.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
       </div>
 
@@ -186,19 +214,35 @@ export default function UsersTab({ currentUserId }) {
 
               return (
                 <div key={u._id} className="card p-4 flex flex-wrap items-center gap-x-4 gap-y-3">
-                  <div className="w-8 h-8 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center text-brand-600 dark:text-brand-400 text-xs font-semibold flex-shrink-0">
-                    {u.name?.charAt(0)?.toUpperCase() || '?'}
-                  </div>
+                  {/* The identity block opens the detail panel, not the whole row: the
+                      row contains action buttons, and a clickable ancestor would nest
+                      interactive elements. Clicking a name to open that record is the
+                      affordance people already reach for. */}
+                  <button
+                    type="button"
+                    onClick={() => setSelected(u)}
+                    className="flex-1 min-w-0 flex items-center gap-3 text-left cursor-pointer group rounded-lg -m-1 p-1 hover:bg-surface-50 dark:hover:bg-surface-700/50 transition-colors"
+                    title={`Open account details for ${u.email}`}
+                  >
+                    <div className="w-8 h-8 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center text-brand-600 dark:text-brand-400 text-xs font-semibold flex-shrink-0">
+                      {u.name?.charAt(0)?.toUpperCase() || '?'}
+                    </div>
 
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-surface-900 dark:text-white truncate">
-                      {u.name}
-                      {isSelf && <span className="text-xs text-surface-400 font-normal"> · you</span>}
-                    </p>
-                    <p className="text-xs text-surface-400 truncate">{u.email}</p>
-                  </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-surface-900 dark:text-white truncate group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">
+                        {u.name}
+                        {isSelf && <span className="text-xs text-surface-400 font-normal"> · you</span>}
+                      </p>
+                      <p className="text-xs text-surface-400 truncate">{u.email}</p>
+                    </div>
+                  </button>
 
                   <div className="flex items-center gap-1.5 flex-wrap">
+                    {u.suspended && (
+                      <span className="badge badge-rose" title="Cannot sign in until reinstated">
+                        Suspended
+                      </span>
+                    )}
                     {!u.emailVerified && (
                       <span className="badge badge-amber" title="Cannot reach gated routes until verified">
                         Unverified
@@ -214,6 +258,14 @@ export default function UsersTab({ currentUserId }) {
                   </span>
 
                   <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => setSelected(u)}
+                      className="text-xs px-2.5 py-1 rounded-lg font-medium cursor-pointer transition-colors bg-surface-100 text-surface-600 hover:bg-surface-200 dark:bg-surface-700 dark:text-surface-200 dark:hover:bg-surface-600"
+                      title="Open account details"
+                    >
+                      Details
+                    </button>
+
                     <button
                       onClick={() => toggleVerified(u)}
                       disabled={busy}
@@ -266,6 +318,15 @@ export default function UsersTab({ currentUserId }) {
             />
           )}
         </>
+      )}
+
+      {selected && (
+        <UserDetailPanel
+          user={selected}
+          currentUserId={currentUserId}
+          onClose={() => setSelected(null)}
+          onChanged={refresh}
+        />
       )}
     </div>
   );
