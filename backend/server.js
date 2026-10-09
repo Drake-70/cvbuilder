@@ -49,6 +49,7 @@ const referralRoutes = require('./routes/referral');
 const ocrRoutes = require('./routes/ocr');
 const guidanceRoutes = require('./routes/guidance');
 const contactRoutes = require('./routes/contact');
+const newsletterRoutes = require('./routes/newsletter');
 const adminRoutes = require('./routes/admin');
 const aiRoutes = require('./routes/ai');
 const draftRoutes = require('./routes/draft');
@@ -181,6 +182,16 @@ const contactLimiter = rateLimit({
   passOnStoreError: true
 });
 
+const newsletterLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 5,
+  message: { error: 'Too many signup attempts. Please wait a moment.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: limiterStore('cvboost:rl:newsletter:'),
+  passOnStoreError: true
+});
+
 // MongoDB readiness, driven by the background connection in start().
 //
 // The HTTP port is opened *before* MongoDB connects. A paused free-tier Atlas
@@ -269,6 +280,7 @@ app.use('/api/referrals', referralRoutes);
 app.use('/api/ocr', ocrRoutes);
 app.use('/api/guidance', guidanceRoutes);
 app.use('/api/contact', contactLimiter, contactRoutes);
+app.use('/api/newsletter', newsletterLimiter, newsletterRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/ai', aiLimiter, aiRoutes);
 app.use('/api/drafts', draftRoutes);

@@ -260,6 +260,15 @@
     "verified": "Verified",
     "cta_title": "Ready to stand out?",
     "cta_desc": "Join job seekers using AI to craft the perfect CV. Get started in under 2 minutes.",
+    "newsletter_kicker": "Stay in the loop",
+    "newsletter_title": "Job tips & CV advice in your inbox",
+    "newsletter_desc": "Weekly AI-powered advice on Cameroon's job market — no spam, unsubscribe anytime.",
+    "newsletter_placeholder": "you@example.com",
+    "newsletter_button": "Subscribe",
+    "newsletter_submitting": "One moment…",
+    "newsletter_consent": "By subscribing you agree to receive our emails. You can unsubscribe at any time.",
+    "newsletter_success": "You're in! Watch your inbox for the next edition.",
+    "newsletter_error": "Could not subscribe right now. Please try again in a moment.",
     "footer_tagline": "Made for job seekers in Cameroon"
   },
   "pricing": {

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import logoImg from '../assets/cvboost-logo.png';
@@ -46,6 +47,43 @@ export default function LandingPage() {
   const { data: jobsData } = useCache('/jobs', { params: { limit: 3 } });
   const jobsCount = jobsData?.total;
   const sampleJobs = jobsData?.jobs || [];
+
+  const [email, setEmail] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [subscribeStatus, setSubscribeStatus] = useState(null);
+
+  const handleSubscribe = async (e) => {
+    e.preventDefault();
+    const value = email.trim().toLowerCase();
+    if (!value) return;
+    setSubmitting(true);
+    setSubscribeStatus(null);
+    try {
+      // CSRF double-submit: the server sets a readable csrf-token cookie on any
+      // GET and requires it echoed as X-CSRF-Token on state-changing requests.
+      // Seed it with a cheap GET if the user submits before any API call ran.
+      let m = document.cookie.match(/(?:^|;\s*)csrf-token=([^;]+)/);
+      if (!m) {
+        await fetch('/api/health', { method: 'GET', credentials: 'same-origin' });
+        m = document.cookie.match(/(?:^|;\s*)csrf-token=([^;]+)/);
+      }
+      const res = await fetch('/api/newsletter', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(m ? { 'X-CSRF-Token': decodeURIComponent(m[1]) } : {})
+        },
+        body: JSON.stringify({ email: value }),
+        credentials: 'same-origin'
+      });
+      setSubscribeStatus(res.ok ? 'ok' : 'error');
+      if (res.ok) setEmail('');
+    } catch {
+      setSubscribeStatus('error');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <div className="overflow-hidden">
@@ -503,6 +541,36 @@ export default function LandingPage() {
               </Link>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* Newsletter opt-in */}
+      <section className="py-16 sm:py-20 px-4 bg-surface-0 dark:bg-surface-800" aria-labelledby="newsletter-heading">
+        <div className="max-w-2xl mx-auto text-center">
+          <p className="text-sm font-semibold text-brand-600 uppercase tracking-wider mb-2">{t('landing.newsletter_kicker')}</p>
+          <h2 id="newsletter-heading" className="text-2xl sm:text-3xl font-bold text-surface-900 dark:text-white mb-3">{t('landing.newsletter_title')}</h2>
+          <p className="text-surface-500 dark:text-surface-400 mb-8 max-w-xl mx-auto">{t('landing.newsletter_desc')}</p>
+          <form className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto" onSubmit={handleSubscribe} noValidate>
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder={t('landing.newsletter_placeholder')}
+              aria-label={t('landing.newsletter_placeholder')}
+              className="flex-1 rounded-xl border border-surface-200 dark:border-surface-600 bg-surface-0 dark:bg-surface-700 px-4 py-3 text-sm text-surface-900 dark:text-white outline-none focus:ring-2 focus:ring-brand-500"
+            />
+            <button type="submit" disabled={submitting} className="btn-primary px-6 py-3 text-sm whitespace-nowrap disabled:opacity-60">
+              {submitting ? t('landing.newsletter_submitting') : t('landing.newsletter_button')}
+            </button>
+          </form>
+          <p className="text-xs text-surface-400 dark:text-surface-500 mt-4">{t('landing.newsletter_consent')}</p>
+          {subscribeStatus === 'ok' && (
+            <p className="mt-3 text-sm font-medium text-emerald-600" role="status">{t('landing.newsletter_success')}</p>
+          )}
+          {subscribeStatus === 'error' && (
+            <p className="mt-3 text-sm font-medium text-rose-600" role="alert">{t('landing.newsletter_error')}</p>
+          )}
         </div>
       </section>
 

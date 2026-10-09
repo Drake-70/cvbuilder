@@ -260,6 +260,15 @@
     "verified": "Vérifié",
     "cta_title": "Prêt à vous démarquer ?",
     "cta_desc": "Rejoignez les candidats qui utilisent l'IA pour créer le CV parfait. Commencez en moins de 2 minutes.",
+    "newsletter_kicker": "Restez informé",
+    "newsletter_title": "Conseils CV & offres dans votre boîte mail",
+    "newsletter_desc": "Chaque semaine, des conseils IA sur le marché de l'emploi camerounais — pas de spam, désabonnement à tout moment.",
+    "newsletter_placeholder": "vous@exemple.com",
+    "newsletter_button": "S'abonner",
+    "newsletter_submitting": "Un instant…",
+    "newsletter_consent": "En vous inscrivant, vous acceptez de recevoir nos emails. Vous pouvez vous désabonner à tout moment.",
+    "newsletter_success": "Vous êtes inscrit ! Surveillez votre boîte mail.",
+    "newsletter_error": "Inscription impossible pour le moment. Réessayez dans quelques instants.",
     "footer_tagline": "Conçu pour les chercheurs d'emploi au Cameroun"
   },
   "pricing": {
